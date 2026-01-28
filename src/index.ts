@@ -419,9 +419,8 @@ async function handleUI(): Promise<Response> {
       };
       
       eventSource.addEventListener('message', (e) => {
-        const msg = JSON.parse(e.data);
-        const container = document.getElementById('messages');
-        container.insertAdjacentHTML('afterbegin', renderMessage(msg, true));
+        // Re-fetch to maintain correct sort order
+        loadMessages();
       });
     }
 
@@ -838,9 +837,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
       };
       
       eventSource.addEventListener('message', (e) => {
-        const msg = JSON.parse(e.data);
-        const container = document.getElementById('messages');
-        container.insertAdjacentHTML('afterbegin', renderMessage(msg, true));
+        // Re-fetch to maintain correct sort order
+        loadMessages();
       });
     }
 
