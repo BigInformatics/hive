@@ -16,6 +16,7 @@ ENV PORT=3100
 # Copy dependencies and source
 COPY --from=deps /app/node_modules ./node_modules
 COPY src ./src
+COPY assets ./assets
 COPY package.json ./
 COPY SKILL.md ./
 

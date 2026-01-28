@@ -344,8 +344,9 @@ async function handleUI(): Promise<Response> {
     };
 
     function getAvatarHtml(name) {
-      if (avatarData[name]) {
-        return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
+      const validNames = ['chris', 'clio', 'domingo', 'zumie'];
+      if (validNames.includes(name)) {
+        return \`<img class="avatar" src="/assets/avatars/\${name}.svg" alt="\${name}">\`;
       }
       const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
       const initial = (name || '?')[0];
@@ -766,8 +767,9 @@ async function handleUIWithKey(key: string): Promise<Response> {
     }
 
     function getAvatarHtml(name) {
-      if (avatarData[name]) {
-        return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
+      const validNames = ['chris', 'clio', 'domingo', 'zumie'];
+      if (validNames.includes(name)) {
+        return \`<img class="avatar" src="/assets/avatars/\${name}.svg" alt="\${name}">\`;
       }
       const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
       const initial = (name || '?')[0];
@@ -1009,6 +1011,32 @@ async function handleUIAck(key: string, msgId: string): Promise<Response> {
   }
 }
 
+// Serve avatar files
+async function handleAvatar(name: string, ext: string): Promise<Response> {
+  const validNames = ["chris", "clio", "domingo", "zumie"];
+  if (!validNames.includes(name)) {
+    return error("Avatar not found", 404);
+  }
+  
+  const filePath = `./assets/avatars/${name}.${ext}`;
+  try {
+    const file = Bun.file(filePath);
+    if (!(await file.exists())) {
+      return error("Avatar not found", 404);
+    }
+    
+    const contentType = ext === "svg" ? "image/svg+xml" : ext === "png" ? "image/png" : "image/jpeg";
+    return new Response(file, {
+      headers: { 
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=86400"
+      }
+    });
+  } catch {
+    return error("Avatar not found", 404);
+  }
+}
+
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const method = request.method;
@@ -1018,6 +1046,12 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/healthz") return handleHealthz();
     if (path === "/skill") return handleSkill();
     if (path === "/readyz") return handleReadyz();
+    
+    // Static assets (avatars)
+    const assetMatch = path.match(/^\/assets\/avatars\/([a-z]+)\.(svg|png|jpg)$/);
+    if (method === "GET" && assetMatch) {
+      return handleAvatar(assetMatch[1], assetMatch[2]);
+    }
     
     // UI endpoints (no auth, internal only)
     if (path === "/ui") return handleUI();
