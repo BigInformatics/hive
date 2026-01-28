@@ -13,6 +13,39 @@ const PORT = parseInt(process.env.PORT || "3100");
 // Initialize auth tokens
 initFromEnv();
 
+// UI mailbox keys config (for compose feature)
+type UIKeyConfig = { sender: string };
+const uiMailboxKeys: Record<string, UIKeyConfig> = {};
+
+function initUIKeys() {
+  // Try JSON format first: UI_MAILBOX_KEYS='{"key1":{"sender":"chris"},...}'
+  const jsonKeys = process.env.UI_MAILBOX_KEYS;
+  if (jsonKeys) {
+    try {
+      const parsed = JSON.parse(jsonKeys);
+      Object.assign(uiMailboxKeys, parsed);
+      console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys`);
+      return;
+    } catch (e) {
+      console.error("[mailbox-api] Failed to parse UI_MAILBOX_KEYS:", e);
+    }
+  }
+  
+  // Fallback: individual keys UI_MAILBOX_KEY_CHRIS=<key>
+  const names = ["chris", "clio", "domingo", "zumie"];
+  for (const name of names) {
+    const key = process.env[`UI_MAILBOX_KEY_${name.toUpperCase()}`];
+    if (key) {
+      uiMailboxKeys[key] = { sender: name };
+    }
+  }
+  if (Object.keys(uiMailboxKeys).length > 0) {
+    console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys`);
+  }
+}
+
+initUIKeys();
+
 // JSON response helpers
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -498,6 +531,354 @@ async function handleUIStream(request: Request): Promise<Response> {
   });
 }
 
+// UI with compose (keyed)
+async function handleUIWithKey(key: string): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const sender = config.sender;
+  const recipients = ["chris", "clio", "domingo", "zumie"].filter(r => r !== sender);
+  
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mailbox - ${sender}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e5e5e5; padding: 20px; }
+    h1 { margin-bottom: 16px; font-size: 1.5rem; color: #fff; }
+    .controls { margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    select, button, input, textarea { padding: 8px 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: #e5e5e5; font-family: inherit; font-size: 14px; }
+    select:hover, button:hover { border-color: #555; }
+    button { cursor: pointer; }
+    button.primary { background: #2563eb; border-color: #2563eb; }
+    button.primary:hover { background: #1d4ed8; }
+    .status { font-size: 0.875rem; color: #888; }
+    .status.connected { color: #4ade80; }
+    .messages { display: flex; flex-direction: column; gap: 8px; }
+    .message { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px; cursor: pointer; }
+    .message:hover { border-color: #555; }
+    .message.selected { border-color: #2563eb; background: #1e293b; }
+    .message.urgent { border-left: 3px solid #f59e0b; }
+    .message.unread { background: #1f1f1f; }
+    .message-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.875rem; }
+    .message-meta { color: #888; }
+    .message-meta .sender { color: #60a5fa; }
+    .message-meta .recipient { color: #a78bfa; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; margin-right: 8px; flex-shrink: 0; }
+    .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; margin-right: 8px; flex-shrink: 0; text-transform: uppercase; }
+    .message-row { display: flex; align-items: flex-start; }
+    .message-content { flex: 1; min-width: 0; }
+    .message-title { font-weight: 600; margin-bottom: 4px; }
+    .message-body { color: #aaa; font-size: 0.875rem; white-space: pre-wrap; }
+    .badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; }
+    .badge.urgent { background: #78350f; color: #fcd34d; }
+    .badge.unread { background: #1e3a5f; color: #93c5fd; }
+    .new-message { animation: highlight 2s ease-out; }
+    @keyframes highlight { from { background: #2a2a1a; } to { background: #1a1a1a; } }
+    .compose { background: #111; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .compose h2 { font-size: 1rem; margin-bottom: 12px; color: #fff; }
+    .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+    .compose-row label { color: #888; font-size: 0.875rem; min-width: 80px; }
+    .compose-row input[type="text"], .compose-row textarea { flex: 1; min-width: 200px; }
+    .compose-row textarea { min-height: 80px; resize: vertical; }
+    .compose-row .checkbox-label { display: flex; align-items: center; gap: 8px; }
+    .compose-actions { display: flex; gap: 12px; align-items: center; }
+    .compose-status { font-size: 0.875rem; margin-left: 12px; }
+    .compose-status.success { color: #4ade80; }
+    .compose-status.error { color: #f87171; }
+    .reply-info { font-size: 0.875rem; color: #60a5fa; margin-bottom: 12px; padding: 8px; background: #1e293b; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>📬 Mailbox - ${sender}</h1>
+  
+  <div class="compose">
+    <h2>Compose Message</h2>
+    <div id="replyInfo" class="reply-info" style="display:none;"></div>
+    <div class="compose-row">
+      <label>From:</label>
+      <strong>${sender}</strong>
+    </div>
+    <div class="compose-row">
+      <label>To:</label>
+      <select id="composeRecipient">
+        ${recipients.map(r => '<option value="' + r + '">' + r + '</option>').join('')}
+      </select>
+    </div>
+    <div class="compose-row">
+      <label>Title:</label>
+      <input type="text" id="composeTitle" placeholder="Message title">
+    </div>
+    <div class="compose-row">
+      <label>Body:</label>
+      <textarea id="composeBody" placeholder="Message body (optional)"></textarea>
+    </div>
+    <div class="compose-row">
+      <label></label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="composeUrgent"> Urgent
+      </label>
+    </div>
+    <div class="compose-actions">
+      <button class="primary" onclick="sendMessage()">Send</button>
+      <button onclick="clearReply()">Clear</button>
+      <span id="composeStatus" class="compose-status"></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <select id="recipient">
+      <option value="">All mailboxes</option>
+      <option value="chris">chris</option>
+      <option value="clio">clio</option>
+      <option value="domingo">domingo</option>
+      <option value="zumie">zumie</option>
+    </select>
+    <button onclick="loadMessages()">Refresh</button>
+    <span id="status" class="status">Connecting...</span>
+  </div>
+  <div id="messages" class="messages"></div>
+
+  <script>
+    const MAILBOX_KEY = '${key}';
+    let eventSource = null;
+    let lastId = null;
+    let selectedMessage = null;
+    let replyToId = null;
+
+    const avatarData = {
+      chris: 'data:image/jpeg;base64,/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGwAAAQUBAQAAAAAAAAAAAAAABAACAwUHBgj/xAAxEAABAwMCBAIIBwAAAAAAAAABAAIDBAUREjEGEyFBIlEHFDJSYXGBkSNCobHB8PH/xAAZAQACAwEAAAAAAAAAAAAAAAABAgAEBQP/xAAdEQACAgMBAQEAAAAAAAAAAAAAAQIRAxIxBEEh/9oADAMBAAIRAxEAPwDy4kowSnBLqGxyScxhKNgt75GFxGloGclB0uhSb4AJI2WlAGWSMfjcDoR9ChJIyPNRK+Edro1JRHI7lNyfMo6gseE9u6YFLHumAXvCNmffb7SUEbiwSu8TwM6W9z9l6fsXo04YtsLJY6F75NIBMkhcD9FiHodtQuFdWzMMjZoGN0ljiOh3Bxutdt9Neo6wcuvIiA8TIx7IxuQSR+yzfVK5NbVRseHHUNtbsn434SsVdQujfb4WFrTpfG0Mc36heYbrROoa6opXu1uieW6vMdj9lutVceIZKQySSCaF5LXYaPAfj/qxe/wVDrxVPmYBJK/IDTnYAJvInCTTdoX3JSimo0znZB1URRVTG6N5a9pa7yKFK0DKY4KRm4UQKMpKSaYgtbpb7zugUAd16L7wbXU1jWnSZQzxA4LQDv8AqtMab6y2snZcmN5jSRpdvnuc9+yyCwWnNbExszm1EmWQ56AvwcdPJXMHFYpIX0lzifqjPsubnDh2VPNDaVxNLy5tI1Lh0sF5qbZBNFd9AaRqjeernHONv7ss2q6wVl1fLUPLmQxsGAewz0A+eUI2kJeeXIY3Y3TYoJfv0XNncml8A6vly1jw5xxp6YPdVbwQSCCD8VZupZ6efmYEuPdPVV9VIZZS4t0nYgqxEpTduyeia1h5jwCewKOZXaHguBPkfJViSlgOgpLv6tdKKqfksp5mvwN8A9StLuUVmudPHVuNNKZBkO1BYokuco7OzrDJqmunYcQV1H6xHQW8sEEZMkrwfCSNgqqeqg5R0SNc4dfmqRJMkkqElJydsPlm1bFBT/iEn8wTUkbFP//Z',
+      clio: 'data:image/jpeg;base64,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',
+      domingo: 'data:image/jpeg;base64,/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGwAAAwADAQEAAAAAAAAAAAAABQYHAgMEAAH/xAA0EAACAQMDAgQCBwkAAAAAAAABAgMABBEFEiExQQYTUWEicRQjQoGRscEHFSQyM6HR4fD/xAAZAQACAwEAAAAAAAAAAAAAAAADBAECBQb/xAAeEQACAwADAQEBAAAAAAAAAAAAAQIDERIhMQQiUf/aAAwDAQACEQMRAD8Ak2Oa2IvOBXwjkUK1vUxaYhjb6wjJx2qW8GEtDTSpFGTuBI7Z6fOtun3sbqCQJhnnyyOP70vQ6fqGuWASytZyi/a2YDHvXNB4c8Raezz/AEC6SOPmT4eCO/zoTtj5oRQf8HOG8Bk/pMsR+36UQUbhkHI9qQF1TfbxrKXRmGGUE7W56/lRzQtWnQRwXDrKA2fM6ELjofvqYzRVxGpRxWQXmvq4wCO9ZIOauVFOcrHGzuSFCnJFT6/kMl85UAjOFAHan7VgBp87Fiu1TyB3pJsbcyaihU7yh8xvkvJqk2Slpd/AcbWuiWcJX40QbgPU8n86dTJvtyGQsrDBGOoNR2+sdTSWF7KadQ5zHJHKVAGe46frTPeRa5eaBFFLclJgzI7RyHJC46fcaz5xTe6aUJPjmE58UaBLod1dSyWzyW8LEJt4+rP8pzz04BHWhOiXZuJV+kY8nOducE4PrVDsdJnTTbmS5i8qNUbh2LFiVPU8bvwqWC4WOZPL4QDChRR4PoVtjjKvYTeZbLvG2QDlMEYHahNiSkyXVDnJou3bX1wQ2rI+nGT1PFQWq1GHvCiSTWmoq2YNpLvCNZSe1u0gZShR/FUHfEAJP0sLP4omNFr7lP7VOjQ6SOSM/atcFfVoBcwE7eXr8yVNoKFtkKSknAXz0z2oFcXpHrFqQ0HZKjw0uQohCvnjHHvTJhaVMYYChj7UD1bEkW7cuO3GccI54+sesNLdLmby3DVQeQzOMvKZUn1LgU7gbsdM/FYuxWB1zxMuuobslPokuqQyy4N3mAJAHB4Ce/yaPx48p2SHpauc5CR0Fbu2WJi6tBxLwQ5wlSD3PxSaYLkqPrG4ggAEyRnVMSPGCEpICRgAdvig8nWbanCEJX+1aFWhUqGPNIHtiox4fNZ5dP7Uzgz+U57PfSb78UA1Lqhu0P8AoYjTUy8LZ89uIt9LDhcHcUKuLl5hgnC+lczTl/nWLMSuBgn3rTVdda/Potyb9OTUrJLqPIA8wdD6igUVsIbhA8yRoT3zTMGJ9vlQzVdPW4dZMsMDovr60p9FXL9IvXPOhyj0bdpluEAeGRS5bsy7f90r+Dr94JpLNXZQF3qQenOce/rT1+yjW/pEb6DqgWRo4S1nNj4sDqh9cDke2amsX8JewSqcfHh/cHj/FKfLLhZ34M3LYKSH6DXQhK3KZUcbk6/hR2LbNCksTBo3AZWHcVOtTYrEWXqTg09eDCZvDVox527l/BjTv0QjHtAK22f/Z',
+      zumie: 'data:image/jpeg;base64,/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAABQcDBAYBCAD/xAAyEAABAwMDAgUDAwMFAAAAAAABAgMEAAURBxIhMUEHExRRYSJxgTKRoSM0UkJisdHw/8QAGgEAAwADAQAAAAAAAAAAAAAAAgMEAAEFBv/EAC0RAAIBAgMFBgcAAAAAAAAAAAECAAMRBCExEhMUIpFhcaGxwfAjMkFRctHh/9oADAMBEQACEQA/AKZWBanjE4oWW2w9Ur'
+    };
+    const avatarColors = {
+      chris: { bg: '#1e3a5f', fg: '#93c5fd' },
+      clio: { bg: '#3f1e5f', fg: '#c4b5fd' },
+      domingo: { bg: '#1e5f3a', fg: '#86efac' },
+      zumie: { bg: '#5f3a1e', fg: '#fcd34d' }
+    };
+
+    function getAvatarHtml(name) {
+      if (avatarData[name]) {
+        return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
+      }
+      const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
+      const initial = (name || '?')[0];
+      return \`<div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>\`;
+    }
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString();
+    }
+
+    function renderMessage(msg, isNew = false) {
+      const classes = ['message'];
+      if (msg.urgent) classes.push('urgent');
+      if (msg.status === 'unread') classes.push('unread');
+      if (isNew) classes.push('new-message');
+      if (selectedMessage === msg.id) classes.push('selected');
+
+      return \`
+        <div class="\${classes.join(' ')}" data-id="\${msg.id}" data-sender="\${msg.sender}" data-title="\${msg.title.replace(/"/g, '&quot;')}" onclick="selectMessage(this)">
+          <div class="message-row">
+            \${getAvatarHtml(msg.sender)}
+            <div class="message-content">
+              <div class="message-header">
+                <span class="message-meta">
+                  <span class="sender">\${msg.sender}</span> → <span class="recipient">\${msg.recipient}</span>
+                </span>
+                <span class="message-meta">\${formatDate(msg.createdAt)}</span>
+              </div>
+              <div class="message-title">
+                \${msg.urgent ? '<span class="badge urgent">URGENT</span> ' : ''}
+                \${msg.status === 'unread' ? '<span class="badge unread">UNREAD</span> ' : ''}
+                \${msg.title}
+              </div>
+              \${msg.body ? \`<div class="message-body">\${msg.body}</div>\` : ''}
+            </div>
+          </div>
+        </div>
+      \`;
+    }
+
+    function selectMessage(el) {
+      document.querySelectorAll('.message.selected').forEach(m => m.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedMessage = el.dataset.id;
+      replyToId = el.dataset.id;
+      const sender = el.dataset.sender;
+      const title = el.dataset.title;
+      
+      document.getElementById('replyInfo').textContent = 'Replying to: #' + replyToId + ' from ' + sender + ' - "' + title + '"';
+      document.getElementById('replyInfo').style.display = 'block';
+      document.getElementById('composeTitle').value = 'Re: ' + title;
+      
+      // Set recipient to original sender
+      const recipientSelect = document.getElementById('composeRecipient');
+      for (let i = 0; i < recipientSelect.options.length; i++) {
+        if (recipientSelect.options[i].value === sender) {
+          recipientSelect.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    function clearReply() {
+      replyToId = null;
+      selectedMessage = null;
+      document.querySelectorAll('.message.selected').forEach(m => m.classList.remove('selected'));
+      document.getElementById('replyInfo').style.display = 'none';
+      document.getElementById('composeTitle').value = '';
+      document.getElementById('composeBody').value = '';
+      document.getElementById('composeUrgent').checked = false;
+      document.getElementById('composeStatus').textContent = '';
+    }
+
+    async function sendMessage() {
+      const recipient = document.getElementById('composeRecipient').value;
+      const title = document.getElementById('composeTitle').value.trim();
+      const body = document.getElementById('composeBody').value.trim();
+      const urgent = document.getElementById('composeUrgent').checked;
+      
+      if (!title && !body) {
+        document.getElementById('composeStatus').textContent = 'Title or body required';
+        document.getElementById('composeStatus').className = 'compose-status error';
+        return;
+      }
+      
+      const payload = { recipient, title, body, urgent };
+      if (replyToId) payload.replyToMessageId = replyToId;
+      
+      try {
+        const res = await fetch('/ui/' + MAILBOX_KEY + '/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('composeStatus').textContent = 'Sent!';
+          document.getElementById('composeStatus').className = 'compose-status success';
+          clearReply();
+          loadMessages();
+        } else {
+          document.getElementById('composeStatus').textContent = data.error || 'Send failed';
+          document.getElementById('composeStatus').className = 'compose-status error';
+        }
+      } catch (e) {
+        document.getElementById('composeStatus').textContent = 'Network error';
+        document.getElementById('composeStatus').className = 'compose-status error';
+      }
+    }
+
+    async function loadMessages() {
+      const recipient = document.getElementById('recipient').value;
+      const params = new URLSearchParams({ limit: '50' });
+      if (recipient) params.set('recipient', recipient);
+      
+      const res = await fetch('/ui/messages?' + params);
+      const data = await res.json();
+      
+      const container = document.getElementById('messages');
+      container.innerHTML = data.messages.map(m => renderMessage(m)).join('');
+      
+      if (data.messages.length > 0) {
+        lastId = data.messages[0].id;
+      }
+    }
+
+    function connectSSE() {
+      const recipient = document.getElementById('recipient').value;
+      const url = recipient ? '/ui/stream?recipient=' + recipient : '/ui/stream';
+      
+      if (eventSource) eventSource.close();
+      eventSource = new EventSource(url);
+      
+      eventSource.onopen = () => {
+        document.getElementById('status').textContent = '🟢 Connected (live)';
+        document.getElementById('status').className = 'status connected';
+      };
+      
+      eventSource.onerror = () => {
+        document.getElementById('status').textContent = '🔴 Disconnected';
+        document.getElementById('status').className = 'status';
+        setTimeout(connectSSE, 3000);
+      };
+      
+      eventSource.addEventListener('message', (e) => {
+        const msg = JSON.parse(e.data);
+        const container = document.getElementById('messages');
+        container.insertAdjacentHTML('afterbegin', renderMessage(msg, true));
+      });
+    }
+
+    document.getElementById('recipient').addEventListener('change', () => {
+      loadMessages();
+      connectSSE();
+    });
+
+    loadMessages();
+    connectSSE();
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
+// UI send endpoint (keyed)
+async function handleUISend(key: string, request: Request): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const sender = config.sender;
+  
+  let body: { recipient?: string; title?: string; body?: string; urgent?: boolean; replyToMessageId?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  const { recipient, title, urgent, replyToMessageId } = body;
+  const msgBody = body.body;
+  
+  if (!recipient || !isValidMailbox(recipient)) {
+    return error("Invalid recipient", 400);
+  }
+  
+  if (!title && !msgBody) {
+    return error("title or body is required", 400);
+  }
+  
+  try {
+    const message = await sendMessage({
+      recipient,
+      sender,
+      title: title || "",
+      body: msgBody,
+      urgent: urgent || false,
+      replyToMessageId: replyToMessageId ? BigInt(replyToMessageId) : undefined,
+    });
+    
+    return json({ message: serializeMessage(message) }, 201);
+  } catch (err) {
+    console.error("[ui-send] Error:", err);
+    return error("Failed to send message", 500);
+  }
+}
+
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const method = request.method;
@@ -512,6 +893,17 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui") return handleUI();
     if (path === "/ui/messages") return handleUIMessages(request);
     if (path === "/ui/stream") return handleUIStream(request);
+    
+    // Keyed UI with compose
+    const uiKeyMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)$/);
+    const uiKeySendMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/send$/);
+    
+    if (method === "GET" && uiKeyMatch) {
+      return handleUIWithKey(uiKeyMatch[1]);
+    }
+    if (method === "POST" && uiKeySendMatch) {
+      return handleUISend(uiKeySendMatch[1], request);
+    }
 
     const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
     const messageMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)$/);
