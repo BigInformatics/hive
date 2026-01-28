@@ -484,19 +484,23 @@ async function handleUIStream(request: Request): Promise<Response> {
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
+      let closed = false;
       
       controller.enqueue(encoder.encode(`: connected to UI stream\n\n`));
       
       const pingInterval = setInterval(() => {
+        if (closed) return;
         try {
           controller.enqueue(encoder.encode(`: ping\n\n`));
         } catch {
+          closed = true;
           clearInterval(pingInterval);
         }
       }, 30000);
       
       let lastSeenId = 0n;
       const pollInterval = setInterval(async () => {
+        if (closed) return;
         try {
           const messages = await listAllMessages({ 
             recipient,
@@ -508,17 +512,24 @@ async function handleUIStream(request: Request): Promise<Response> {
           messages.sort((a, b) => Number(a.id - b.id));
           
           for (const msg of messages) {
+            if (closed) break;
             if (msg.id > lastSeenId) {
-              controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(serializeMessage(msg))}\n\n`));
-              lastSeenId = msg.id;
+              try {
+                controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(serializeMessage(msg))}\n\n`));
+                lastSeenId = msg.id;
+              } catch {
+                closed = true;
+                break;
+              }
             }
           }
         } catch (err) {
-          console.error("[ui-sse] Poll error:", err);
+          if (!closed) console.error("[ui-sse] Poll error:", err);
         }
       }, 3000);
       
       return () => {
+        closed = true;
         clearInterval(pingInterval);
         clearInterval(pollInterval);
       };
