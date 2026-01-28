@@ -20,8 +20,8 @@ const uiMailboxKeys: Record<string, UIKeyConfig> = {};
 function initUIKeys() {
   // Try JSON format first: UI_MAILBOX_KEYS='{"key1":{"sender":"chris"},...}'
   const jsonKeys = process.env.UI_MAILBOX_KEYS;
-  console.log(`[mailbox-api] UI_MAILBOX_KEYS env present: ${!!jsonKeys}, length: ${jsonKeys?.length || 0}`);
-  if (jsonKeys) {
+  console.log(`[mailbox-api] UI_MAILBOX_KEYS env present: ${!!jsonKeys}, length: ${jsonKeys?.length || 0}, value: ${jsonKeys?.substring(0, 50) || "N/A"}`);
+  if (jsonKeys && jsonKeys !== "SET_ME") {
     try {
       const parsed = JSON.parse(jsonKeys);
       Object.assign(uiMailboxKeys, parsed);
@@ -32,6 +32,8 @@ function initUIKeys() {
       console.error("[mailbox-api] Failed to parse UI_MAILBOX_KEYS:", e);
       console.error("[mailbox-api] Raw value (first 100 chars):", jsonKeys.substring(0, 100));
     }
+  } else if (jsonKeys === "SET_ME") {
+    console.log(`[mailbox-api] UI_MAILBOX_KEYS is SET_ME placeholder - not configured`);
   }
   
   // Fallback: individual keys UI_MAILBOX_KEY_CHRIS=<key>
