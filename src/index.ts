@@ -575,8 +575,14 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .badge.unread { background: #1e3a5f; color: #93c5fd; }
     .new-message { animation: highlight 2s ease-out; }
     @keyframes highlight { from { background: #2a2a1a; } to { background: #1a1a1a; } }
-    .compose { background: #111; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-    .compose h2 { font-size: 1rem; margin-bottom: 12px; color: #fff; }
+    .compose { background: #111; border: 1px solid #333; border-radius: 8px; margin-bottom: 16px; }
+    .compose-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; }
+    .compose-header:hover { background: #1a1a1a; border-radius: 8px; }
+    .compose-header h2 { font-size: 1rem; margin: 0; color: #fff; }
+    .compose-toggle { color: #888; font-size: 0.875rem; }
+    .compose-body { padding: 0 16px 16px; }
+    .compose.collapsed .compose-body { display: none; }
+    .compose.collapsed .compose-header { border-radius: 8px; }
     .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
     .compose-row label { color: #888; font-size: 0.875rem; min-width: 80px; }
     .compose-row input[type="text"], .compose-row textarea { flex: 1; min-width: 200px; }
@@ -592,37 +598,42 @@ async function handleUIWithKey(key: string): Promise<Response> {
 <body>
   <h1>📬 Mailbox - ${sender}</h1>
   
-  <div class="compose">
-    <h2>Compose Message</h2>
-    <div id="replyInfo" class="reply-info" style="display:none;"></div>
-    <div class="compose-row">
-      <label>From:</label>
-      <strong>${sender}</strong>
+  <div id="composePanel" class="compose collapsed">
+    <div class="compose-header" onclick="toggleCompose()">
+      <h2>✏️ Compose Message</h2>
+      <span class="compose-toggle" id="composeToggle">▼ expand</span>
     </div>
-    <div class="compose-row">
-      <label>To:</label>
-      <select id="composeRecipient">
-        ${recipients.map(r => '<option value="' + r + '">' + r + '</option>').join('')}
-      </select>
-    </div>
-    <div class="compose-row">
-      <label>Title:</label>
-      <input type="text" id="composeTitle" placeholder="Message title">
-    </div>
-    <div class="compose-row">
-      <label>Body:</label>
-      <textarea id="composeBody" placeholder="Message body (optional)"></textarea>
-    </div>
-    <div class="compose-row">
-      <label></label>
-      <label class="checkbox-label">
-        <input type="checkbox" id="composeUrgent"> Urgent
-      </label>
-    </div>
-    <div class="compose-actions">
-      <button class="primary" onclick="sendMessage()">Send</button>
-      <button onclick="clearReply()">Clear</button>
-      <span id="composeStatus" class="compose-status"></span>
+    <div class="compose-body">
+      <div id="replyInfo" class="reply-info" style="display:none;"></div>
+      <div class="compose-row">
+        <label>From:</label>
+        <strong>${sender}</strong>
+      </div>
+      <div class="compose-row">
+        <label>To:</label>
+        <select id="composeRecipient">
+          ${recipients.map(r => '<option value="' + r + '">' + r + '</option>').join('')}
+        </select>
+      </div>
+      <div class="compose-row">
+        <label>Title:</label>
+        <input type="text" id="composeTitle" placeholder="Message title">
+      </div>
+      <div class="compose-row">
+        <label>Body:</label>
+        <textarea id="composeBody" placeholder="Message body (optional)"></textarea>
+      </div>
+      <div class="compose-row">
+        <label></label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="composeUrgent"> Urgent
+        </label>
+      </div>
+      <div class="compose-actions">
+        <button class="primary" onclick="sendMessage()">Send</button>
+        <button onclick="clearReply()">Clear</button>
+        <span id="composeStatus" class="compose-status"></span>
+      </div>
     </div>
   </div>
 
@@ -653,6 +664,30 @@ async function handleUIWithKey(key: string): Promise<Response> {
       domingo: { bg: '#1e5f3a', fg: '#86efac' },
       zumie: { bg: '#5f3a1e', fg: '#fcd34d' }
     };
+
+    // Compose panel toggle
+    function toggleCompose() {
+      const panel = document.getElementById('composePanel');
+      const toggle = document.getElementById('composeToggle');
+      const isCollapsed = panel.classList.contains('collapsed');
+      if (isCollapsed) {
+        panel.classList.remove('collapsed');
+        toggle.textContent = '▲ collapse';
+        localStorage.setItem('composeExpanded', 'true');
+      } else {
+        panel.classList.add('collapsed');
+        toggle.textContent = '▼ expand';
+        localStorage.setItem('composeExpanded', 'false');
+      }
+    }
+
+    // Restore compose state from localStorage on load
+    document.addEventListener('DOMContentLoaded', function() {
+      if (localStorage.getItem('composeExpanded') === 'true') {
+        document.getElementById('composePanel').classList.remove('collapsed');
+        document.getElementById('composeToggle').textContent = '▲ collapse';
+      }
+    });
 
     function getAvatarHtml(name) {
       if (avatarData[name]) {
