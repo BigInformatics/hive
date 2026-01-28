@@ -275,6 +275,10 @@ async function handleUI(): Promise<Response> {
     .message-meta { color: #888; }
     .message-meta .sender { color: #60a5fa; }
     .message-meta .recipient { color: #a78bfa; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; margin-right: 8px; flex-shrink: 0; }
+    .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; margin-right: 8px; flex-shrink: 0; text-transform: uppercase; }
+    .message-row { display: flex; align-items: flex-start; }
+    .message-content { flex: 1; min-width: 0; }
     .message-title { font-weight: 600; margin-bottom: 4px; }
     .message-body { color: #aaa; font-size: 0.875rem; white-space: pre-wrap; }
     .badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; }
@@ -303,6 +307,28 @@ async function handleUI(): Promise<Response> {
     let eventSource = null;
     let lastId = null;
 
+    // Avatar config - who has photos
+    const hasPhoto = { clio: true, domingo: true, zumie: true };
+    const avatarColors = {
+      chris: { bg: '#1e3a5f', fg: '#93c5fd' },
+      clio: { bg: '#3f1e5f', fg: '#c4b5fd' },
+      domingo: { bg: '#1e5f3a', fg: '#86efac' },
+      zumie: { bg: '#5f3a1e', fg: '#fcd34d' }
+    };
+
+    function getAvatarHtml(name) {
+      if (hasPhoto[name]) {
+        return \`<img class="avatar" src="/ui/avatar/\${name}" alt="\${name}" onerror="this.outerHTML=getFallbackAvatar('\${name}')">\`;
+      }
+      return getFallbackAvatar(name);
+    }
+
+    function getFallbackAvatar(name) {
+      const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
+      const initial = (name || '?')[0];
+      return \`<div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>\`;
+    }
+
     function formatDate(iso) {
       const d = new Date(iso);
       return d.toLocaleString();
@@ -316,18 +342,23 @@ async function handleUI(): Promise<Response> {
 
       return \`
         <div class="\${classes.join(' ')}">
-          <div class="message-header">
-            <span class="message-meta">
-              <span class="sender">\${msg.sender}</span> → <span class="recipient">\${msg.recipient}</span>
-            </span>
-            <span class="message-meta">\${formatDate(msg.createdAt)}</span>
+          <div class="message-row">
+            \${getAvatarHtml(msg.sender)}
+            <div class="message-content">
+              <div class="message-header">
+                <span class="message-meta">
+                  <span class="sender">\${msg.sender}</span> → <span class="recipient">\${msg.recipient}</span>
+                </span>
+                <span class="message-meta">\${formatDate(msg.createdAt)}</span>
+              </div>
+              <div class="message-title">
+                \${msg.urgent ? '<span class="badge urgent">URGENT</span> ' : ''}
+                \${msg.status === 'unread' ? '<span class="badge unread">UNREAD</span> ' : ''}
+                \${msg.title}
+              </div>
+              \${msg.body ? \`<div class="message-body">\${msg.body}</div>\` : ''}
+            </div>
           </div>
-          <div class="message-title">
-            \${msg.urgent ? '<span class="badge urgent">URGENT</span> ' : ''}
-            \${msg.status === 'unread' ? '<span class="badge unread">UNREAD</span> ' : ''}
-            \${msg.title}
-          </div>
-          \${msg.body ? \`<div class="message-body">\${msg.body}</div>\` : ''}
         </div>
       \`;
     }
@@ -408,6 +439,49 @@ async function handleUIMessages(request: Request): Promise<Response> {
   return json({ messages: messages.map(serializeMessage) });
 }
 
+// UI endpoint: Avatar proxy (fetches from notebook with auth)
+const AVATAR_MAP: Record<string, string> = {
+  clio: "clio.png",
+  domingo: "domingo.jpg",
+  zumie: "zumie.png",
+  // chris: no photo yet
+};
+
+async function handleUIAvatar(name: string): Promise<Response> {
+  const filename = AVATAR_MAP[name];
+  if (!filename) {
+    // Return 404 for unknown avatars
+    return new Response("Not found", { status: 404 });
+  }
+
+  const user = process.env.ONEDEV_USER;
+  const pass = process.env.ONEDEV_PASS;
+  if (!user || !pass) {
+    return new Response("Server misconfigured", { status: 500 });
+  }
+
+  const url = `https://dev.biginformatics.net/Team/notebook/~raw/main/staff/${filename}`;
+  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Basic ${auth}` },
+  });
+
+  if (!res.ok) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  const contentType = res.headers.get("content-type") || "image/png";
+  const body = await res.arrayBuffer();
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=86400", // Cache for 1 day
+    },
+  });
+}
+
 // UI endpoint: SSE stream (no auth, internal only)
 async function handleUIStream(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -480,6 +554,9 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui") return handleUI();
     if (path === "/ui/messages") return handleUIMessages(request);
     if (path === "/ui/stream") return handleUIStream(request);
+    
+    const avatarMatch = path.match(/^\/ui\/avatar\/([a-z]+)$/);
+    if (avatarMatch) return handleUIAvatar(avatarMatch[1]);
 
     const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
     const messageMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)$/);
