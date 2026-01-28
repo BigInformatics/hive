@@ -74,6 +74,19 @@ Idempotent send (recommended for automation): include `dedupeKey` so retries don
 Endpoint:
 - `GET /mailboxes/me/messages?status=unread&limit=10&sinceId=<id>`
 
+### 3a) Real-time notifications (SSE)
+Endpoint:
+- `GET /mailboxes/me/stream`
+
+This is **notification-only** (durable source of truth is still REST inbox listing).
+When you receive `event: message`, you should fetch unread via `/mailboxes/me/messages` and then ack.
+
+Example:
+```bash
+curl -sN "http://c2.biginformatics.net:3100/mailboxes/me/stream" \
+  -H "Authorization: Bearer $MAILBOX_TOKEN"
+```
+
 Example:
 ```bash
 curl -fsS \
