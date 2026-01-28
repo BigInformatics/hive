@@ -1,0 +1,22 @@
+[Unit]
+Description=Mailbox API Server
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=mailbox
+Group=mailbox
+WorkingDirectory=/opt/mailbox-api
+ExecStart=/usr/local/bin/bun run src/index.ts
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/etc/mailbox-api/env
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

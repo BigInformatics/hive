@@ -1,0 +1,247 @@
+// Message repository
+import { sql } from "./client";
+
+export interface Message {
+  id: bigint;
+  recipient: string;
+  sender: string;
+  title: string;
+  body: string | null;
+  status: "unread" | "read";
+  urgent: boolean;
+  createdAt: Date;
+  viewedAt: Date | null;
+  threadId: string | null;
+  replyToMessageId: bigint | null;
+  dedupeKey: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface SendMessageInput {
+  recipient: string;
+  sender: string;
+  title: string;
+  body?: string;
+  urgent?: boolean;
+  threadId?: string;
+  replyToMessageId?: bigint;
+  dedupeKey?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// Allowlist of valid mailboxes
+const VALID_MAILBOXES = new Set(["chris", "clio", "domingo", "zumie"]);
+
+export function isValidMailbox(name: string): boolean {
+  return VALID_MAILBOXES.has(name);
+}
+
+export async function sendMessage(input: SendMessageInput): Promise<Message> {
+  // Use INSERT...ON CONFLICT for race-safe idempotency when dedupeKey is provided
+  if (input.dedupeKey) {
+    const [row] = await sql`
+      INSERT INTO public.mailbox_messages 
+        (recipient, sender, title, body, urgent, thread_id, reply_to_message_id, dedupe_key, metadata)
+      VALUES 
+        (${input.recipient}, ${input.sender}, ${input.title}, ${input.body || null}, 
+         ${input.urgent || false}, ${input.threadId || null}, 
+         ${input.replyToMessageId || null}, ${input.dedupeKey}, 
+         ${input.metadata ? JSON.stringify(input.metadata) : null})
+      ON CONFLICT (sender, recipient, dedupe_key) WHERE dedupe_key IS NOT NULL
+      DO UPDATE SET id = public.mailbox_messages.id
+      RETURNING *
+    `;
+    return rowToMessage(row);
+  }
+
+  // No dedupeKey - normal insert
+  const [row] = await sql`
+    INSERT INTO public.mailbox_messages 
+      (recipient, sender, title, body, urgent, thread_id, reply_to_message_id, metadata)
+    VALUES 
+      (${input.recipient}, ${input.sender}, ${input.title}, ${input.body || null}, 
+       ${input.urgent || false}, ${input.threadId || null}, 
+       ${input.replyToMessageId || null},
+       ${input.metadata ? JSON.stringify(input.metadata) : null})
+    RETURNING *
+  `;
+  return rowToMessage(row);
+}
+
+export interface ListOptions {
+  status?: "unread" | "read";
+  limit?: number;
+  sinceId?: bigint;
+  cursor?: string;
+}
+
+export async function listMessages(
+  recipient: string,
+  options: ListOptions = {}
+): Promise<{ messages: Message[]; nextCursor?: string }> {
+  const limit = Math.min(options.limit || 50, 100);
+  const sinceId = options.sinceId || (options.cursor ? BigInt(options.cursor) : null);
+
+  let rows;
+  if (options.status === "unread") {
+    // Optimized unread query: urgent first, then oldest
+    rows = sinceId
+      ? await sql`
+          SELECT * FROM public.mailbox_messages 
+          WHERE recipient = ${recipient} 
+            AND status = 'unread'
+            AND id > ${sinceId}
+          ORDER BY urgent DESC, created_at ASC
+          LIMIT ${limit + 1}
+        `
+      : await sql`
+          SELECT * FROM public.mailbox_messages 
+          WHERE recipient = ${recipient} AND status = 'unread'
+          ORDER BY urgent DESC, created_at ASC
+          LIMIT ${limit + 1}
+        `;
+  } else if (options.status === "read") {
+    rows = sinceId
+      ? await sql`
+          SELECT * FROM public.mailbox_messages 
+          WHERE recipient = ${recipient} 
+            AND status = 'read'
+            AND id > ${sinceId}
+          ORDER BY created_at DESC
+          LIMIT ${limit + 1}
+        `
+      : await sql`
+          SELECT * FROM public.mailbox_messages 
+          WHERE recipient = ${recipient} AND status = 'read'
+          ORDER BY created_at DESC
+          LIMIT ${limit + 1}
+        `;
+  } else {
+    rows = sinceId
+      ? await sql`
+          SELECT * FROM public.mailbox_messages 
+          WHERE recipient = ${recipient} AND id > ${sinceId}
+          ORDER BY created_at DESC
+          LIMIT ${limit + 1}
+        `
+      : await sql`
+          SELECT * FROM public.mailbox_messages 
+          WHERE recipient = ${recipient}
+          ORDER BY created_at DESC
+          LIMIT ${limit + 1}
+        `;
+  }
+
+  const hasMore = rows.length > limit;
+  const messages = rows.slice(0, limit).map(rowToMessage);
+  const nextCursor = hasMore && messages.length > 0 
+    ? messages[messages.length - 1].id.toString() 
+    : undefined;
+
+  return { messages, nextCursor };
+}
+
+export async function getMessage(recipient: string, id: bigint): Promise<Message | null> {
+  const [row] = await sql`
+    SELECT * FROM public.mailbox_messages 
+    WHERE recipient = ${recipient} AND id = ${id}
+  `;
+  return row ? rowToMessage(row) : null;
+}
+
+export async function ackMessage(recipient: string, id: bigint): Promise<Message | null> {
+  const [row] = await sql`
+    UPDATE public.mailbox_messages 
+    SET status = 'read', viewed_at = COALESCE(viewed_at, NOW())
+    WHERE recipient = ${recipient} AND id = ${id}
+    RETURNING *
+  `;
+  return row ? rowToMessage(row) : null;
+}
+
+export async function ackMessages(
+  recipient: string, 
+  ids: bigint[]
+): Promise<{ success: bigint[]; notFound: bigint[] }> {
+  if (ids.length === 0) return { success: [], notFound: [] };
+
+  const updated = await sql`
+    UPDATE public.mailbox_messages 
+    SET status = 'read', viewed_at = COALESCE(viewed_at, NOW())
+    WHERE recipient = ${recipient} AND id = ANY(${ids}::bigint[])
+    RETURNING id
+  `;
+  
+  const successIds = new Set(updated.map((r: { id: bigint }) => r.id.toString()));
+  const success = ids.filter(id => successIds.has(id.toString()));
+  const notFound = ids.filter(id => !successIds.has(id.toString()));
+  
+  return { success, notFound };
+}
+
+export async function searchMessages(
+  recipient: string,
+  query: string,
+  options: { from?: Date; to?: Date; limit?: number } = {}
+): Promise<Message[]> {
+  const limit = Math.min(options.limit || 50, 100);
+  
+  let rows;
+  if (options.from && options.to) {
+    rows = await sql`
+      SELECT * FROM public.mailbox_messages 
+      WHERE recipient = ${recipient}
+        AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, '')) @@ plainto_tsquery('english', ${query})
+        AND created_at >= ${options.from}
+        AND created_at <= ${options.to}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  } else if (options.from) {
+    rows = await sql`
+      SELECT * FROM public.mailbox_messages 
+      WHERE recipient = ${recipient}
+        AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, '')) @@ plainto_tsquery('english', ${query})
+        AND created_at >= ${options.from}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  } else if (options.to) {
+    rows = await sql`
+      SELECT * FROM public.mailbox_messages 
+      WHERE recipient = ${recipient}
+        AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, '')) @@ plainto_tsquery('english', ${query})
+        AND created_at <= ${options.to}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  } else {
+    rows = await sql`
+      SELECT * FROM public.mailbox_messages 
+      WHERE recipient = ${recipient}
+        AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, '')) @@ plainto_tsquery('english', ${query})
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  }
+  
+  return rows.map(rowToMessage);
+}
+
+function rowToMessage(row: Record<string, unknown>): Message {
+  return {
+    id: row.id as bigint,
+    recipient: row.recipient as string,
+    sender: row.sender as string,
+    title: row.title as string,
+    body: row.body as string | null,
+    status: row.status as "unread" | "read",
+    urgent: row.urgent as boolean,
+    createdAt: row.created_at as Date,
+    viewedAt: row.viewed_at as Date | null,
+    threadId: row.thread_id as string | null,
+    replyToMessageId: row.reply_to_message_id as bigint | null,
+    dedupeKey: row.dedupe_key as string | null,
+    metadata: row.metadata as Record<string, unknown> | null,
+  };
+}

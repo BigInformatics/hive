@@ -1,0 +1,16 @@
+{
+  "name": "mailbox-api",
+  "version": "0.1.0",
+  "description": "Team mailbox REST API for agent-to-agent communication",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts",
+    "migrate": "bun run src/migrate.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
