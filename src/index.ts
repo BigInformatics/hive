@@ -268,6 +268,10 @@ async function handleRequest(request: Request): Promise<Response> {
       return requireAuth(request, (auth) => handleSend(auth, mailboxMatch[1], request));
     }
 
+    if (method === "GET" && path === "/mailboxes/me/stream") {
+      return requireAuth(request, (auth) => handleStream(auth));
+    }
+
     if (method === "GET" && path === "/mailboxes/me/messages") {
       return requireAuth(request, handleList);
     }
@@ -344,4 +348,71 @@ async function handleSkill(): Promise<Response> {
       headers: { "Content-Type": "text/markdown" },
     });
   }
+}
+
+// SSE stream for real-time message notifications
+async function handleStream(auth: AuthContext): Promise<Response> {
+  const recipient = auth.identity;
+  
+  // Create a readable stream for SSE
+  const stream = new ReadableStream({
+    start(controller) {
+      const encoder = new TextEncoder();
+      
+      // Send initial connection event
+      controller.enqueue(encoder.encode(`: connected to mailbox stream for ${recipient}\n\n`));
+      
+      // Ping every 30 seconds to keep connection alive
+      const pingInterval = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(`: ping\n\n`));
+        } catch {
+          clearInterval(pingInterval);
+        }
+      }, 30000);
+      
+      // Poll for new messages every 5 seconds
+      // (In production, this would use Postgres NOTIFY/LISTEN)
+      let lastSeenId = 0n;
+      const pollInterval = setInterval(async () => {
+        try {
+          const result = await listMessages(recipient, { 
+            status: "unread", 
+            limit: 10,
+            sinceId: lastSeenId > 0n ? lastSeenId : undefined 
+          });
+          
+          for (const msg of result.messages) {
+            if (BigInt(msg.id) > lastSeenId) {
+              const event = {
+                id: msg.id.toString(),
+                sender: msg.sender,
+                title: msg.title,
+                urgent: msg.urgent,
+                createdAt: msg.createdAt.toISOString(),
+              };
+              controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(event)}\n\n`));
+              lastSeenId = BigInt(msg.id);
+            }
+          }
+        } catch (err) {
+          console.error("[sse] Poll error:", err);
+        }
+      }, 5000);
+      
+      // Cleanup on close
+      return () => {
+        clearInterval(pingInterval);
+        clearInterval(pollInterval);
+      };
+    },
+  });
+  
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
 }
