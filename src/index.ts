@@ -359,7 +359,19 @@ async function handleUI(): Promise<Response> {
 
     function formatDate(iso) {
       const d = new Date(iso);
-      return d.toLocaleString();
+      const now = Date.now();
+      const diff = now - d.getTime();
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      
+      let relative;
+      if (mins < 1) relative = 'just now';
+      else if (mins < 60) relative = mins + 'm ago';
+      else if (hours < 24) relative = hours + 'h ago';
+      else relative = days + 'd ago';
+      
+      return \`<span title="\${d.toLocaleString()}">\${relative}</span>\`;
     }
 
     function renderMessage(msg, isNew = false) {
@@ -404,7 +416,11 @@ async function handleUI(): Promise<Response> {
       const data = await res.json();
       
       const container = document.getElementById('messages');
-      container.innerHTML = data.messages.map(m => renderMessage(m)).join('');
+      if (data.messages.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">No messages match filters</div>';
+      } else {
+        container.innerHTML = data.messages.map(m => renderMessage(m)).join('');
+      }
       
       if (data.messages.length > 0) {
         lastId = data.messages[0].id;
@@ -432,9 +448,15 @@ async function handleUI(): Promise<Response> {
         setTimeout(connectSSE, 3000);
       };
       
+      let refreshTimeout = null;
       eventSource.addEventListener('message', (e) => {
-        // Re-fetch to maintain correct sort order
-        loadMessages();
+        // Debounce: refresh at most every 500ms
+        if (!refreshTimeout) {
+          refreshTimeout = setTimeout(() => {
+            loadMessages();
+            refreshTimeout = null;
+          }, 500);
+        }
       });
     }
 
@@ -786,7 +808,19 @@ async function handleUIWithKey(key: string): Promise<Response> {
 
     function formatDate(iso) {
       const d = new Date(iso);
-      return d.toLocaleString();
+      const now = Date.now();
+      const diff = now - d.getTime();
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      
+      let relative;
+      if (mins < 1) relative = 'just now';
+      else if (mins < 60) relative = mins + 'm ago';
+      else if (hours < 24) relative = hours + 'h ago';
+      else relative = days + 'd ago';
+      
+      return \`<span title="\${d.toLocaleString()}">\${relative}</span>\`;
     }
 
     function renderMessage(msg, isNew = false) {
@@ -907,7 +941,11 @@ async function handleUIWithKey(key: string): Promise<Response> {
       const data = await res.json();
       
       const container = document.getElementById('messages');
-      container.innerHTML = data.messages.map(m => renderMessage(m)).join('');
+      if (data.messages.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">No messages match filters</div>';
+      } else {
+        container.innerHTML = data.messages.map(m => renderMessage(m)).join('');
+      }
       
       if (data.messages.length > 0) {
         lastId = data.messages[0].id;
@@ -932,9 +970,15 @@ async function handleUIWithKey(key: string): Promise<Response> {
         setTimeout(connectSSE, 3000);
       };
       
+      let refreshTimeout = null;
       eventSource.addEventListener('message', (e) => {
-        // Re-fetch to maintain correct sort order
-        loadMessages();
+        // Debounce: refresh at most every 500ms
+        if (!refreshTimeout) {
+          refreshTimeout = setTimeout(() => {
+            loadMessages();
+            refreshTimeout = null;
+          }, 500);
+        }
       });
     }
 
