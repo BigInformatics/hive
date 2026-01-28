@@ -335,7 +335,12 @@ async function handleUI(): Promise<Response> {
     let lastId = null;
 
     // Avatar images (base64 embedded, 64x64 jpg)
-    const avatarData = {}; // Use color placeholders
+    const avatarData = {
+      chris: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzFlM2E1ZiIvPgogIDx0ZXh0IHg9IjMyIiB5PSI0MiIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzkzYzVmZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+QzwvdGV4dD4KPC9zdmc+Cg==',
+      clio: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzNmMWU1ZiIvPgogIDx0ZXh0IHg9IjMyIiB5PSI0MiIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iI2M0YjVmZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+QzwvdGV4dD4KPC9zdmc+Cg==',
+      domingo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzFlNWYzYSIvPgogIDx0ZXh0IHg9IjMyIiB5PSI0MiIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzg2ZWZhYyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RDwvdGV4dD4KPC9zdmc+Cg==',
+      zumie: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzVmM2ExZSIvPgogIDx0ZXh0IHg9IjMyIiB5PSI0MiIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iI2ZjZDM0ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+WjwvdGV4dD4KPC9zdmc+Cg=='
+    }
     const avatarColors = {
       chris: { bg: '#1e3a5f', fg: '#93c5fd' },
       clio: { bg: '#3f1e5f', fg: '#c4b5fd' },
@@ -344,9 +349,8 @@ async function handleUI(): Promise<Response> {
     };
 
     function getAvatarHtml(name) {
-      const validNames = ['chris', 'clio', 'domingo', 'zumie'];
-      if (validNames.includes(name)) {
-        return \`<img class="avatar" src="/assets/avatars/\${name}.svg" alt="\${name}">\`;
+      if (avatarData[name]) {
+        return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
       }
       const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
       const initial = (name || '?')[0];
@@ -710,7 +714,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
     let replyToId = null;
     const CURRENT_SENDER = '${sender}';
 
-    const avatarData = {}; // Use color placeholders
+    const avatarData = {
+      chris: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzFlM2E1ZiIvPgogIDx0ZXh0IHg9IjMyIiB5PSI0MiIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzkzYzVmZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+QzwvdGV4dD4KPC9zdmc+Cg==',
+      clio: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzNmMWU1ZiIvPgogIDx0ZXh0IHg9IjMyIiB5PSI0MiIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iI2M0YjVmZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+QzwvdGV4dD4KPC9zdmc+Cg==',
+      domingo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzFlNWYzYSIvPgogIDx0ZXh0IHg9IjMyIiB5PSI0MiIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzg2ZWZhYyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RDwvdGV4dD4KPC9zdmc+Cg==',
+      zumie: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzVmM2ExZSIvPgogIDx0ZXh0IHg9IjMyIiB5PSI0MiIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iI2ZjZDM0ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+WjwvdGV4dD4KPC9zdmc+Cg=='
+    }
     const avatarColors = {
       chris: { bg: '#1e3a5f', fg: '#93c5fd' },
       clio: { bg: '#3f1e5f', fg: '#c4b5fd' },
@@ -767,9 +776,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
     }
 
     function getAvatarHtml(name) {
-      const validNames = ['chris', 'clio', 'domingo', 'zumie'];
-      if (validNames.includes(name)) {
-        return \`<img class="avatar" src="/assets/avatars/\${name}.svg" alt="\${name}">\`;
+      if (avatarData[name]) {
+        return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
       }
       const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
       const initial = (name || '?')[0];
