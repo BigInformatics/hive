@@ -78,15 +78,15 @@ Response:
 ## Config / secrets
 Do not store OneDev creds here.
 
-### Recommended env config
-Option A (JSON mapping):
-- `UI_MAILBOX_KEYS='{"<key1>":{"sender":"chris"},"<key2>":{"sender":"clio"}}'`
+### Env config
+Set `UI_MAILBOX_KEYS` as JSON mapping:
+```
+UI_MAILBOX_KEYS={"<key1>":{"sender":"chris"},"<key2>":{"sender":"clio"}}
+```
 
-Option B (simple key-per-sender):
-- `UI_MAILBOX_KEY_CHRIS=<key>`
-- `UI_MAILBOX_KEY_CLIO=<key>`
-
-Keys must be long random strings.
+- Default in docker-compose is `SET_ME` (disables compose UI)
+- Keys must be long random strings (32+ chars recommended)
+- Generate keys: `openssl rand -hex 16`
 
 ## Safety / guardrails
 Even though this is internal:
