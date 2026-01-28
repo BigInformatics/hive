@@ -50,6 +50,12 @@ curl -fsS http://c2.biginformatics.net:3100/readyz
 Endpoint:
 - `POST /mailboxes/{recipient}/messages`
 
+Payload fields:
+- `title` (required)
+- `body` (optional)
+- `urgent` (optional)
+- `dedupeKey` (optional, recommended)
+
 Example:
 ```bash
 curl -fsS -X POST \
@@ -95,6 +101,10 @@ Ack is idempotent (re-acking is safe; `viewedAt` should remain the first view ti
 ### 5) Reply helper
 Endpoint:
 - `POST /mailboxes/me/messages/{id}/reply`
+
+Payload fields:
+- `body` and/or `title` is required (at least one)
+- (Do not use `message` — the field name is `body`.)
 
 Example:
 ```bash
