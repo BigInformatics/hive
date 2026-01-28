@@ -320,8 +320,13 @@ async function handleUI(): Promise<Response> {
       <option value="domingo">domingo</option>
       <option value="zumie">zumie</option>
     </select>
+    <div class="filters">
+      <label class="filter-label"><input type="checkbox" id="filterUrgent" onchange="loadMessages()"> Urgent only</label>
+      <label class="filter-label"><input type="checkbox" id="filterUnread" onchange="loadMessages()"> Unread only</label>
+    </div>
     <button onclick="loadMessages()">Refresh</button>
     <span id="status" class="status">Connecting...</span>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌓</button>
   </div>
   <div id="messages" class="messages"></div>
 
@@ -383,8 +388,12 @@ async function handleUI(): Promise<Response> {
 
     async function loadMessages() {
       const recipient = document.getElementById('recipient').value;
+      const filterUrgent = document.getElementById('filterUrgent')?.checked || false;
+      const filterUnread = document.getElementById('filterUnread')?.checked || false;
       const params = new URLSearchParams({ limit: '50' });
       if (recipient) params.set('recipient', recipient);
+      if (filterUrgent) params.set('urgent', 'true');
+      if (filterUnread) params.set('unread', 'true');
       
       const res = await fetch('/ui/messages?' + params);
       const data = await res.json();
@@ -446,12 +455,25 @@ async function handleUIMessages(request: Request): Promise<Response> {
   const recipient = url.searchParams.get("recipient") || undefined;
   const limit = parseInt(url.searchParams.get("limit") || "50");
   const sinceId = url.searchParams.get("sinceId");
+  const urgentOnly = url.searchParams.get("urgent") === "true";
+  const unreadOnly = url.searchParams.get("unread") === "true";
 
-  const messages = await listAllMessages({
+  let messages = await listAllMessages({
     recipient,
-    limit,
+    limit: urgentOnly || unreadOnly ? 200 : limit, // Fetch more if filtering
     sinceId: sinceId ? BigInt(sinceId) : undefined,
   });
+
+  // Apply filters
+  if (urgentOnly) {
+    messages = messages.filter(m => m.urgent);
+  }
+  if (unreadOnly) {
+    messages = messages.filter(m => m.status === 'unread');
+  }
+  
+  // Re-apply limit after filtering
+  messages = messages.slice(0, limit);
 
   return json({ messages: messages.map(serializeMessage) });
 }
@@ -582,6 +604,31 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .compose-body { padding: 0 16px 16px; }
     .compose.collapsed .compose-body { display: none; }
     .compose.collapsed .compose-header { border-radius: 8px; }
+    /* Light mode */
+    body.light { background: #f5f5f5; color: #1a1a1a; }
+    body.light h1 { color: #000; }
+    body.light select, body.light button, body.light input, body.light textarea { background: #fff; color: #1a1a1a; border-color: #ccc; }
+    body.light .compose { background: #fff; border-color: #ddd; }
+    body.light .compose-header:hover { background: #f0f0f0; }
+    body.light .message { background: #fff; border-color: #ddd; }
+    body.light .message:hover { border-color: #bbb; }
+    body.light .message.selected { background: #e0e7ff; border-color: #2563eb; }
+    body.light .message.unread { background: #f8f8f8; }
+    body.light .message-meta { color: #666; }
+    body.light .message-body { color: #444; }
+    body.light .avatar-placeholder { opacity: 0.9; }
+    body.light .reply-info { background: #e0e7ff; }
+    /* Filter controls */
+    .filters { display: flex; gap: 16px; align-items: center; }
+    .filter-label { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #888; cursor: pointer; }
+    .filter-label input { cursor: pointer; }
+    body.light .filter-label { color: #666; }
+    /* Mark read button */
+    .mark-read-btn { font-size: 0.75rem; padding: 4px 8px; margin-left: 8px; background: #1e3a5f; border-color: #1e3a5f; color: #93c5fd; }
+    .mark-read-btn:hover { background: #2563eb; }
+    body.light .mark-read-btn { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    /* Theme toggle */
+    .theme-toggle { margin-left: auto; font-size: 1.25rem; background: transparent; border: none; cursor: pointer; padding: 4px 8px; }
     .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
     .compose-row label { color: #888; font-size: 0.875rem; min-width: 80px; }
     .compose-row input[type="text"], .compose-row textarea { flex: 1; min-width: 200px; }
@@ -644,8 +691,13 @@ async function handleUIWithKey(key: string): Promise<Response> {
       <option value="domingo">domingo</option>
       <option value="zumie">zumie</option>
     </select>
+    <div class="filters">
+      <label class="filter-label"><input type="checkbox" id="filterUrgent" onchange="loadMessages()"> Urgent only</label>
+      <label class="filter-label"><input type="checkbox" id="filterUnread" onchange="loadMessages()"> Unread only</label>
+    </div>
     <button onclick="loadMessages()">Refresh</button>
     <span id="status" class="status">Connecting...</span>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌓</button>
   </div>
   <div id="messages" class="messages"></div>
 
@@ -655,6 +707,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     let lastId = null;
     let selectedMessage = null;
     let replyToId = null;
+    const CURRENT_SENDER = '${sender}';
 
     const avatarData = {}; // Use color placeholders
     const avatarColors = {
@@ -686,7 +739,31 @@ async function handleUIWithKey(key: string): Promise<Response> {
         document.getElementById('composePanel').classList.remove('collapsed');
         document.getElementById('composeToggle').textContent = '▲ collapse';
       }
+      // Restore theme
+      if (localStorage.getItem('theme') === 'light') {
+        document.body.classList.add('light');
+      }
     });
+
+    // Theme toggle
+    function toggleTheme() {
+      const isLight = document.body.classList.toggle('light');
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    }
+
+    // Mark message as read
+    async function markAsRead(msgId) {
+      try {
+        const res = await fetch('/ui/' + MAILBOX_KEY + '/ack/' + msgId, { method: 'POST' });
+        if (res.ok) {
+          loadMessages();
+        } else {
+          console.error('Failed to mark as read');
+        }
+      } catch (e) {
+        console.error('Mark as read error:', e);
+      }
+    }
 
     function getAvatarHtml(name) {
       if (avatarData[name]) {
@@ -708,6 +785,11 @@ async function handleUIWithKey(key: string): Promise<Response> {
       if (msg.status === 'unread') classes.push('unread');
       if (isNew) classes.push('new-message');
       if (selectedMessage === msg.id) classes.push('selected');
+      
+      const canMarkRead = msg.recipient === CURRENT_SENDER && msg.status === 'unread';
+      const markReadBtn = canMarkRead 
+        ? \`<button class="mark-read-btn" onclick="event.stopPropagation(); markAsRead('\${msg.id}')">Mark read</button>\`
+        : '';
 
       return \`
         <div class="\${classes.join(' ')}" data-id="\${msg.id}" data-sender="\${msg.sender}" data-title="\${msg.title.replace(/"/g, '&quot;')}" onclick="selectMessage(this)">
@@ -718,7 +800,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
                 <span class="message-meta">
                   <span class="sender">\${msg.sender}</span> → <span class="recipient">\${msg.recipient}</span>
                 </span>
-                <span class="message-meta">\${formatDate(msg.createdAt)}</span>
+                <span class="message-meta">\${formatDate(msg.createdAt)}\${markReadBtn}</span>
               </div>
               <div class="message-title">
                 \${msg.urgent ? '<span class="badge urgent">URGENT</span> ' : ''}
@@ -804,8 +886,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
 
     async function loadMessages() {
       const recipient = document.getElementById('recipient').value;
+      const filterUrgent = document.getElementById('filterUrgent')?.checked || false;
+      const filterUnread = document.getElementById('filterUnread')?.checked || false;
       const params = new URLSearchParams({ limit: '50' });
       if (recipient) params.set('recipient', recipient);
+      if (filterUrgent) params.set('urgent', 'true');
+      if (filterUnread) params.set('unread', 'true');
       
       const res = await fetch('/ui/messages?' + params);
       const data = await res.json();
@@ -902,6 +988,27 @@ async function handleUISend(key: string, request: Request): Promise<Response> {
   }
 }
 
+// UI ack endpoint (keyed)
+async function handleUIAck(key: string, msgId: string): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const sender = config.sender;
+  
+  try {
+    const message = await ackMessage(sender, BigInt(msgId));
+    if (!message) {
+      return error("Message not found or not yours", 404);
+    }
+    return json({ message: serializeMessage(message) });
+  } catch (err) {
+    console.error("[ui-ack] Error:", err);
+    return error("Failed to ack message", 500);
+  }
+}
+
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const method = request.method;
@@ -920,12 +1027,16 @@ async function handleRequest(request: Request): Promise<Response> {
     // Keyed UI with compose
     const uiKeyMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)$/);
     const uiKeySendMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/send$/);
+    const uiKeyAckMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/ack\/(\d+)$/);
     
     if (method === "GET" && uiKeyMatch) {
       return handleUIWithKey(uiKeyMatch[1]);
     }
     if (method === "POST" && uiKeySendMatch) {
       return handleUISend(uiKeySendMatch[1], request);
+    }
+    if (method === "POST" && uiKeyAckMatch) {
+      return handleUIAck(uiKeyAckMatch[1], uiKeyAckMatch[2]);
     }
 
     const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
