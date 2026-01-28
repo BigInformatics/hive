@@ -165,10 +165,13 @@ export async function ackMessages(
 ): Promise<{ success: bigint[]; notFound: bigint[] }> {
   if (ids.length === 0) return { success: [], notFound: [] };
 
+  // Convert bigints to numbers for SQL array compatibility
+  const idNumbers = ids.map(id => Number(id));
+  
   const updated = await sql`
     UPDATE public.mailbox_messages 
     SET status = 'read', viewed_at = COALESCE(viewed_at, NOW())
-    WHERE recipient = ${recipient} AND id = ANY(${ids}::bigint[])
+    WHERE recipient = ${recipient} AND id = ANY(${idNumbers})
     RETURNING id
   `;
   
