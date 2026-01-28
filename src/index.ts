@@ -18,41 +18,18 @@ type UIKeyConfig = { sender: string };
 const uiMailboxKeys: Record<string, UIKeyConfig> = {};
 
 function initUIKeys() {
-  // Try JSON format first: UI_MAILBOX_KEYS='{"key1":{"sender":"chris"},...}'
+  // UI_MAILBOX_KEYS='{"key1":{"sender":"chris"},...}'
   const jsonKeys = process.env.UI_MAILBOX_KEYS;
-  console.log(`[mailbox-api] UI_MAILBOX_KEYS env present: ${!!jsonKeys}, length: ${jsonKeys?.length || 0}, value: ${jsonKeys?.substring(0, 50) || "N/A"}`);
   if (jsonKeys && jsonKeys !== "SET_ME") {
     try {
       const parsed = JSON.parse(jsonKeys);
       Object.assign(uiMailboxKeys, parsed);
-      const keyPreviews = Object.keys(uiMailboxKeys).map(k => k.substring(0, 8) + "...");
-      console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys: ${keyPreviews.join(", ")}`);
-      return;
+      console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys`);
     } catch (e) {
       console.error("[mailbox-api] Failed to parse UI_MAILBOX_KEYS:", e);
-      console.error("[mailbox-api] Raw value (first 100 chars):", jsonKeys.substring(0, 100));
     }
-  } else if (jsonKeys === "SET_ME") {
-    console.log(`[mailbox-api] UI_MAILBOX_KEYS is SET_ME placeholder - not configured`);
-  }
-  
-  // Fallback: individual keys UI_MAILBOX_KEY_CHRIS=<key>
-  console.log(`[mailbox-api] Checking individual UI_MAILBOX_KEY_* env vars...`);
-  const names = ["chris", "clio", "domingo", "zumie"];
-  for (const name of names) {
-    const envName = `UI_MAILBOX_KEY_${name.toUpperCase()}`;
-    const key = process.env[envName];
-    console.log(`[mailbox-api] ${envName}: ${key ? `found (${key.length} chars, starts with "${key.substring(0,8)}")` : "not set"}`);
-    if (key && !key.startsWith("SET_ME")) {
-      uiMailboxKeys[key] = { sender: name };
-    } else if (key?.startsWith("SET_ME")) {
-      console.log(`[mailbox-api] ${envName}: present but not configured (SET_ME placeholder)`);
-    }
-  }
-  if (Object.keys(uiMailboxKeys).length > 0) {
-    console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys from individual env vars`);
   } else {
-    console.log(`[mailbox-api] No UI mailbox keys loaded - compose UI will be disabled`);
+    console.log(`[mailbox-api] UI_MAILBOX_KEYS not configured - compose UI disabled`);
   }
 }
 
