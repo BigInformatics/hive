@@ -25,15 +25,20 @@ function error(message: string, status = 400): Response {
 }
 
 // Auth wrapper
-function requireAuth(
+async function requireAuth(
   request: Request,
   handler: (auth: AuthContext, request: Request) => Promise<Response>
 ): Promise<Response> {
   const auth = authenticate(request);
   if (!auth) {
-    return Promise.resolve(error("Unauthorized", 401));
+    return error("Unauthorized", 401);
   }
-  return handler(auth, request);
+  try {
+    return await handler(auth, request);
+  } catch (err) {
+    console.error("[api] Handler error:", err);
+    return error("Internal server error", 500);
+  }
 }
 
 // Route handlers
@@ -235,52 +240,57 @@ async function handleRequest(request: Request): Promise<Response> {
   const method = request.method;
   const path = url.pathname;
 
-  // Health endpoints (no auth)
-  if (path === "/healthz") return handleHealthz();
-  if (path === "/readyz") return handleReadyz();
+  try {
+    // Health endpoints (no auth)
+    if (path === "/healthz") return handleHealthz();
+    if (path === "/readyz") return handleReadyz();
 
-  // API routes
-  const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
-  const messageMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)$/);
-  const ackMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)\/ack$/);
-  const replyMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)\/reply$/);
+    // API routes
+    const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
+    const messageMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)$/);
+    const ackMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)\/ack$/);
+    const replyMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)\/reply$/);
 
-  // POST /mailboxes/{recipient}/messages - Send message
-  if (method === "POST" && mailboxMatch && mailboxMatch[1] !== "me") {
-    return requireAuth(request, (auth) => handleSend(auth, mailboxMatch[1], request));
+    // POST /mailboxes/{recipient}/messages - Send message
+    if (method === "POST" && mailboxMatch && mailboxMatch[1] !== "me") {
+      return requireAuth(request, (auth) => handleSend(auth, mailboxMatch[1], request));
+    }
+
+    // GET /mailboxes/me/messages - List messages
+    if (method === "GET" && path === "/mailboxes/me/messages") {
+      return requireAuth(request, handleList);
+    }
+
+    // GET /mailboxes/me/messages/search - Search messages
+    if (method === "GET" && path === "/mailboxes/me/messages/search") {
+      return requireAuth(request, handleSearch);
+    }
+
+    // GET /mailboxes/me/messages/{id} - Get single message
+    if (method === "GET" && messageMatch) {
+      return requireAuth(request, (auth) => handleGet(auth, messageMatch[1]));
+    }
+
+    // POST /mailboxes/me/messages/{id}/ack - Ack single message
+    if (method === "POST" && ackMatch) {
+      return requireAuth(request, (auth) => handleAck(auth, ackMatch[1]));
+    }
+
+    // POST /mailboxes/me/messages/ack - Batch ack
+    if (method === "POST" && path === "/mailboxes/me/messages/ack") {
+      return requireAuth(request, handleBatchAck);
+    }
+
+    // POST /mailboxes/me/messages/{id}/reply - Reply
+    if (method === "POST" && replyMatch) {
+      return requireAuth(request, (auth) => handleReply(auth, replyMatch[1], request));
+    }
+
+    return error("Not found", 404);
+  } catch (err) {
+    console.error("[api] Unhandled error:", err);
+    return error("Internal server error", 500);
   }
-
-  // GET /mailboxes/me/messages - List messages
-  if (method === "GET" && path === "/mailboxes/me/messages") {
-    return requireAuth(request, handleList);
-  }
-
-  // GET /mailboxes/me/messages/search - Search messages
-  if (method === "GET" && path === "/mailboxes/me/messages/search") {
-    return requireAuth(request, handleSearch);
-  }
-
-  // GET /mailboxes/me/messages/{id} - Get single message
-  if (method === "GET" && messageMatch) {
-    return requireAuth(request, (auth) => handleGet(auth, messageMatch[1]));
-  }
-
-  // POST /mailboxes/me/messages/{id}/ack - Ack single message
-  if (method === "POST" && ackMatch) {
-    return requireAuth(request, (auth) => handleAck(auth, ackMatch[1]));
-  }
-
-  // POST /mailboxes/me/messages/ack - Batch ack
-  if (method === "POST" && path === "/mailboxes/me/messages/ack") {
-    return requireAuth(request, handleBatchAck);
-  }
-
-  // POST /mailboxes/me/messages/{id}/reply - Reply
-  if (method === "POST" && replyMatch) {
-    return requireAuth(request, (auth) => handleReply(auth, replyMatch[1], request));
-  }
-
-  return error("Not found", 404);
 }
 
 // Start server
