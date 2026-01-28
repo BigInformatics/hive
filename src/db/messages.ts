@@ -250,3 +250,44 @@ function rowToMessage(row: Record<string, unknown>): Message {
     metadata: row.metadata as Record<string, unknown> | null,
   };
 }
+
+// UI endpoint: list all messages across all mailboxes (no auth, internal only)
+export async function listAllMessages(options: { 
+  limit?: number; 
+  recipient?: string;
+  sinceId?: bigint;
+} = {}): Promise<Message[]> {
+  const limit = Math.min(options.limit || 50, 100);
+  
+  let rows;
+  if (options.recipient && options.sinceId) {
+    rows = await sql`
+      SELECT * FROM public.mailbox_messages 
+      WHERE recipient = ${options.recipient} AND id > ${options.sinceId}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  } else if (options.recipient) {
+    rows = await sql`
+      SELECT * FROM public.mailbox_messages 
+      WHERE recipient = ${options.recipient}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  } else if (options.sinceId) {
+    rows = await sql`
+      SELECT * FROM public.mailbox_messages 
+      WHERE id > ${options.sinceId}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  } else {
+    rows = await sql`
+      SELECT * FROM public.mailbox_messages 
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  }
+  
+  return rows.map(rowToMessage);
+}

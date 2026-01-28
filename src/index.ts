@@ -3,7 +3,8 @@ import { healthCheck, close } from "./db/client";
 import { 
   sendMessage, listMessages, getMessage, 
   ackMessage, ackMessages, searchMessages,
-  isValidMailbox, type SendMessageInput 
+  isValidMailbox, listAllMessages,
+  type SendMessageInput 
 } from "./db/messages";
 import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
 
@@ -249,6 +250,222 @@ function serializeMessage(msg: {
   };
 }
 
+// UI endpoint: HTML page (no auth, internal only)
+async function handleUI(): Promise<Response> {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mailbox Viewer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e5e5e5; padding: 20px; }
+    h1 { margin-bottom: 16px; font-size: 1.5rem; color: #fff; }
+    .controls { margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    select, button { padding: 8px 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: #e5e5e5; cursor: pointer; }
+    select:hover, button:hover { border-color: #555; }
+    .status { font-size: 0.875rem; color: #888; }
+    .status.connected { color: #4ade80; }
+    .messages { display: flex; flex-direction: column; gap: 8px; }
+    .message { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px; }
+    .message.urgent { border-left: 3px solid #f59e0b; }
+    .message.unread { background: #1f1f1f; }
+    .message-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.875rem; }
+    .message-meta { color: #888; }
+    .message-meta .sender { color: #60a5fa; }
+    .message-meta .recipient { color: #a78bfa; }
+    .message-title { font-weight: 600; margin-bottom: 4px; }
+    .message-body { color: #aaa; font-size: 0.875rem; white-space: pre-wrap; }
+    .badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; }
+    .badge.urgent { background: #78350f; color: #fcd34d; }
+    .badge.unread { background: #1e3a5f; color: #93c5fd; }
+    .new-message { animation: highlight 2s ease-out; }
+    @keyframes highlight { from { background: #2a2a1a; } to { background: #1a1a1a; } }
+  </style>
+</head>
+<body>
+  <h1>📬 Mailbox Viewer</h1>
+  <div class="controls">
+    <select id="recipient">
+      <option value="">All mailboxes</option>
+      <option value="chris">chris</option>
+      <option value="clio">clio</option>
+      <option value="domingo">domingo</option>
+      <option value="zumie">zumie</option>
+    </select>
+    <button onclick="loadMessages()">Refresh</button>
+    <span id="status" class="status">Connecting...</span>
+  </div>
+  <div id="messages" class="messages"></div>
+
+  <script>
+    let eventSource = null;
+    let lastId = null;
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString();
+    }
+
+    function renderMessage(msg, isNew = false) {
+      const classes = ['message'];
+      if (msg.urgent) classes.push('urgent');
+      if (msg.status === 'unread') classes.push('unread');
+      if (isNew) classes.push('new-message');
+
+      return \`
+        <div class="\${classes.join(' ')}">
+          <div class="message-header">
+            <span class="message-meta">
+              <span class="sender">\${msg.sender}</span> → <span class="recipient">\${msg.recipient}</span>
+            </span>
+            <span class="message-meta">\${formatDate(msg.createdAt)}</span>
+          </div>
+          <div class="message-title">
+            \${msg.urgent ? '<span class="badge urgent">URGENT</span> ' : ''}
+            \${msg.status === 'unread' ? '<span class="badge unread">UNREAD</span> ' : ''}
+            \${msg.title}
+          </div>
+          \${msg.body ? \`<div class="message-body">\${msg.body}</div>\` : ''}
+        </div>
+      \`;
+    }
+
+    async function loadMessages() {
+      const recipient = document.getElementById('recipient').value;
+      const params = new URLSearchParams({ limit: '50' });
+      if (recipient) params.set('recipient', recipient);
+      
+      const res = await fetch('/ui/messages?' + params);
+      const data = await res.json();
+      
+      const container = document.getElementById('messages');
+      container.innerHTML = data.messages.map(m => renderMessage(m)).join('');
+      
+      if (data.messages.length > 0) {
+        lastId = data.messages[0].id;
+      }
+    }
+
+    function connectSSE() {
+      const recipient = document.getElementById('recipient').value;
+      const url = recipient ? '/ui/stream?recipient=' + recipient : '/ui/stream';
+      
+      if (eventSource) {
+        eventSource.close();
+      }
+      
+      eventSource = new EventSource(url);
+      
+      eventSource.onopen = () => {
+        document.getElementById('status').textContent = '🟢 Connected (live)';
+        document.getElementById('status').className = 'status connected';
+      };
+      
+      eventSource.onerror = () => {
+        document.getElementById('status').textContent = '🔴 Disconnected';
+        document.getElementById('status').className = 'status';
+        setTimeout(connectSSE, 3000);
+      };
+      
+      eventSource.addEventListener('message', (e) => {
+        const msg = JSON.parse(e.data);
+        const container = document.getElementById('messages');
+        container.insertAdjacentHTML('afterbegin', renderMessage(msg, true));
+      });
+    }
+
+    document.getElementById('recipient').addEventListener('change', () => {
+      loadMessages();
+      connectSSE();
+    });
+
+    loadMessages();
+    connectSSE();
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
+// UI endpoint: JSON messages (no auth, internal only)
+async function handleUIMessages(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const recipient = url.searchParams.get("recipient") || undefined;
+  const limit = parseInt(url.searchParams.get("limit") || "50");
+  const sinceId = url.searchParams.get("sinceId");
+
+  const messages = await listAllMessages({
+    recipient,
+    limit,
+    sinceId: sinceId ? BigInt(sinceId) : undefined,
+  });
+
+  return json({ messages: messages.map(serializeMessage) });
+}
+
+// UI endpoint: SSE stream (no auth, internal only)
+async function handleUIStream(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const recipient = url.searchParams.get("recipient") || undefined;
+  
+  const stream = new ReadableStream({
+    start(controller) {
+      const encoder = new TextEncoder();
+      
+      controller.enqueue(encoder.encode(`: connected to UI stream\n\n`));
+      
+      const pingInterval = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(`: ping\n\n`));
+        } catch {
+          clearInterval(pingInterval);
+        }
+      }, 30000);
+      
+      let lastSeenId = 0n;
+      const pollInterval = setInterval(async () => {
+        try {
+          const messages = await listAllMessages({ 
+            recipient,
+            limit: 10,
+            sinceId: lastSeenId > 0n ? lastSeenId : undefined 
+          });
+          
+          // Sort by id ascending for proper event order
+          messages.sort((a, b) => Number(a.id - b.id));
+          
+          for (const msg of messages) {
+            if (msg.id > lastSeenId) {
+              controller.enqueue(encoder.encode(\`event: message\ndata: \${JSON.stringify(serializeMessage(msg))}\n\n\`));
+              lastSeenId = msg.id;
+            }
+          }
+        } catch (err) {
+          console.error("[ui-sse] Poll error:", err);
+        }
+      }, 3000);
+      
+      return () => {
+        clearInterval(pingInterval);
+        clearInterval(pollInterval);
+      };
+    },
+  });
+  
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+}
+
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const method = request.method;
@@ -258,6 +475,11 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/healthz") return handleHealthz();
     if (path === "/skill") return handleSkill();
     if (path === "/readyz") return handleReadyz();
+    
+    // UI endpoints (no auth, internal only)
+    if (path === "/ui") return handleUI();
+    if (path === "/ui/messages") return handleUIMessages(request);
+    if (path === "/ui/stream") return handleUIStream(request);
 
     const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
     const messageMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)$/);
