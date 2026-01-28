@@ -279,6 +279,12 @@ async function handleUI(): Promise<Response> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
   <title>Mailbox Viewer</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -589,6 +595,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
   <title>Mailbox - ${sender}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1098,6 +1110,31 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/healthz") return handleHealthz();
     if (path === "/skill") return handleSkill();
     if (path === "/readyz") return handleReadyz();
+    
+    // PWA manifest and icon
+    if (path === "/manifest.json") {
+      return new Response(JSON.stringify({
+        name: "Team Mailbox",
+        short_name: "Mailbox",
+        description: "Internal team messaging and coordination",
+        start_url: "/ui",
+        display: "standalone",
+        background_color: "#0a0a0a",
+        theme_color: "#2563eb",
+        icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }]
+      }), { headers: { "Content-Type": "application/manifest+json" } });
+    }
+    
+    if (path === "/icon.svg") {
+      const icon = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+        <rect width="512" height="512" rx="80" fill="#0a0a0a"/>
+        <rect x="80" y="140" width="352" height="232" rx="20" fill="#1a1a1a" stroke="#2563eb" stroke-width="8"/>
+        <path d="M80 180 L256 300 L432 180" fill="none" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="400" cy="160" r="40" fill="#f59e0b"/>
+        <text x="400" y="175" font-family="system-ui" font-size="40" font-weight="bold" fill="#0a0a0a" text-anchor="middle">!</text>
+      </svg>`;
+      return new Response(icon, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" } });
+    }
     
     // Static assets (avatars)
     const assetMatch = path.match(/^\/assets\/avatars\/([a-z]+)\.(svg|png|jpg)$/);
