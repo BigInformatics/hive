@@ -165,19 +165,21 @@ export async function ackMessages(
 ): Promise<{ success: bigint[]; notFound: bigint[] }> {
   if (ids.length === 0) return { success: [], notFound: [] };
 
-  // Convert bigints to numbers for SQL array compatibility
-  const idNumbers = ids.map(id => Number(id));
+  // Ack each message individually (safer than array syntax)
+  const results = await Promise.all(
+    ids.map(id => ackMessage(recipient, id))
+  );
   
-  const updated = await sql`
-    UPDATE public.mailbox_messages 
-    SET status = 'read', viewed_at = COALESCE(viewed_at, NOW())
-    WHERE recipient = ${recipient} AND id = ANY(${idNumbers})
-    RETURNING id
-  `;
+  const success: bigint[] = [];
+  const notFound: bigint[] = [];
   
-  const successIds = new Set(updated.map((r: { id: bigint }) => r.id.toString()));
-  const success = ids.filter(id => successIds.has(id.toString()));
-  const notFound = ids.filter(id => !successIds.has(id.toString()));
+  for (let i = 0; i < ids.length; i++) {
+    if (results[i]) {
+      success.push(ids[i]);
+    } else {
+      notFound.push(ids[i]);
+    }
+  }
   
   return { success, notFound };
 }
