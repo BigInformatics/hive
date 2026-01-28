@@ -20,14 +20,17 @@ const uiMailboxKeys: Record<string, UIKeyConfig> = {};
 function initUIKeys() {
   // Try JSON format first: UI_MAILBOX_KEYS='{"key1":{"sender":"chris"},...}'
   const jsonKeys = process.env.UI_MAILBOX_KEYS;
+  console.log(`[mailbox-api] UI_MAILBOX_KEYS env present: ${!!jsonKeys}, length: ${jsonKeys?.length || 0}`);
   if (jsonKeys) {
     try {
       const parsed = JSON.parse(jsonKeys);
       Object.assign(uiMailboxKeys, parsed);
-      console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys`);
+      const keyPreviews = Object.keys(uiMailboxKeys).map(k => k.substring(0, 8) + "...");
+      console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys: ${keyPreviews.join(", ")}`);
       return;
     } catch (e) {
       console.error("[mailbox-api] Failed to parse UI_MAILBOX_KEYS:", e);
+      console.error("[mailbox-api] Raw value (first 100 chars):", jsonKeys.substring(0, 100));
     }
   }
   
