@@ -256,6 +256,7 @@ async function handleRequest(request: Request): Promise<Response> {
 
   try {
     if (path === "/healthz") return handleHealthz();
+    if (path === "/skill") return handleSkill();
     if (path === "/readyz") return handleReadyz();
 
     const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
@@ -310,3 +311,19 @@ process.on("SIGINT", async () => {
   await close();
   process.exit(0);
 });
+
+// Skill endpoint - returns SKILL.md content
+async function handleSkill(): Promise<Response> {
+  try {
+    const skillPath = new URL("../SKILL.md", import.meta.url).pathname;
+    const content = await Bun.file(skillPath).text();
+    return new Response(content, {
+      headers: { "Content-Type": "text/markdown" },
+    });
+  } catch {
+    return new Response("# Mailbox API Skill\n\nSKILL.md not found.", {
+      status: 404,
+      headers: { "Content-Type": "text/markdown" },
+    });
+  }
+}
