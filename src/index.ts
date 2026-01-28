@@ -35,15 +35,20 @@ function initUIKeys() {
   }
   
   // Fallback: individual keys UI_MAILBOX_KEY_CHRIS=<key>
+  console.log(`[mailbox-api] Checking individual UI_MAILBOX_KEY_* env vars...`);
   const names = ["chris", "clio", "domingo", "zumie"];
   for (const name of names) {
-    const key = process.env[`UI_MAILBOX_KEY_${name.toUpperCase()}`];
+    const envName = `UI_MAILBOX_KEY_${name.toUpperCase()}`;
+    const key = process.env[envName];
+    console.log(`[mailbox-api] ${envName}: ${key ? `found (${key.length} chars, starts with "${key.substring(0,8)}")` : "not set"}`);
     if (key) {
       uiMailboxKeys[key] = { sender: name };
     }
   }
   if (Object.keys(uiMailboxKeys).length > 0) {
-    console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys`);
+    console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys from individual env vars`);
+  } else {
+    console.log(`[mailbox-api] No UI mailbox keys loaded - compose UI will be disabled`);
   }
 }
 
