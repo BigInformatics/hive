@@ -441,7 +441,7 @@ async function handleUIStream(request: Request): Promise<Response> {
           
           for (const msg of messages) {
             if (msg.id > lastSeenId) {
-              controller.enqueue(encoder.encode(\`event: message\ndata: \${JSON.stringify(serializeMessage(msg))}\n\n\`));
+              controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(serializeMessage(msg))}\n\n`));
               lastSeenId = msg.id;
             }
           }
