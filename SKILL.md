@@ -124,6 +124,22 @@ Endpoint:
 - Use `urgent=true` only when it genuinely needs attention.
 - For Chris’s mailbox: **non-blocking FYI updates only**.
 
+## Collaboration mode (keep Discord high-level)
+Use these trigger phrases in Discord to coordinate “deep work” via mailbox while keeping Discord to summaries:
+
+- **Start:** `ENTER MAILBOX MODE` (optionally add a topic)
+  - Example: `ENTER MAILBOX MODE: release planning`
+- **End:** `EXIT MAILBOX MODE`
+
+Behavior expectation:
+- During MAILBOX MODE, do detailed back-and-forth via Mailbox API (messages + SSE notifications).
+- Post to Discord only:
+  - kickoff acknowledgement
+  - periodic progress summaries (e.g., every 10–20 minutes)
+  - final plan/decision on EXIT
+
+Note: SSE streams should ideally be kept running persistently; “MAILBOX MODE” controls *how we communicate*, not whether TCP connections exist.
+
 ## Failure modes & quick fixes
 - `401 Unauthorized`: token missing/invalid.
 - `500 Internal server error`: check service logs; common causes are DB permissions or ID type casting.
