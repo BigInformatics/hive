@@ -315,14 +315,32 @@ process.on("SIGINT", async () => {
 // Skill endpoint - returns SKILL.md content
 async function handleSkill(): Promise<Response> {
   try {
-    const skillPath = new URL("../SKILL.md", import.meta.url).pathname;
-    const content = await Bun.file(skillPath).text();
-    return new Response(content, {
-      headers: { "Content-Type": "text/markdown" },
-    });
-  } catch {
+    // Try multiple paths
+    const paths = [
+      "./SKILL.md",
+      "../SKILL.md",
+      "/app/SKILL.md",
+      new URL("../SKILL.md", import.meta.url).pathname,
+    ];
+    
+    for (const p of paths) {
+      const file = Bun.file(p);
+      if (await file.exists()) {
+        const content = await file.text();
+        return new Response(content, {
+          headers: { "Content-Type": "text/markdown" },
+        });
+      }
+    }
+    
     return new Response("# Mailbox API Skill\n\nSKILL.md not found.", {
       status: 404,
+      headers: { "Content-Type": "text/markdown" },
+    });
+  } catch (err) {
+    console.error("[api] Skill endpoint error:", err);
+    return new Response("# Mailbox API Skill\n\nError loading skill.", {
+      status: 500,
       headers: { "Content-Type": "text/markdown" },
     });
   }

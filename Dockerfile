@@ -17,6 +17,7 @@ ENV PORT=3100
 COPY --from=deps /app/node_modules ./node_modules
 COPY src ./src
 COPY package.json ./
+COPY SKILL.md ./
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
