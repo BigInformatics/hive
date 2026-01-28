@@ -25,24 +25,46 @@ export function authenticate(request: Request): AuthContext | null {
   return tokens.get(token) || null;
 }
 
-// Initialize with default tokens from environment
+// Initialize from environment variables
+// Supports two formats:
+// 1) MAILBOX_TOKEN_<NAME>=<token> (e.g., MAILBOX_TOKEN_DOMINGO=xxx)
+// 2) MAILBOX_TOKENS=<json> (e.g., {"token1":"domingo","token2":"clio"})
 export function initFromEnv() {
-  // Format: MAILBOX_TOKEN_<name>=<token>
-  // e.g., MAILBOX_TOKEN_DOMINGO=secret123
   const config: Record<string, { identity: string; admin?: boolean }> = {};
   
+  // Format 1: Individual env vars MAILBOX_TOKEN_<NAME>=<token>
   for (const [key, value] of Object.entries(process.env)) {
-    if (key.startsWith("MAILBOX_TOKEN_") && value) {
+    if (key.startsWith("MAILBOX_TOKEN_") && !key.endsWith("_ADMIN") && value) {
       const name = key.slice(14).toLowerCase();
-      config[value] = { identity: name, admin: key.endsWith("_ADMIN") };
+      if (name && name !== "s") { // skip MAILBOX_TOKENS
+        config[value] = { identity: name, isAdmin: false };
+      }
     }
   }
   
-  // Also support MAILBOX_ADMIN_TOKEN for admin access
+  // Format 2: JSON mapping MAILBOX_TOKENS={"token":"identity",...}
+  if (process.env.MAILBOX_TOKENS) {
+    try {
+      const mapping = JSON.parse(process.env.MAILBOX_TOKENS) as Record<string, string>;
+      for (const [token, identity] of Object.entries(mapping)) {
+        config[token] = { identity: identity.toLowerCase(), isAdmin: false };
+      }
+    } catch (err) {
+      console.error("[auth] Failed to parse MAILBOX_TOKENS:", err);
+    }
+  }
+  
+  // Admin token
   if (process.env.MAILBOX_ADMIN_TOKEN) {
     config[process.env.MAILBOX_ADMIN_TOKEN] = { identity: "admin", isAdmin: true };
   }
   
   loadTokens(config);
   console.log(`[auth] Loaded ${tokens.size} token(s)`);
+  
+  // Debug: log identities (not tokens)
+  if (tokens.size > 0) {
+    const identities = [...tokens.values()].map(a => a.identity);
+    console.log(`[auth] Identities: ${identities.join(", ")}`);
+  }
 }
