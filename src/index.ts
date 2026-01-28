@@ -41,8 +41,10 @@ function initUIKeys() {
     const envName = `UI_MAILBOX_KEY_${name.toUpperCase()}`;
     const key = process.env[envName];
     console.log(`[mailbox-api] ${envName}: ${key ? `found (${key.length} chars, starts with "${key.substring(0,8)}")` : "not set"}`);
-    if (key) {
+    if (key && !key.startsWith("SET_ME")) {
       uiMailboxKeys[key] = { sender: name };
+    } else if (key?.startsWith("SET_ME")) {
+      console.log(`[mailbox-api] ${envName}: present but not configured (SET_ME placeholder)`);
     }
   }
   if (Object.keys(uiMailboxKeys).length > 0) {
