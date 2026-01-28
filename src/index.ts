@@ -307,8 +307,12 @@ async function handleUI(): Promise<Response> {
     let eventSource = null;
     let lastId = null;
 
-    // Avatar config - who has photos
-    const hasPhoto = { clio: true, domingo: true, zumie: true };
+    // Avatar images (base64 embedded, 64x64 jpg)
+    const avatarData = {
+      clio: 'data:image/jpeg;base64,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',
+      domingo: 'data:image/jpeg;base64,/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGwAAAwADAQEAAAAAAAAAAAAABQYHAgMEAAH/xAA0EAACAQMDAgQCBwkAAAAAAAABAgMABBEFEiExQQYTUWEicRQjQoGRscEHFSQyM6HR4fD/xAAZAQACAwEAAAAAAAAAAAAAAAADBAECBQb/xAAeEQACAwADAQEBAAAAAAAAAAAAAQIDERIhMQQiUf/aAAwDAQACEQMRAD8Ak2Oa2IvOBXwjkUK1vUxaYhjb6wjJx2qW8GEtDTSpFGTuBI7Z6fOtun3sbqCQJhnnyyOP70vQ6fqGuWASytZyi/a2YDHvXNB4c8Raezz/AEC6SOPmT4eCO/zoTtj5oRQf8HOG8Bk/pMsR+36UQUbhkHI9qQF1TfbxrKXRmGGUE7W56/lRzQtWnQRwXDrKA2fM6ELjofvqYzRVxGpRxWQXmvq4wCO9ZIOauVFOcrHGzuSFCnJFT6/kMl85UAjOFAHan7VgBp87Fiu1TyB3pJsbcyaihU7yh8xvkvJqk2Slpd/AcbWuiWcJX40QbgPU8n86dTJvtyGQsrDBGOoNR2+sdTSWF7KadQ5zHJHKVAGe46frTPeRa5eaBFFLclJgzI7RyHJC46fcaz5xTe6aUJPjmE58UaBLod1dSyWzyW8LEJt4+rP8pzz04BHWhOiXZuJV+kY8nOducE4PrVDsdJnTTbmS5i8qNUbh2LFiVPU8bvwqWC4WOZPL4QDChRR4PoVtjjKvYTeZbLvG2QDlMEYHahNiSkyXVDnJou3bX1wQ2rI+nGT1PFQWq1GHvCiSTWmoq2YNpLvCNZSe1u0gZShR/FUHfEAJP0sLP4omNFr7lP7VOjQ6SOSM/atcFfVoBcwE7eXr8yVNoKFtkKSknAXz0z2oFcXpHrFqQ0HZKjw0uQohCvnjHHvTJhaVMYYChj7UD1bEkW7cuO3GccI54+sesNLdLmby3DVQeQzOMvKZUn1LgU7gbsdM/FYuxWB1zxMuuobslPokuqQyy4N3mAJAHB4Ce/yaPx48p2SHpauc5CR0Fbu2WJi6tBxLwQ5wlSD3PxSaYLkqPrG4ggAEyRnVMSPGCEpICRgAdvig8nWbanCEJX+1aFWhUqGPNIHtiox4fNZ5dP7Uzgz+U57PfSb78UA1Lqhu0P8AoYjTUy8LZ89uIt9LDhcHcUKuLl5hgnC+lczTl/nWLMSuBgn3rTVdda/Potyb9OTUrJLqPIA8wdD6igUVsIbhA8yRoT3zTMGJ9vlQzVdPW4dZMsMDovr60p9FXL9IvXPOhyj0bdpluEAeGRS5bsy7f90r+Dr94JpLNXZQF3qQenOce/rT1+yjW/pEb6DqgWRo4S1nNj4sDqh9cDke2amsX8JewSqcfHh/cHj/FKfLLhZ34M3LYKSH6DXQhK3KZUcbk6/hR2LbNCksTBo3AZWHcVOtTYrEWXqTg09eDCZvDVox527l/BjTv0QjHtAK22f/Z',
+      zumie: 'data:image/jpeg;base64,/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAABQcDBAYBCAD/xAAyEAABAwMDAgUDAwMFAAAAAAABAgMEAAURBhIhMUEHExRRYSJxgTKRoSM0UkJisdHw/8QAGgEAAwADAQAAAAAAAAAAAAAAAgMEAAEFBv/EAC0RAAIBAgMFBgcAAAAAAAAAAAECAAMRBCExEhMUIpFhcaGxwfAjMkFRctHh/9oADAMBQEQhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAABQcDBAYBCAD/xAAyEAABAwMDAgUDAwMFAAAAAAABAgMEAAURBhIhMUEHExRRYSJxgTKRoSM0UkJisdHw/8QAGgEAAwADAQAAAAAAAAAAAAAAAgMEAAEFBv/EAC0RAAIBAgMFBgcAAAAAAAAAAAECAAMRBCExEhMUIpFhcaGxwfAjMkFRctHh/9oADAMBEQACEQA/AKZWBanjE4oWW2w9Ur'
+    };
     const avatarColors = {
       chris: { bg: '#1e3a5f', fg: '#93c5fd' },
       clio: { bg: '#3f1e5f', fg: '#c4b5fd' },
@@ -317,13 +321,9 @@ async function handleUI(): Promise<Response> {
     };
 
     function getAvatarHtml(name) {
-      if (hasPhoto[name]) {
-        return \`<img class="avatar" src="/ui/avatar/\${name}" alt="\${name}" onerror="this.outerHTML=getFallbackAvatar('\${name}')">\`;
+      if (avatarData[name]) {
+        return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
       }
-      return getFallbackAvatar(name);
-    }
-
-    function getFallbackAvatar(name) {
       const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
       const initial = (name || '?')[0];
       return \`<div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>\`;
@@ -439,49 +439,6 @@ async function handleUIMessages(request: Request): Promise<Response> {
   return json({ messages: messages.map(serializeMessage) });
 }
 
-// UI endpoint: Avatar proxy (fetches from notebook with auth)
-const AVATAR_MAP: Record<string, string> = {
-  clio: "clio.png",
-  domingo: "domingo.jpg",
-  zumie: "zumie.png",
-  // chris: no photo yet
-};
-
-async function handleUIAvatar(name: string): Promise<Response> {
-  const filename = AVATAR_MAP[name];
-  if (!filename) {
-    // Return 404 for unknown avatars
-    return new Response("Not found", { status: 404 });
-  }
-
-  const user = process.env.ONEDEV_USER;
-  const pass = process.env.ONEDEV_PASS;
-  if (!user || !pass) {
-    return new Response("Server misconfigured", { status: 500 });
-  }
-
-  const url = `https://dev.biginformatics.net/Team/notebook/~raw/main/staff/${filename}`;
-  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
-
-  const res = await fetch(url, {
-    headers: { Authorization: `Basic ${auth}` },
-  });
-
-  if (!res.ok) {
-    return new Response("Not found", { status: 404 });
-  }
-
-  const contentType = res.headers.get("content-type") || "image/png";
-  const body = await res.arrayBuffer();
-
-  return new Response(body, {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400", // Cache for 1 day
-    },
-  });
-}
-
 // UI endpoint: SSE stream (no auth, internal only)
 async function handleUIStream(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -554,9 +511,6 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui") return handleUI();
     if (path === "/ui/messages") return handleUIMessages(request);
     if (path === "/ui/stream") return handleUIStream(request);
-    
-    const avatarMatch = path.match(/^\/ui\/avatar\/([a-z]+)$/);
-    if (avatarMatch) return handleUIAvatar(avatarMatch[1]);
 
     const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
     const messageMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)$/);
