@@ -532,7 +532,6 @@ async function handleUI(): Promise<Response> {
     <span id="status" class="status">Connecting...</span>
   </div>
   <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌓</button>
-          <button id=\"soundToggle\" class=\"icon-button\" onclick=\"toggleSound()\" title=\"Mute notifications\">🔈</button>
   <div id="messages" class="messages"></div>
 
   <script>
@@ -1187,8 +1186,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
     <button onclick="loadMessages()">Refresh</button>
     <span id="status" class="status">Connecting...</span>
   </div>
+  <button id="soundToggle" class="theme-toggle" style="right:56px" onclick="toggleSound()" title="Toggle notification sound">🔈</button>
   <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌓</button>
-          <button id=\"soundToggle\" class=\"icon-button\" onclick=\"toggleSound()\" title=\"Mute notifications\">🔈</button>
   <div id="messages" class="messages"></div>
 
   <script>
