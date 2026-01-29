@@ -479,8 +479,8 @@ async function handleUI(): Promise<Response> {
     .filters { display: flex; gap: 12px; align-items: center; }
     .filter-label { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--muted-foreground); cursor: pointer; }
     .filter-label input { cursor: pointer; accent-color: var(--primary); }
-    .theme-toggle { position: fixed; top: 16px; right: 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); font-size: 1.125rem; padding: 8px; cursor: pointer; z-index: 100; transition: all 0.15s ease; }
-    .theme-toggle:hover { border-color: var(--ring); background: var(--secondary); }
+    .theme-toggle { position: fixed; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.25rem; padding: 8px; cursor: pointer; z-index: 100; opacity: 0.7; transition: opacity 0.15s ease; }
+    .theme-toggle:hover { opacity: 1; }
     .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
     /* Light mode */
     body.light {
@@ -989,8 +989,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .mark-read-btn { font-size: 0.6875rem; padding: 4px 10px; margin-left: 8px; background: rgba(56,189,248,0.15); border: 1px solid transparent; color: var(--primary); font-weight: 600; }
     .mark-read-btn:hover { background: var(--primary); color: var(--primary-foreground); }
     /* Theme toggle */
-    .theme-toggle { position: fixed; top: 16px; right: 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); font-size: 1.125rem; padding: 8px; cursor: pointer; z-index: 100; transition: all 0.15s ease; }
-    .theme-toggle:hover { border-color: var(--ring); background: var(--secondary); }
+    .theme-toggle { position: fixed; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.25rem; padding: 8px; cursor: pointer; z-index: 100; opacity: 0.7; transition: opacity 0.15s ease; }
+    .theme-toggle:hover { opacity: 1; }
     /* Compose form */
     .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
     .compose-row label { color: var(--muted-foreground); font-size: 0.8125rem; min-width: 70px; font-weight: 600; }
