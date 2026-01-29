@@ -7,6 +7,7 @@ import {
   type SendMessageInput 
 } from "./db/messages";
 import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
+import { subscribe, emit, type MailboxEvent } from "./events";
 
 const PORT = parseInt(process.env.PORT || "3100");
 
@@ -184,6 +185,16 @@ async function handleSend(
     metadata: body.metadata,
   });
 
+  // Emit real-time event to recipient
+  emit(recipient, {
+    type: "message",
+    recipient,
+    sender: auth.identity,
+    messageId: message.id.toString(),
+    title: body.title,
+    urgent: body.urgent || false,
+  });
+
   return json({ message: serializeMessage(message) }, 201);
 }
 
@@ -202,6 +213,13 @@ async function handleList(
     limit,
     cursor,
     sinceId: sinceId ? BigInt(sinceId) : undefined,
+  });
+
+  // Emit inbox check event
+  emit(auth.identity, {
+    type: "inbox_check",
+    mailbox: auth.identity,
+    action: "list",
   });
 
   return json({
@@ -229,6 +247,14 @@ async function handleAck(
   if (!message) {
     return error("Message not found", 404);
   }
+
+  // Emit inbox check event
+  emit(auth.identity, {
+    type: "inbox_check",
+    mailbox: auth.identity,
+    action: "ack",
+  });
+
   return json({ message: serializeMessage(message) });
 }
 
@@ -258,6 +284,14 @@ async function handleBatchAck(
 
   try {
     const result = await ackMessages(auth.identity, ids);
+
+    // Emit inbox check event
+    emit(auth.identity, {
+      type: "inbox_check",
+      mailbox: auth.identity,
+      action: "ack",
+    });
+
     return json({
       success: result.success.map(String),
       notFound: result.notFound.map(String),
@@ -316,6 +350,13 @@ async function handleSearch(
     from: from ? new Date(from) : undefined,
     to: to ? new Date(to) : undefined,
     limit,
+  });
+
+  // Emit inbox check event
+  emit(auth.identity, {
+    type: "inbox_check",
+    mailbox: auth.identity,
+    action: "search",
   });
 
   return json({ messages: messages.map(serializeMessage) });
@@ -1684,42 +1725,37 @@ async function handleStream(auth: AuthContext): Promise<Response> {
         }
       }, 30000);
       
-      // Poll for new messages every 5 seconds
-      // (In production, this would use Postgres NOTIFY/LISTEN)
-      let lastSeenId = 0n;
-      const pollInterval = setInterval(async () => {
+      // Subscribe to real-time events for this mailbox (instant delivery)
+      const unsubscribe = subscribe(recipient, (event: MailboxEvent) => {
         if (closed) return;
         try {
-          const result = await listMessages(recipient, { 
-            status: "unread", 
-            limit: 10,
-            sinceId: lastSeenId > 0n ? lastSeenId : undefined 
-          });
-          
-          for (const msg of result.messages) {
-            if (closed) break;
-            if (BigInt(msg.id) > lastSeenId) {
-              const event = {
-                id: msg.id.toString(),
-                sender: msg.sender,
-                title: msg.title,
-                urgent: msg.urgent,
-                createdAt: msg.createdAt.toISOString(),
-              };
-              controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(event)}\n\n`));
-              lastSeenId = BigInt(msg.id);
-            }
+          if (event.type === "message") {
+            const data = {
+              id: event.messageId,
+              sender: event.sender,
+              title: event.title,
+              urgent: event.urgent,
+            };
+            controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(data)}\n\n`));
+          } else if (event.type === "inbox_check") {
+            const data = {
+              mailbox: event.mailbox,
+              action: event.action,
+              timestamp: new Date().toISOString(),
+            };
+            controller.enqueue(encoder.encode(`event: inbox_check\ndata: ${JSON.stringify(data)}\n\n`));
           }
         } catch (err) {
-          if (!closed) console.error("[sse] Poll error:", err);
+          console.error("[sse] Event send error:", err);
+          closed = true;
         }
-      }, 5000);
+      });
       
       // Cleanup on close
       return () => {
         closed = true;
         clearInterval(pingInterval);
-        clearInterval(pollInterval);
+        unsubscribe();
         presenceListeners.delete(presenceHandler);
         removePresence(connId);
       };

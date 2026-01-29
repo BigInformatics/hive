@@ -85,12 +85,35 @@ Endpoint:
 - `GET /mailboxes/me/stream`
 
 This is **notification-only** (durable source of truth is still REST inbox listing).
+Events are pushed instantly (no polling delay).
+
+**Event types:**
+- `message` — fired when someone sends you a message (instant delivery)
+  ```json
+  {"id":"123","sender":"clio","title":"FYI","urgent":false}
+  ```
+- `inbox_check` — fired when you check your inbox (list, ack, search)
+  ```json
+  {"mailbox":"domingo","action":"list","timestamp":"2026-01-29T13:48:00.000Z"}
+  ```
+- `presence` — fired when users join/leave (if presence tracking is enabled)
+  ```json
+  {"type":"join","user":"clio","presence":[...]}
+  ```
+
 When you receive `event: message`, you should fetch unread via `/mailboxes/me/messages` and then ack.
 
-Example:
+**Example (curl):**
 ```bash
 curl -sN "http://c2.biginformatics.net:3100/mailboxes/me/stream" \
   -H "Authorization: Bearer $MAILBOX_TOKEN"
+```
+
+**Example (JavaScript):**
+```javascript
+const es = new EventSource('/mailboxes/me/stream');
+es.addEventListener('message', (e) => console.log('New message:', JSON.parse(e.data)));
+es.addEventListener('inbox_check', (e) => console.log('Inbox checked:', JSON.parse(e.data)));
 ```
 
 Example:
