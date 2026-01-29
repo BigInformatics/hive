@@ -742,9 +742,14 @@ async function handleUI(): Promise<Response> {
       });
       
       let refreshTimeout = null;
+      let initialLoadComplete = false;
+      setTimeout(() => { initialLoadComplete = true; }, 2000);
+      
       eventSource.addEventListener('message', (e) => {
-        // Play notification sound
-        playNotificationSound();
+        // Only play sound after initial load complete
+        if (initialLoadComplete) {
+          playNotificationSound();
+        }
         // Debounce: refresh at most every 500ms
         if (!refreshTimeout) {
           refreshTimeout = setTimeout(() => {
@@ -1458,9 +1463,14 @@ async function handleUIWithKey(key: string): Promise<Response> {
       });
       
       let refreshTimeout = null;
+      let initialLoadComplete = false;
+      setTimeout(() => { initialLoadComplete = true; }, 2000);
+      
       eventSource.addEventListener('message', (e) => {
-        // Play notification sound
-        playNotificationSound();
+        // Only play sound after initial load complete
+        if (initialLoadComplete) {
+          playNotificationSound();
+        }
         // Debounce: refresh at most every 500ms
         if (!refreshTimeout) {
           refreshTimeout = setTimeout(() => {
