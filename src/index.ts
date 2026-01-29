@@ -377,13 +377,14 @@ async function handleUI(): Promise<Response> {
     .new-message { animation: highlight 2s ease-out; }
     @keyframes highlight { from { background: #2a2a1a; } to { background: #1a1a1a; } }
     /* Presence indicators */
-    .presence-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; padding: 8px 12px; background: #111; border: 1px solid #333; border-radius: 8px; }
-    .presence-bar .label { font-size: 0.75rem; color: #666; text-transform: uppercase; margin-right: 8px; }
-    .presence-avatar { position: relative; width: 36px; height: 36px; }
+    .presence-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; padding: 10px 12px; background: #111; border: 1px solid #333; border-radius: 8px; }
+    .presence-bar .label { font-size: 0.75rem; color: #666; text-transform: uppercase; flex-shrink: 0; }
+    #presenceIndicators { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .presence-avatar { position: relative; width: 36px; height: 36px; flex-shrink: 0; margin-bottom: 14px; }
     .presence-avatar img, .presence-avatar .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; }
     .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid #555; transition: border-color 0.3s; }
     .presence-avatar.online .ring { border-color: #4ade80; box-shadow: 0 0 8px #4ade8055; }
-    .presence-avatar .name { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 0.625rem; color: #888; white-space: nowrap; }
+    .presence-avatar .name { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 0.625rem; color: #888; white-space: nowrap; }
     .presence-avatar.online .name { color: #4ade80; }
   </style>
 </head>
@@ -827,13 +828,14 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .compose-status.error { color: #f87171; }
     .reply-info { font-size: 0.875rem; color: #60a5fa; margin-bottom: 12px; padding: 8px; background: #1e293b; border-radius: 4px; }
     /* Presence indicators */
-    .presence-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; padding: 8px 12px; background: #111; border: 1px solid #333; border-radius: 8px; }
-    .presence-bar .label { font-size: 0.75rem; color: #666; text-transform: uppercase; margin-right: 8px; }
-    .presence-avatar { position: relative; width: 36px; height: 36px; }
+    .presence-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; padding: 10px 12px; background: #111; border: 1px solid #333; border-radius: 8px; }
+    .presence-bar .label { font-size: 0.75rem; color: #666; text-transform: uppercase; flex-shrink: 0; }
+    #presenceIndicators { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .presence-avatar { position: relative; width: 36px; height: 36px; flex-shrink: 0; margin-bottom: 14px; }
     .presence-avatar img, .presence-avatar .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; }
     .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid #555; transition: border-color 0.3s; }
     .presence-avatar.online .ring { border-color: #4ade80; box-shadow: 0 0 8px #4ade8055; }
-    .presence-avatar .name { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 0.625rem; color: #888; white-space: nowrap; }
+    .presence-avatar .name { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 0.625rem; color: #888; white-space: nowrap; }
     .presence-avatar.online .name { color: #4ade80; }
     body.light .presence-bar { background: #fff; border-color: #ddd; }
     body.light .presence-avatar .ring { border-color: #ccc; }
