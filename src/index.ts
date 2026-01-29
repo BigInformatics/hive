@@ -637,21 +637,6 @@ async function handleUI(): Promise<Response> {
       }
     }
 
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 880; // A5 note
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
-      } catch (e) {
-        // Audio not available, silently ignore
-      }
-    }
-
     function getAvatarHtml(name) {
       if (avatarData[name]) {
         return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
@@ -1329,21 +1314,6 @@ async function handleUIWithKey(key: string): Promise<Response> {
         o2.stop(now + 0.065);
       } catch (e) {
         // ignore
-      }
-    }
-
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 880; // A5 note
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
-      } catch (e) {
-        // Audio not available, silently ignore
       }
     }
 
