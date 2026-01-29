@@ -1569,9 +1569,11 @@ async function handleUIWithKey(key: string): Promise<Response> {
       eventSource.addEventListener('message', (e) => {
         try {
           const msg = JSON.parse(e.data);
+          console.log('SSE message:', { id: msg?.id, recipient: msg?.recipient, initialLoadComplete, alreadySeen: seenMessageIds.has(msg?.id), CURRENT_SENDER });
           if (msg?.id && seenMessageIds.has(msg.id)) return;
           if (msg?.id) seenMessageIds.add(msg.id);
           if (initialLoadComplete && msg?.recipient === CURRENT_SENDER) {
+            console.log('Playing notification sound!');
             playNotificationSound();
           }
         } catch (_) {
