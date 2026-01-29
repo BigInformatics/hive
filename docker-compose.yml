@@ -26,20 +26,23 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
-      # UI routes (no prefix stripping needed - app handles /ui/*)
+      # Service definition
+      - "traefik.http.services.mailbox-svc.loadbalancer.server.port=3100"
+      # Router for /ui (no prefix stripping)
       - "traefik.http.routers.mailbox-ui.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/ui`)"
       - "traefik.http.routers.mailbox-ui.entrypoints=websecure"
       - "traefik.http.routers.mailbox-ui.tls=true"
       - "traefik.http.routers.mailbox-ui.tls.certresolver=step-ca"
-      - "traefik.http.routers.mailbox-ui.service=mailbox-api"
-      # API routes (strip /api prefix)
+      - "traefik.http.routers.mailbox-ui.service=mailbox-svc"
+      # Router for /api (strip prefix)
       - "traefik.http.routers.mailbox-api.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/api`)"
       - "traefik.http.routers.mailbox-api.entrypoints=websecure"
       - "traefik.http.routers.mailbox-api.tls=true"
       - "traefik.http.routers.mailbox-api.tls.certresolver=step-ca"
-      - "traefik.http.routers.mailbox-api.middlewares=mailbox-api-stripprefix"
-      - "traefik.http.middlewares.mailbox-api-stripprefix.stripprefix.prefixes=/api"
-      - "traefik.http.services.mailbox-api.loadbalancer.server.port=3100"
+      - "traefik.http.routers.mailbox-api.service=mailbox-svc"
+      - "traefik.http.routers.mailbox-api.middlewares=mailbox-strip"
+      # Middleware to strip /api prefix
+      - "traefik.http.middlewares.mailbox-strip.stripprefix.prefixes=/api"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3100/healthz"]
       interval: 30s
