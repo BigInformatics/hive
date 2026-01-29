@@ -35,6 +35,68 @@ function initUIKeys() {
 
 initUIKeys();
 
+// ============================================================
+// PRESENCE TRACKING
+// ============================================================
+
+// Track active connections: Map<connectionId, { user: string, connectedAt: Date }>
+type PresenceEntry = { user: string; connectedAt: Date; type: 'ui' | 'api' };
+const activeConnections = new Map<string, PresenceEntry>();
+let connectionIdCounter = 0;
+
+// Presence change listeners (SSE controllers that want presence updates)
+type PresenceListener = (event: { type: 'join' | 'leave'; user: string; present: string[] }) => void;
+const presenceListeners = new Set<PresenceListener>();
+
+function generateConnectionId(): string {
+  return `conn_${++connectionIdCounter}_${Date.now()}`;
+}
+
+function getPresent(): string[] {
+  const users = new Set<string>();
+  for (const entry of activeConnections.values()) {
+    users.add(entry.user);
+  }
+  return Array.from(users).sort();
+}
+
+function addPresence(connId: string, user: string, type: 'ui' | 'api'): void {
+  const wasPresent = getPresent().includes(user);
+  activeConnections.set(connId, { user, connectedAt: new Date(), type });
+  
+  if (!wasPresent) {
+    const present = getPresent();
+    console.log(`[presence] ${user} joined (${present.length} online: ${present.join(', ')})`);
+    broadcastPresence('join', user, present);
+  }
+}
+
+function removePresence(connId: string): void {
+  const entry = activeConnections.get(connId);
+  if (!entry) return;
+  
+  activeConnections.delete(connId);
+  const stillPresent = getPresent().includes(entry.user);
+  
+  if (!stillPresent) {
+    const present = getPresent();
+    console.log(`[presence] ${entry.user} left (${present.length} online: ${present.join(', ')})`);
+    broadcastPresence('leave', entry.user, present);
+  }
+}
+
+function broadcastPresence(type: 'join' | 'leave', user: string, present: string[]): void {
+  for (const listener of presenceListeners) {
+    try {
+      listener({ type, user, present });
+    } catch (e) {
+      // Listener error, will be cleaned up when stream closes
+    }
+  }
+}
+
+// ============================================================
+
 // JSON response helpers
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -314,9 +376,22 @@ async function handleUI(): Promise<Response> {
     .badge.unread { background: #1e3a5f; color: #93c5fd; }
     .new-message { animation: highlight 2s ease-out; }
     @keyframes highlight { from { background: #2a2a1a; } to { background: #1a1a1a; } }
+    /* Presence indicators */
+    .presence-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; padding: 8px 12px; background: #111; border: 1px solid #333; border-radius: 8px; }
+    .presence-bar .label { font-size: 0.75rem; color: #666; text-transform: uppercase; margin-right: 8px; }
+    .presence-avatar { position: relative; width: 36px; height: 36px; }
+    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; }
+    .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid #555; transition: border-color 0.3s; }
+    .presence-avatar.online .ring { border-color: #4ade80; box-shadow: 0 0 8px #4ade8055; }
+    .presence-avatar .name { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 0.625rem; color: #888; white-space: nowrap; }
+    .presence-avatar.online .name { color: #4ade80; }
   </style>
 </head>
 <body>
+  <div class="presence-bar">
+    <span class="label">Online:</span>
+    <div id="presenceIndicators"></div>
+  </div>
   <h1>📬 Mailbox Viewer</h1>
   <div class="controls">
     <select id="recipient">
@@ -433,6 +508,27 @@ async function handleUI(): Promise<Response> {
       }
     }
 
+    // All known users for presence display
+    const allUsers = ['chris', 'clio', 'domingo', 'zumie'];
+    let currentPresent = [];
+
+    function renderPresence(present) {
+      currentPresent = present;
+      const container = document.getElementById('presenceIndicators');
+      container.innerHTML = allUsers.map(user => {
+        const isOnline = present.includes(user);
+        const colors = avatarColors[user] || { bg: '#333', fg: '#888' };
+        const initial = user[0].toUpperCase();
+        return \`
+          <div class="presence-avatar \${isOnline ? 'online' : ''}" title="\${user} - \${isOnline ? 'online' : 'offline'}">
+            <div class="ring"></div>
+            <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>
+            <span class="name">\${user}</span>
+          </div>
+        \`;
+      }).join('');
+    }
+
     function connectSSE() {
       const recipient = document.getElementById('recipient').value;
       const url = recipient ? '/ui/stream?recipient=' + recipient : '/ui/stream';
@@ -454,6 +550,18 @@ async function handleUI(): Promise<Response> {
         setTimeout(connectSSE, 3000);
       };
       
+      // Handle presence events
+      eventSource.addEventListener('presence', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.present) {
+            renderPresence(data.present);
+          }
+        } catch (err) {
+          console.error('Presence parse error:', err);
+        }
+      });
+      
       let refreshTimeout = null;
       eventSource.addEventListener('message', (e) => {
         // Debounce: refresh at most every 500ms
@@ -471,6 +579,8 @@ async function handleUI(): Promise<Response> {
       connectSSE();
     });
 
+    // Initial render with empty presence
+    renderPresence([]);
     loadMessages();
     connectSSE();
   </script>
@@ -515,13 +625,35 @@ async function handleUIMessages(request: Request): Promise<Response> {
 async function handleUIStream(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const recipient = url.searchParams.get("recipient") || undefined;
+  const viewer = url.searchParams.get("viewer") || undefined; // Who is viewing
+  
+  const connId = generateConnectionId();
   
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
       let closed = false;
       
+      // Track presence if viewer is specified
+      if (viewer) {
+        addPresence(connId, viewer, 'ui');
+      }
+      
+      // Send initial connection event with current presence
+      const present = getPresent();
       controller.enqueue(encoder.encode(`: connected to UI stream\n\n`));
+      controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ present })}\n\n`));
+      
+      // Listen for presence changes
+      const presenceHandler: PresenceListener = (event) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify(event)}\n\n`));
+        } catch {
+          closed = true;
+        }
+      };
+      presenceListeners.add(presenceHandler);
       
       const pingInterval = setInterval(() => {
         if (closed) return;
@@ -567,6 +699,10 @@ async function handleUIStream(request: Request): Promise<Response> {
         closed = true;
         clearInterval(pingInterval);
         clearInterval(pollInterval);
+        presenceListeners.delete(presenceHandler);
+        if (viewer) {
+          removePresence(connId);
+        }
       };
     },
   });
@@ -578,6 +714,11 @@ async function handleUIStream(request: Request): Promise<Response> {
       "Connection": "keep-alive",
     },
   });
+}
+
+// Presence endpoint - returns current online users
+async function handlePresence(): Promise<Response> {
+  return json({ present: getPresent() });
 }
 
 // UI with compose (keyed)
@@ -678,9 +819,27 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .compose-status.success { color: #4ade80; }
     .compose-status.error { color: #f87171; }
     .reply-info { font-size: 0.875rem; color: #60a5fa; margin-bottom: 12px; padding: 8px; background: #1e293b; border-radius: 4px; }
+    /* Presence indicators */
+    .presence-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; padding: 8px 12px; background: #111; border: 1px solid #333; border-radius: 8px; }
+    .presence-bar .label { font-size: 0.75rem; color: #666; text-transform: uppercase; margin-right: 8px; }
+    .presence-avatar { position: relative; width: 36px; height: 36px; }
+    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; }
+    .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid #555; transition: border-color 0.3s; }
+    .presence-avatar.online .ring { border-color: #4ade80; box-shadow: 0 0 8px #4ade8055; }
+    .presence-avatar .name { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 0.625rem; color: #888; white-space: nowrap; }
+    .presence-avatar.online .name { color: #4ade80; }
+    body.light .presence-bar { background: #fff; border-color: #ddd; }
+    body.light .presence-avatar .ring { border-color: #ccc; }
+    body.light .presence-avatar.online .ring { border-color: #22c55e; }
+    body.light .presence-avatar .name { color: #666; }
+    body.light .presence-avatar.online .name { color: #22c55e; }
   </style>
 </head>
 <body>
+  <div class="presence-bar">
+    <span class="label">Online:</span>
+    <div id="presenceIndicators"></div>
+  </div>
   <h1>📬 Mailbox - ${sender}</h1>
   
   <div id="composePanel" class="compose collapsed">
@@ -964,9 +1123,32 @@ async function handleUIWithKey(key: string): Promise<Response> {
       }
     }
 
+    // All known users for presence display
+    const allUsers = ['chris', 'clio', 'domingo', 'zumie'];
+    let currentPresent = [];
+
+    function renderPresence(present) {
+      currentPresent = present;
+      const container = document.getElementById('presenceIndicators');
+      container.innerHTML = allUsers.map(user => {
+        const isOnline = present.includes(user);
+        const colors = avatarColors[user] || { bg: '#333', fg: '#888' };
+        const initial = user[0].toUpperCase();
+        return \`
+          <div class="presence-avatar \${isOnline ? 'online' : ''}" title="\${user} - \${isOnline ? 'online' : 'offline'}">
+            <div class="ring"></div>
+            <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>
+            <span class="name">\${user}</span>
+          </div>
+        \`;
+      }).join('');
+    }
+
     function connectSSE() {
       const recipient = document.getElementById('recipient').value;
-      const url = recipient ? '/ui/stream?recipient=' + recipient : '/ui/stream';
+      // Include viewer param to track presence for current user
+      let url = '/ui/stream?viewer=' + encodeURIComponent(CURRENT_SENDER);
+      if (recipient) url += '&recipient=' + encodeURIComponent(recipient);
       
       if (eventSource) eventSource.close();
       eventSource = new EventSource(url);
@@ -981,6 +1163,18 @@ async function handleUIWithKey(key: string): Promise<Response> {
         document.getElementById('status').className = 'status';
         setTimeout(connectSSE, 3000);
       };
+      
+      // Handle presence events
+      eventSource.addEventListener('presence', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.present) {
+            renderPresence(data.present);
+          }
+        } catch (err) {
+          console.error('Presence parse error:', err);
+        }
+      });
       
       let refreshTimeout = null;
       eventSource.addEventListener('message', (e) => {
@@ -999,6 +1193,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
       connectSSE();
     });
 
+    // Initial render with empty presence
+    renderPresence([]);
     loadMessages();
     connectSSE();
   </script>
@@ -1146,6 +1342,7 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui") return handleUI();
     if (path === "/ui/messages") return handleUIMessages(request);
     if (path === "/ui/stream") return handleUIStream(request);
+    if (path === "/ui/presence") return handlePresence();
     
     // Keyed UI with compose
     const uiKeyMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)$/);
@@ -1256,20 +1453,40 @@ async function handleSkill(): Promise<Response> {
 // SSE stream for real-time message notifications
 async function handleStream(auth: AuthContext): Promise<Response> {
   const recipient = auth.identity;
+  const connId = generateConnectionId();
   
   // Create a readable stream for SSE
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
+      let closed = false;
       
-      // Send initial connection event
+      // Track presence for this authenticated user
+      addPresence(connId, recipient, 'api');
+      
+      // Send initial connection event with presence info
+      const present = getPresent();
       controller.enqueue(encoder.encode(`: connected to mailbox stream for ${recipient}\n\n`));
+      controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ present })}\n\n`));
+      
+      // Listen for presence changes
+      const presenceHandler: PresenceListener = (event) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify(event)}\n\n`));
+        } catch {
+          closed = true;
+        }
+      };
+      presenceListeners.add(presenceHandler);
       
       // Ping every 30 seconds to keep connection alive
       const pingInterval = setInterval(() => {
+        if (closed) return;
         try {
           controller.enqueue(encoder.encode(`: ping\n\n`));
         } catch {
+          closed = true;
           clearInterval(pingInterval);
         }
       }, 30000);
@@ -1278,6 +1495,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       // (In production, this would use Postgres NOTIFY/LISTEN)
       let lastSeenId = 0n;
       const pollInterval = setInterval(async () => {
+        if (closed) return;
         try {
           const result = await listMessages(recipient, { 
             status: "unread", 
@@ -1286,6 +1504,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
           });
           
           for (const msg of result.messages) {
+            if (closed) break;
             if (BigInt(msg.id) > lastSeenId) {
               const event = {
                 id: msg.id.toString(),
@@ -1299,14 +1518,17 @@ async function handleStream(auth: AuthContext): Promise<Response> {
             }
           }
         } catch (err) {
-          console.error("[sse] Poll error:", err);
+          if (!closed) console.error("[sse] Poll error:", err);
         }
       }, 5000);
       
       // Cleanup on close
       return () => {
+        closed = true;
         clearInterval(pingInterval);
         clearInterval(pollInterval);
+        presenceListeners.delete(presenceHandler);
+        removePresence(connId);
       };
     },
   });
