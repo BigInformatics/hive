@@ -532,6 +532,7 @@ async function handleUI(): Promise<Response> {
     <span id="status" class="status">Connecting...</span>
   </div>
   <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌓</button>
+          <button id=\"soundToggle\" class=\"icon-button\" onclick=\"toggleSound()\" title=\"Mute notifications\">🔈</button>
   <div id="messages" class="messages"></div>
 
   <script>
@@ -562,13 +563,80 @@ async function handleUI(): Promise<Response> {
       document.body.classList.add('light');
     }
 
-    // Notification sound (subtle ping using Web Audio API)
+    updateSoundButton();
+    // Global /ui is a read-only admin view: disable sound
+    soundEnabled = false;
+    try { document.getElementById('soundToggle')?.remove(); } catch (_) {}
+    // Notification sound (gentle "tink" using Web Audio API)
+    // - very short (~60ms), low volume
+    // - mute toggle stored in localStorage
+    // - only plays after a user gesture (AudioContext unlocked)
+    const SOUND_KEY = 'mailbox.soundEnabled';
+    let soundEnabled = JSON.parse(localStorage.getItem(SOUND_KEY) ?? 'true');
     let audioContext = null;
-    function playNotificationSound() {
+    let audioUnlocked = false;
+
+    function updateSoundButton() {
+      const btn = document.getElementById('soundToggle');
+      if (!btn) return;
+      btn.textContent = soundEnabled ? '🔈' : '🔇';
+      btn.title = soundEnabled ? 'Mute notifications' : 'Unmute notifications';
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem(SOUND_KEY, JSON.stringify(soundEnabled));
+      updateSoundButton();
+    }
+
+    async function ensureAudioUnlocked() {
       try {
         if (!audioContext) {
           audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+        audioUnlocked = true;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // First user gesture unlocks audio
+    document.addEventListener('pointerdown', () => { ensureAudioUnlocked(); }, { once: true });
+
+    function playNotificationSound() {
+      try {
+        if (!soundEnabled) return;
+        if (!audioUnlocked) return;
+        if (!audioContext) return;
+
+        const now = audioContext.currentTime;
+        const gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(0.0, now);
+        gainNode.gain.linearRampToValueAtTime(0.03, now + 0.005);
+        gainNode.gain.linearRampToValueAtTime(0.0, now + 0.065);
+        gainNode.connect(audioContext.destination);
+
+        const o1 = audioContext.createOscillator();
+        o1.type = 'sine';
+        o1.frequency.setValueAtTime(1320, now);
+        o1.connect(gainNode);
+        o1.start(now);
+        o1.stop(now + 0.020);
+
+        const o2 = audioContext.createOscillator();
+        o2.type = 'sine';
+        o2.frequency.setValueAtTime(880, now + 0.020);
+        o2.connect(gainNode);
+        o2.start(now + 0.020);
+        o2.stop(now + 0.065);
+      } catch (e) {
+        // ignore
+      }
+    }
+
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         oscillator.connect(gainNode);
@@ -743,13 +811,11 @@ async function handleUI(): Promise<Response> {
       
       let refreshTimeout = null;
       let initialLoadComplete = false;
+      const seenMessageIds = new Set();
       setTimeout(() => { initialLoadComplete = true; }, 2000);
       
       eventSource.addEventListener('message', (e) => {
-        // Only play sound after initial load complete
-        if (initialLoadComplete) {
-          playNotificationSound();
-        }
+        // (no sound in global /ui view)
         // Debounce: refresh at most every 500ms
         if (!refreshTimeout) {
           refreshTimeout = setTimeout(() => {
@@ -1137,6 +1203,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     <span id="status" class="status">Connecting...</span>
   </div>
   <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌓</button>
+          <button id=\"soundToggle\" class=\"icon-button\" onclick=\"toggleSound()\" title=\"Mute notifications\">🔈</button>
   <div id="messages" class="messages"></div>
 
   <script>
@@ -1186,6 +1253,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
       if (localStorage.getItem('theme') === 'light') {
         document.body.classList.add('light');
       }
+
+    updateSoundButton();
     });
 
     // Theme toggle
@@ -1193,14 +1262,76 @@ async function handleUIWithKey(key: string): Promise<Response> {
       const isLight = document.body.classList.toggle('light');
       localStorage.setItem('theme', isLight ? 'light' : 'dark');
     }
-
-    // Notification sound (subtle ping using Web Audio API)
+    // Notification sound (gentle "tink" using Web Audio API)
+    // - very short (~60ms), low volume
+    // - mute toggle stored in localStorage
+    // - only plays after a user gesture (AudioContext unlocked)
+    const SOUND_KEY = 'mailbox.soundEnabled';
+    let soundEnabled = JSON.parse(localStorage.getItem(SOUND_KEY) ?? 'true');
     let audioContext = null;
-    function playNotificationSound() {
+    let audioUnlocked = false;
+
+    function updateSoundButton() {
+      const btn = document.getElementById('soundToggle');
+      if (!btn) return;
+      btn.textContent = soundEnabled ? '🔈' : '🔇';
+      btn.title = soundEnabled ? 'Mute notifications' : 'Unmute notifications';
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem(SOUND_KEY, JSON.stringify(soundEnabled));
+      updateSoundButton();
+    }
+
+    async function ensureAudioUnlocked() {
       try {
         if (!audioContext) {
           audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+        audioUnlocked = true;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // First user gesture unlocks audio
+    document.addEventListener('pointerdown', () => { ensureAudioUnlocked(); }, { once: true });
+
+    function playNotificationSound() {
+      try {
+        if (!soundEnabled) return;
+        if (!audioUnlocked) return;
+        if (!audioContext) return;
+
+        const now = audioContext.currentTime;
+        const gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(0.0, now);
+        gainNode.gain.linearRampToValueAtTime(0.03, now + 0.005);
+        gainNode.gain.linearRampToValueAtTime(0.0, now + 0.065);
+        gainNode.connect(audioContext.destination);
+
+        const o1 = audioContext.createOscillator();
+        o1.type = 'sine';
+        o1.frequency.setValueAtTime(1320, now);
+        o1.connect(gainNode);
+        o1.start(now);
+        o1.stop(now + 0.020);
+
+        const o2 = audioContext.createOscillator();
+        o2.type = 'sine';
+        o2.frequency.setValueAtTime(880, now + 0.020);
+        o2.connect(gainNode);
+        o2.start(now + 0.020);
+        o2.stop(now + 0.065);
+      } catch (e) {
+        // ignore
+      }
+    }
+
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         oscillator.connect(gainNode);
@@ -1464,14 +1595,20 @@ async function handleUIWithKey(key: string): Promise<Response> {
       
       let refreshTimeout = null;
       let initialLoadComplete = false;
+      const seenMessageIds = new Set();
       setTimeout(() => { initialLoadComplete = true; }, 2000);
       
       eventSource.addEventListener('message', (e) => {
-        // Only play sound after initial load complete
-        if (initialLoadComplete) {
-          playNotificationSound();
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg?.id && seenMessageIds.has(msg.id)) return;
+          if (msg?.id) seenMessageIds.add(msg.id);
+          if (initialLoadComplete && msg?.recipient === CURRENT_SENDER) {
+            playNotificationSound();
+          }
+        } catch (_) {
+          // ignore
         }
-        // Debounce: refresh at most every 500ms
         if (!refreshTimeout) {
           refreshTimeout = setTimeout(() => {
             loadMessages();
