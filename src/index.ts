@@ -1476,7 +1476,11 @@ async function handleUIWithKey(key: string): Promise<Response> {
       
       if (data.messages.length > 0) {
         lastId = data.messages[0].id;
+        // Add all loaded messages to seen set (so we don't beep on reconnect)
+        data.messages.forEach(m => seenMessageIds.add(m.id));
       }
+      // Mark initial load complete (enable sounds for truly new messages)
+      initialLoadComplete = true;
     }
 
     // Presence state with lastSeen timestamps
@@ -1524,6 +1528,10 @@ async function handleUIWithKey(key: string): Promise<Response> {
     // Update presence colors every 30 seconds for fade effect
     setInterval(() => renderPresence(), 30000);
 
+    // Track seen messages globally (persists across SSE reconnects)
+    const seenMessageIds = new Set();
+    let initialLoadComplete = false;
+
     function connectSSE() {
       const recipient = document.getElementById('recipient').value;
       // Include viewer param to track presence for current user
@@ -1557,9 +1565,6 @@ async function handleUIWithKey(key: string): Promise<Response> {
       });
       
       let refreshTimeout = null;
-      let initialLoadComplete = false;
-      const seenMessageIds = new Set();
-      setTimeout(() => { initialLoadComplete = true; }, 2000);
       
       eventSource.addEventListener('message', (e) => {
         try {
