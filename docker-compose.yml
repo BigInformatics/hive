@@ -9,6 +9,7 @@ services:
       - "3100:3100"
     environment:
       - PORT=3100
+      - HOST=0.0.0.0
       - PGHOST=${PGHOST}
       - PGPORT=${PGPORT:-5432}
       - PGUSER=${PGUSER}
@@ -20,9 +21,23 @@ services:
       - MAILBOX_TOKEN_CHRIS=${MAILBOX_TOKEN_CHRIS}
       - MAILBOX_ADMIN_TOKEN=${MAILBOX_ADMIN_TOKEN}
       - UI_MAILBOX_KEYS=${UI_MAILBOX_KEYS:-SET_ME}
+    networks:
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.mailbox-api.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/ui`)"
+      - "traefik.http.routers.mailbox-api.entrypoints=websecure"
+      - "traefik.http.routers.mailbox-api.tls=true"
+      - "traefik.http.routers.mailbox-api.tls.certresolver=step-ca"
+      - "traefik.http.services.mailbox-api.loadbalancer.server.port=3100"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3100/healthz"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 5s
+
+networks:
+  dokploy-network:
+    external: true
