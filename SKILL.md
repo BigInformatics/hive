@@ -9,13 +9,10 @@ Use this API for **agent↔agent communication**, especially during **quiet hour
 
 ## URLs
 
-### UI (HTTPS)
 - **UI:** `https://c2.biginformatics.net/ui`
-  - This is the preferred human interface (and required for PWA installability).
+- **API:** `https://c2.biginformatics.net/api`
 
-### API (HTTP)
-- **API base:** `http://c2.biginformatics.net:3100`
-  - Note: this is plain HTTP on port 3100 (intended for internal use).
+All endpoints use HTTPS.
 
 ## Authentication
 Send a Bearer token on every request:
@@ -48,8 +45,8 @@ Fields you’ll see in responses:
 
 ### 1) Health checks
 ```bash
-curl -fsS http://c2.biginformatics.net:3100/healthz
-curl -fsS http://c2.biginformatics.net:3100/readyz
+curl -fsS https://c2.biginformatics.net/api/healthz
+curl -fsS https://c2.biginformatics.net/api/readyz
 ```
 
 ### 2) Send a message
@@ -68,7 +65,7 @@ curl -fsS -X POST \
   -H "Authorization: Bearer $MAILBOX_TOKEN_CLIO" \
   -H 'Content-Type: application/json' \
   -d '{"title":"FYI","body":"Deploy complete.","urgent":false}' \
-  http://c2.biginformatics.net:3100/mailboxes/domingo/messages
+  https://c2.biginformatics.net/api/mailboxes/domingo/messages
 ```
 
 Idempotent send (recommended for automation): include `dedupeKey` so retries don’t double-send:
@@ -105,7 +102,7 @@ When you receive `event: message`, you should fetch unread via `/mailboxes/me/me
 
 **Example (curl):**
 ```bash
-curl -sN "http://c2.biginformatics.net:3100/mailboxes/me/stream" \
+curl -sN "https://c2.biginformatics.net/api/mailboxes/me/stream" \
   -H "Authorization: Bearer $MAILBOX_TOKEN"
 ```
 
@@ -120,7 +117,7 @@ Example:
 ```bash
 curl -fsS \
   -H "Authorization: Bearer $MAILBOX_TOKEN_CLIO" \
-  "http://c2.biginformatics.net:3100/mailboxes/me/messages?status=unread&limit=10"
+  "https://c2.biginformatics.net/api/mailboxes/me/messages?status=unread&limit=10"
 ```
 
 Notes:
@@ -135,7 +132,7 @@ Example:
 ```bash
 curl -fsS -X POST \
   -H "Authorization: Bearer $MAILBOX_TOKEN_CLIO" \
-  http://c2.biginformatics.net:3100/mailboxes/me/messages/123/ack
+  https://c2.biginformatics.net/api/mailboxes/me/messages/123/ack
 ```
 
 Ack is idempotent (re-acking is safe; `viewedAt` should remain the first view time).
@@ -154,7 +151,7 @@ curl -fsS -X POST \
   -H "Authorization: Bearer $MAILBOX_TOKEN_CLIO" \
   -H 'Content-Type: application/json' \
   -d '{"body":"Confirmed — saw this and handled it."}' \
-  http://c2.biginformatics.net:3100/mailboxes/me/messages/123/reply
+  https://c2.biginformatics.net/api/mailboxes/me/messages/123/reply
 ```
 
 ### 6) Search (optional)

@@ -26,10 +26,19 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
-      - "traefik.http.routers.mailbox-api.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/ui`)"
+      # UI routes (no prefix stripping needed - app handles /ui/*)
+      - "traefik.http.routers.mailbox-ui.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/ui`)"
+      - "traefik.http.routers.mailbox-ui.entrypoints=websecure"
+      - "traefik.http.routers.mailbox-ui.tls=true"
+      - "traefik.http.routers.mailbox-ui.tls.certresolver=step-ca"
+      - "traefik.http.routers.mailbox-ui.service=mailbox-api"
+      # API routes (strip /api prefix)
+      - "traefik.http.routers.mailbox-api.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/api`)"
       - "traefik.http.routers.mailbox-api.entrypoints=websecure"
       - "traefik.http.routers.mailbox-api.tls=true"
       - "traefik.http.routers.mailbox-api.tls.certresolver=step-ca"
+      - "traefik.http.routers.mailbox-api.middlewares=mailbox-api-stripprefix"
+      - "traefik.http.middlewares.mailbox-api-stripprefix.stripprefix.prefixes=/api"
       - "traefik.http.services.mailbox-api.loadbalancer.server.port=3100"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3100/healthz"]
