@@ -1540,7 +1540,9 @@ async function handleAvatar(name: string, ext: string): Promise<Response> {
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const method = request.method;
-  const path = url.pathname;
+  // Strip /api prefix if present (allows both /api/healthz and /healthz)
+  const rawPath = url.pathname;
+  const path = rawPath.startsWith("/api/") ? rawPath.slice(4) : rawPath.replace(/^\/api$/, "/");
 
   try {
     if (path === "/healthz") return handleHealthz();
