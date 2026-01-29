@@ -562,6 +562,28 @@ async function handleUI(): Promise<Response> {
       document.body.classList.add('light');
     }
 
+    // Notification sound (subtle ping using Web Audio API)
+    let audioContext = null;
+    function playNotificationSound() {
+      try {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 880; // A5 note
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } catch (e) {
+        // Audio not available, silently ignore
+      }
+    }
+
     function getAvatarHtml(name) {
       if (avatarData[name]) {
         return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
@@ -721,6 +743,8 @@ async function handleUI(): Promise<Response> {
       
       let refreshTimeout = null;
       eventSource.addEventListener('message', (e) => {
+        // Play notification sound
+        playNotificationSound();
         // Debounce: refresh at most every 500ms
         if (!refreshTimeout) {
           refreshTimeout = setTimeout(() => {
@@ -1165,6 +1189,28 @@ async function handleUIWithKey(key: string): Promise<Response> {
       localStorage.setItem('theme', isLight ? 'light' : 'dark');
     }
 
+    // Notification sound (subtle ping using Web Audio API)
+    let audioContext = null;
+    function playNotificationSound() {
+      try {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 880; // A5 note
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } catch (e) {
+        // Audio not available, silently ignore
+      }
+    }
+
     // Mark message as read
     async function markAsRead(msgId) {
       try {
@@ -1413,6 +1459,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
       
       let refreshTimeout = null;
       eventSource.addEventListener('message', (e) => {
+        // Play notification sound
+        playNotificationSound();
         // Debounce: refresh at most every 500ms
         if (!refreshTimeout) {
           refreshTimeout = setTimeout(() => {
