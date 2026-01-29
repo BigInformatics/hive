@@ -419,6 +419,32 @@ async function handleUI(): Promise<Response> {
     .filter-label input { cursor: pointer; accent-color: var(--primary); }
     .theme-toggle { background: transparent; border: none; font-size: 1.125rem; padding: 6px; margin-left: auto; }
     .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
+    /* Light mode */
+    body.light {
+      --background: #fafafa;
+      --foreground: #18181b;
+      --card: #ffffff;
+      --card-foreground: #18181b;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #f4f4f5;
+      --secondary-foreground: #18181b;
+      --muted: #f4f4f5;
+      --muted-foreground: #71717a;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --border: #e4e4e7;
+      --input: #e4e4e7;
+      --ring: #a1a1aa;
+    }
+    body.light .message.unread { background: #f0f9ff; }
+    body.light .message.selected { background: #e0f2fe; }
+    body.light .badge.urgent { background: rgba(245,158,11,0.1); color: #d97706; }
+    body.light .badge.unread { background: rgba(14,165,233,0.1); color: #0284c7; }
+    body.light .presence-avatar .ring { border-color: #d4d4d8; }
+    body.light .presence-avatar.online .ring { border-color: #22c55e; }
+    body.light .presence-avatar .name { color: #71717a; }
+    body.light .presence-avatar.online .name { color: #16a34a; }
   </style>
 </head>
 <body>
@@ -462,6 +488,16 @@ async function handleUI(): Promise<Response> {
       domingo: { bg: '#1e5f3a', fg: '#86efac' },
       zumie: { bg: '#5f3a1e', fg: '#fcd34d' }
     };
+
+    // Theme toggle
+    function toggleTheme() {
+      const isLight = document.body.classList.toggle('light');
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    }
+    // Restore theme on load
+    if (localStorage.getItem('theme') === 'light') {
+      document.body.classList.add('light');
+    }
 
     function getAvatarHtml(name) {
       if (avatarData[name]) {
@@ -881,6 +917,37 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .presence-avatar .name { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); font-size: 0.5625rem; color: var(--muted-foreground); white-space: nowrap; font-weight: 600; }
     .presence-avatar.online .name { color: #22c55e; }
     .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
+    /* Light mode */
+    body.light {
+      --background: #fafafa;
+      --foreground: #18181b;
+      --card: #ffffff;
+      --card-foreground: #18181b;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #f4f4f5;
+      --secondary-foreground: #18181b;
+      --muted: #f4f4f5;
+      --muted-foreground: #71717a;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --border: #e4e4e7;
+      --input: #e4e4e7;
+      --ring: #a1a1aa;
+    }
+    body.light .compose { background: var(--card); border-color: var(--border); }
+    body.light .compose-header:hover { background: var(--secondary); }
+    body.light .message.unread { background: #f0f9ff; }
+    body.light .message.selected { background: #e0f2fe; }
+    body.light .badge.urgent { background: rgba(245,158,11,0.1); color: #d97706; }
+    body.light .badge.unread { background: rgba(14,165,233,0.1); color: #0284c7; }
+    body.light .reply-info { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; }
+    body.light .mark-read-btn { background: #e0f2fe; color: #0369a1; }
+    body.light .mark-read-btn:hover { background: var(--primary); color: white; }
+    body.light .presence-avatar .ring { border-color: #d4d4d8; }
+    body.light .presence-avatar.online .ring { border-color: #22c55e; }
+    body.light .presence-avatar .name { color: #71717a; }
+    body.light .presence-avatar.online .name { color: #16a34a; }
   </style>
 </head>
 <body>
