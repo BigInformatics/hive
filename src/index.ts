@@ -44,9 +44,14 @@ type PresenceEntry = { user: string; connectedAt: Date; type: 'ui' | 'api' };
 const activeConnections = new Map<string, PresenceEntry>();
 let connectionIdCounter = 0;
 
+// Track last seen time for each user (persists after disconnect for fade effect)
+const userLastSeen = new Map<string, number>(); // user -> timestamp
+
 // Presence change listeners (SSE controllers that want presence updates)
-type PresenceListener = (event: { type: 'join' | 'leave'; user: string; present: string[] }) => void;
+type PresenceListener = (event: { type: 'join' | 'leave'; user: string; presence: PresenceInfo[] }) => void;
 const presenceListeners = new Set<PresenceListener>();
+
+type PresenceInfo = { user: string; online: boolean; lastSeen: number };
 
 function generateConnectionId(): string {
   return `conn_${++connectionIdCounter}_${Date.now()}`;
@@ -60,14 +65,27 @@ function getPresent(): string[] {
   return Array.from(users).sort();
 }
 
+function getPresenceInfo(): PresenceInfo[] {
+  const allUsers = ['chris', 'clio', 'domingo', 'zumie'];
+  const onlineUsers = getPresent();
+  const now = Date.now();
+  
+  return allUsers.map(user => ({
+    user,
+    online: onlineUsers.includes(user),
+    lastSeen: onlineUsers.includes(user) ? now : (userLastSeen.get(user) || 0)
+  }));
+}
+
 function addPresence(connId: string, user: string, type: 'ui' | 'api'): void {
   const wasPresent = getPresent().includes(user);
   activeConnections.set(connId, { user, connectedAt: new Date(), type });
+  userLastSeen.set(user, Date.now()); // Update last seen
   
   if (!wasPresent) {
-    const present = getPresent();
-    console.log(`[presence] ${user} joined (${present.length} online: ${present.join(', ')})`);
-    broadcastPresence('join', user, present);
+    const presence = getPresenceInfo();
+    console.log(`[presence] ${user} joined (${getPresent().length} online: ${getPresent().join(', ')})`);
+    broadcastPresence('join', user, presence);
   }
 }
 
@@ -76,19 +94,20 @@ function removePresence(connId: string): void {
   if (!entry) return;
   
   activeConnections.delete(connId);
+  userLastSeen.set(entry.user, Date.now()); // Record when they left
   const stillPresent = getPresent().includes(entry.user);
   
   if (!stillPresent) {
-    const present = getPresent();
-    console.log(`[presence] ${entry.user} left (${present.length} online: ${present.join(', ')})`);
-    broadcastPresence('leave', entry.user, present);
+    const presence = getPresenceInfo();
+    console.log(`[presence] ${entry.user} left (${getPresent().length} online: ${getPresent().join(', ')})`);
+    broadcastPresence('leave', entry.user, presence);
   }
 }
 
-function broadcastPresence(type: 'join' | 'leave', user: string, present: string[]): void {
+function broadcastPresence(type: 'join' | 'leave', user: string, presence: PresenceInfo[]): void {
   for (const listener of presenceListeners) {
     try {
-      listener({ type, user, present });
+      listener({ type, user, presence });
     } catch (e) {
       // Listener error, will be cleaned up when stream closes
     }
@@ -578,26 +597,50 @@ async function handleUI(): Promise<Response> {
       }
     }
 
-    // All known users for presence display
-    const allUsers = ['chris', 'clio', 'domingo', 'zumie'];
-    let currentPresent = [];
+    // Presence state with lastSeen timestamps
+    let presenceData = [];
+    const FADE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
-    function renderPresence(present) {
-      currentPresent = present;
+    function getPresenceColor(info) {
+      if (info.online) return { ring: '#22c55e', shadow: 'rgba(34,197,94,0.4)', name: '#22c55e' };
+      if (!info.lastSeen) return { ring: 'var(--muted)', shadow: 'none', name: 'var(--muted-foreground)' };
+      
+      const elapsed = Date.now() - info.lastSeen;
+      const fadeRatio = Math.min(elapsed / FADE_DURATION_MS, 1);
+      
+      // Interpolate from green to grey
+      const g = Math.round(197 - (197 - 113) * fadeRatio); // 197 (green) -> 113 (grey)
+      const r = Math.round(34 + (113 - 34) * fadeRatio);   // 34 -> 113
+      const b = Math.round(94 + (113 - 94) * fadeRatio);   // 94 -> 113
+      const opacity = 0.4 - (0.4 * fadeRatio);
+      
+      return {
+        ring: \`rgb(\${r},\${g},\${b})\`,
+        shadow: opacity > 0.05 ? \`rgba(\${r},\${g},\${b},\${opacity})\` : 'none',
+        name: \`rgb(\${r},\${g},\${b})\`
+      };
+    }
+
+    function renderPresence(presence) {
+      presenceData = presence || presenceData;
       const container = document.getElementById('presenceIndicators');
-      container.innerHTML = allUsers.map(user => {
-        const isOnline = present.includes(user);
-        const colors = avatarColors[user] || { bg: '#333', fg: '#888' };
-        const initial = user[0].toUpperCase();
+      container.innerHTML = presenceData.map(info => {
+        const colors = avatarColors[info.user] || { bg: '#333', fg: '#888' };
+        const initial = info.user[0].toUpperCase();
+        const pc = getPresenceColor(info);
+        const status = info.online ? 'online' : (info.lastSeen ? \`last seen \${Math.round((Date.now() - info.lastSeen) / 60000)}m ago\` : 'offline');
         return \`
-          <div class="presence-avatar \${isOnline ? 'online' : ''}" title="\${user} - \${isOnline ? 'online' : 'offline'}">
-            <div class="ring"></div>
+          <div class="presence-avatar" title="\${info.user} - \${status}">
+            <div class="ring" style="border-color:\${pc.ring};box-shadow:0 0 10px \${pc.shadow}"></div>
             <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>
-            <span class="name">\${user}</span>
+            <span class="name" style="color:\${pc.name}">\${info.user}</span>
           </div>
         \`;
       }).join('');
     }
+
+    // Update presence colors every 30 seconds for fade effect
+    setInterval(() => renderPresence(), 30000);
 
     function connectSSE() {
       const recipient = document.getElementById('recipient').value;
@@ -610,12 +653,12 @@ async function handleUI(): Promise<Response> {
       eventSource = new EventSource(url);
       
       eventSource.onopen = () => {
-        document.getElementById('status').textContent = '🟢 Connected (live)';
+        document.getElementById('status').textContent = 'Connected';
         document.getElementById('status').className = 'status connected';
       };
       
       eventSource.onerror = () => {
-        document.getElementById('status').textContent = '🔴 Disconnected';
+        document.getElementById('status').textContent = 'Disconnected';
         document.getElementById('status').className = 'status';
         setTimeout(connectSSE, 3000);
       };
@@ -624,8 +667,8 @@ async function handleUI(): Promise<Response> {
       eventSource.addEventListener('presence', (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.present) {
-            renderPresence(data.present);
+          if (data.presence) {
+            renderPresence(data.presence);
           }
         } catch (err) {
           console.error('Presence parse error:', err);
@@ -649,8 +692,13 @@ async function handleUI(): Promise<Response> {
       connectSSE();
     });
 
-    // Initial render with empty presence
-    renderPresence([]);
+    // Initial render with default presence (all offline)
+    renderPresence([
+      { user: 'chris', online: false, lastSeen: 0 },
+      { user: 'clio', online: false, lastSeen: 0 },
+      { user: 'domingo', online: false, lastSeen: 0 },
+      { user: 'zumie', online: false, lastSeen: 0 }
+    ]);
     loadMessages();
     connectSSE();
   </script>
@@ -717,9 +765,9 @@ async function handleUIStream(request: Request): Promise<Response> {
       }
       
       // Send initial connection event with current presence
-      const present = getPresent();
+      const presence = getPresenceInfo();
       controller.enqueue(encoder.encode(`: connected to UI stream\n\n`));
-      controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ present })}\n\n`));
+      controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
       
       // Listen for presence changes
       const presenceHandler: PresenceListener = (event) => {
@@ -795,7 +843,7 @@ async function handleUIStream(request: Request): Promise<Response> {
 
 // Presence endpoint - returns current online users
 async function handlePresence(): Promise<Response> {
-  return json({ present: getPresent() });
+  return json({ presence: getPresenceInfo() });
 }
 
 // UI with compose (keyed)
@@ -1238,26 +1286,50 @@ async function handleUIWithKey(key: string): Promise<Response> {
       }
     }
 
-    // All known users for presence display
-    const allUsers = ['chris', 'clio', 'domingo', 'zumie'];
-    let currentPresent = [];
+    // Presence state with lastSeen timestamps
+    let presenceData = [];
+    const FADE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
-    function renderPresence(present) {
-      currentPresent = present;
+    function getPresenceColor(info) {
+      if (info.online) return { ring: '#22c55e', shadow: 'rgba(34,197,94,0.4)', name: '#22c55e' };
+      if (!info.lastSeen) return { ring: 'var(--muted)', shadow: 'none', name: 'var(--muted-foreground)' };
+      
+      const elapsed = Date.now() - info.lastSeen;
+      const fadeRatio = Math.min(elapsed / FADE_DURATION_MS, 1);
+      
+      // Interpolate from green to grey
+      const g = Math.round(197 - (197 - 113) * fadeRatio);
+      const r = Math.round(34 + (113 - 34) * fadeRatio);
+      const b = Math.round(94 + (113 - 94) * fadeRatio);
+      const opacity = 0.4 - (0.4 * fadeRatio);
+      
+      return {
+        ring: \`rgb(\${r},\${g},\${b})\`,
+        shadow: opacity > 0.05 ? \`rgba(\${r},\${g},\${b},\${opacity})\` : 'none',
+        name: \`rgb(\${r},\${g},\${b})\`
+      };
+    }
+
+    function renderPresence(presence) {
+      presenceData = presence || presenceData;
       const container = document.getElementById('presenceIndicators');
-      container.innerHTML = allUsers.map(user => {
-        const isOnline = present.includes(user);
-        const colors = avatarColors[user] || { bg: '#333', fg: '#888' };
-        const initial = user[0].toUpperCase();
+      container.innerHTML = presenceData.map(info => {
+        const colors = avatarColors[info.user] || { bg: '#333', fg: '#888' };
+        const initial = info.user[0].toUpperCase();
+        const pc = getPresenceColor(info);
+        const status = info.online ? 'online' : (info.lastSeen ? \`last seen \${Math.round((Date.now() - info.lastSeen) / 60000)}m ago\` : 'offline');
         return \`
-          <div class="presence-avatar \${isOnline ? 'online' : ''}" title="\${user} - \${isOnline ? 'online' : 'offline'}">
-            <div class="ring"></div>
+          <div class="presence-avatar" title="\${info.user} - \${status}">
+            <div class="ring" style="border-color:\${pc.ring};box-shadow:0 0 10px \${pc.shadow}"></div>
             <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>
-            <span class="name">\${user}</span>
+            <span class="name" style="color:\${pc.name}">\${info.user}</span>
           </div>
         \`;
       }).join('');
     }
+
+    // Update presence colors every 30 seconds for fade effect
+    setInterval(() => renderPresence(), 30000);
 
     function connectSSE() {
       const recipient = document.getElementById('recipient').value;
@@ -1269,12 +1341,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
       eventSource = new EventSource(url);
       
       eventSource.onopen = () => {
-        document.getElementById('status').textContent = '🟢 Connected (live)';
+        document.getElementById('status').textContent = 'Connected';
         document.getElementById('status').className = 'status connected';
       };
       
       eventSource.onerror = () => {
-        document.getElementById('status').textContent = '🔴 Disconnected';
+        document.getElementById('status').textContent = 'Disconnected';
         document.getElementById('status').className = 'status';
         setTimeout(connectSSE, 3000);
       };
@@ -1283,8 +1355,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
       eventSource.addEventListener('presence', (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.present) {
-            renderPresence(data.present);
+          if (data.presence) {
+            renderPresence(data.presence);
           }
         } catch (err) {
           console.error('Presence parse error:', err);
@@ -1308,8 +1380,13 @@ async function handleUIWithKey(key: string): Promise<Response> {
       connectSSE();
     });
 
-    // Initial render with empty presence
-    renderPresence([]);
+    // Initial render with default presence (all offline)
+    renderPresence([
+      { user: 'chris', online: false, lastSeen: 0 },
+      { user: 'clio', online: false, lastSeen: 0 },
+      { user: 'domingo', online: false, lastSeen: 0 },
+      { user: 'zumie', online: false, lastSeen: 0 }
+    ]);
     loadMessages();
     connectSSE();
   </script>
@@ -1581,9 +1658,9 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       addPresence(connId, recipient, 'api');
       
       // Send initial connection event with presence info
-      const present = getPresent();
+      const presence = getPresenceInfo();
       controller.enqueue(encoder.encode(`: connected to mailbox stream for ${recipient}\n\n`));
-      controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ present })}\n\n`));
+      controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
       
       // Listen for presence changes
       const presenceHandler: PresenceListener = (event) => {
