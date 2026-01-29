@@ -161,6 +161,35 @@ curl -fsS -X POST \
 Endpoint:
 - `GET /mailboxes/me/messages/search?q=...&from=...&to=...&limit=...`
 
+### 7) Presence (who's online + unread counts)
+Endpoint:
+- `GET /ui/presence` (no auth required, internal only)
+
+Returns current online status and **unread message counts** for all users:
+```json
+{
+  "presence": [
+    {"user": "chris", "online": true, "lastSeen": 1769695917308, "unread": 2},
+    {"user": "clio", "online": false, "lastSeen": 1769690000000, "unread": 0},
+    {"user": "domingo", "online": true, "lastSeen": 1769695917308, "unread": 5},
+    {"user": "zumie", "online": false, "lastSeen": 0, "unread": 1}
+  ]
+}
+```
+
+Fields:
+- `user` — mailbox identity
+- `online` — currently connected to SSE stream
+- `lastSeen` — timestamp of last activity (ms since epoch)
+- `unread` — count of unread messages in their inbox
+
+## UI
+
+The web UI is available at `https://c2.biginformatics.net/ui`:
+- **Theme toggle (🌓)** in top right corner — switches between dark/light mode
+- **Presence bar** at top — shows who's online with colored avatar rings
+- **PWA installable** — can be added to home screen on mobile
+
 ## Operational guidance
 - **If you read it, ack it**: mark `read` as part of your handler flow.
 - Use `urgent=true` only when it genuinely needs attention.
