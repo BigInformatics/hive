@@ -621,11 +621,18 @@ async function handleUIMessages(request: Request): Promise<Response> {
   return json({ messages: messages.map(serializeMessage) });
 }
 
+// Valid users for presence tracking (prevents spoofing)
+const VALID_PRESENCE_USERS = ['chris', 'clio', 'domingo', 'zumie'];
+
 // UI endpoint: SSE stream (no auth, internal only)
 async function handleUIStream(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const recipient = url.searchParams.get("recipient") || undefined;
-  const viewer = url.searchParams.get("viewer") || undefined; // Who is viewing
+  const viewerParam = url.searchParams.get("viewer");
+  // Only accept viewer if it's a valid user (prevents spoofing arbitrary names)
+  const viewer = viewerParam && VALID_PRESENCE_USERS.includes(viewerParam.toLowerCase()) 
+    ? viewerParam.toLowerCase() 
+    : undefined;
   
   const connId = generateConnectionId();
   
@@ -634,7 +641,7 @@ async function handleUIStream(request: Request): Promise<Response> {
       const encoder = new TextEncoder();
       let closed = false;
       
-      // Track presence if viewer is specified
+      // Track presence if viewer is specified and valid
       if (viewer) {
         addPresence(connId, viewer, 'ui');
       }
