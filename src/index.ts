@@ -562,16 +562,10 @@ async function handleUI(): Promise<Response> {
       document.body.classList.add('light');
     }
 
-    updateSoundButton();
-    // Global /ui is a read-only admin view: disable sound
-    soundEnabled = false;
-    try { document.getElementById('soundToggle')?.remove(); } catch (_) {}
-    // Notification sound (gentle "tink" using Web Audio API)
-    // - very short (~60ms), low volume
-    // - mute toggle stored in localStorage
-    // - only plays after a user gesture (AudioContext unlocked)
+    // Global /ui is a read-only admin view: sound disabled
+    // Notification sound variables (kept for playNotificationSound compatibility)
     const SOUND_KEY = 'mailbox.soundEnabled';
-    let soundEnabled = JSON.parse(localStorage.getItem(SOUND_KEY) ?? 'true');
+    let soundEnabled = false; // Always off for global view
     let audioContext = null;
     let audioUnlocked = false;
 
