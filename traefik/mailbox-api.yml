@@ -5,6 +5,8 @@ http:
       entrypoints:
         - websecure
       service: mailbox-api
+      middlewares:
+        - mailbox-streaming
       tls:
         certResolver: step-ca
 
@@ -16,8 +18,18 @@ http:
       tls:
         certResolver: step-ca
 
+  middlewares:
+    mailbox-streaming:
+      buffering:
+        maxRequestBodyBytes: 0
+        memRequestBodyBytes: 0
+        maxResponseBodyBytes: 0
+        memResponseBodyBytes: 0
+        retryExpression: "false"
+
   services:
     mailbox-api:
       loadBalancer:
         servers:
           - url: "http://172.23.0.2:3100"
+        passHostHeader: true
