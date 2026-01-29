@@ -3,7 +3,7 @@ import { healthCheck, close } from "./db/client";
 import { 
   sendMessage, listMessages, getMessage, 
   ackMessage, ackMessages, searchMessages,
-  isValidMailbox, listAllMessages,
+  isValidMailbox, listAllMessages, getUnreadCounts,
   type SendMessageInput 
 } from "./db/messages";
 import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
@@ -52,7 +52,7 @@ const userLastSeen = new Map<string, number>(); // user -> timestamp
 type PresenceListener = (event: { type: 'join' | 'leave'; user: string; presence: PresenceInfo[] }) => void;
 const presenceListeners = new Set<PresenceListener>();
 
-type PresenceInfo = { user: string; online: boolean; lastSeen: number };
+type PresenceInfo = { user: string; online: boolean; lastSeen: number; unread: number };
 
 function generateConnectionId(): string {
   return `conn_${++connectionIdCounter}_${Date.now()}`;
@@ -66,31 +66,33 @@ function getPresent(): string[] {
   return Array.from(users).sort();
 }
 
-function getPresenceInfo(): PresenceInfo[] {
+async function getPresenceInfo(): Promise<PresenceInfo[]> {
   const allUsers = ['chris', 'clio', 'domingo', 'zumie'];
   const onlineUsers = getPresent();
   const now = Date.now();
+  const unreadCounts = await getUnreadCounts();
   
   return allUsers.map(user => ({
     user,
     online: onlineUsers.includes(user),
-    lastSeen: onlineUsers.includes(user) ? now : (userLastSeen.get(user) || 0)
+    lastSeen: onlineUsers.includes(user) ? now : (userLastSeen.get(user) || 0),
+    unread: unreadCounts[user] || 0
   }));
 }
 
-function addPresence(connId: string, user: string, type: 'ui' | 'api'): void {
+async function addPresence(connId: string, user: string, type: 'ui' | 'api'): Promise<void> {
   const wasPresent = getPresent().includes(user);
   activeConnections.set(connId, { user, connectedAt: new Date(), type });
   userLastSeen.set(user, Date.now()); // Update last seen
   
   if (!wasPresent) {
-    const presence = getPresenceInfo();
+    const presence = await getPresenceInfo();
     console.log(`[presence] ${user} joined (${getPresent().length} online: ${getPresent().join(', ')})`);
     broadcastPresence('join', user, presence);
   }
 }
 
-function removePresence(connId: string): void {
+async function removePresence(connId: string): Promise<void> {
   const entry = activeConnections.get(connId);
   if (!entry) return;
   
@@ -99,7 +101,7 @@ function removePresence(connId: string): void {
   const stillPresent = getPresent().includes(entry.user);
   
   if (!stillPresent) {
-    const presence = getPresenceInfo();
+    const presence = await getPresenceInfo();
     console.log(`[presence] ${entry.user} left (${getPresent().length} online: ${getPresent().join(', ')})`);
     broadcastPresence('leave', entry.user, presence);
   }
@@ -806,9 +808,12 @@ async function handleUIStream(request: Request): Promise<Response> {
       }
       
       // Send initial connection event with current presence
-      const presence = getPresenceInfo();
       controller.enqueue(encoder.encode(`: connected to UI stream\n\n`));
-      controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
+      getPresenceInfo().then(presence => {
+        try {
+          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
+        } catch { /* stream may be closed */ }
+      });
       
       // Listen for presence changes
       const presenceHandler: PresenceListener = (event) => {
@@ -884,7 +889,7 @@ async function handleUIStream(request: Request): Promise<Response> {
 
 // Presence endpoint - returns current online users
 async function handlePresence(): Promise<Response> {
-  return json({ presence: getPresenceInfo() });
+  return json({ presence: await getPresenceInfo() });
 }
 
 // UI with compose (keyed)
@@ -1699,9 +1704,12 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       addPresence(connId, recipient, 'api');
       
       // Send initial connection event with presence info
-      const presence = getPresenceInfo();
       controller.enqueue(encoder.encode(`: connected to mailbox stream for ${recipient}\n\n`));
-      controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
+      getPresenceInfo().then(presence => {
+        try {
+          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
+        } catch { /* stream may be closed */ }
+      });
       
       // Listen for presence changes
       const presenceHandler: PresenceListener = (event) => {

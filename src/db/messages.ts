@@ -291,3 +291,19 @@ export async function listAllMessages(options: {
   
   return rows.map(rowToMessage);
 }
+
+// Get unread message counts for all users
+export async function getUnreadCounts(): Promise<Record<string, number>> {
+  const rows = await sql`
+    SELECT recipient, COUNT(*) as count
+    FROM public.mailbox_messages
+    WHERE status = 'unread'
+    GROUP BY recipient
+  `;
+  
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    counts[row.recipient as string] = Number(row.count);
+  }
+  return counts;
+}
