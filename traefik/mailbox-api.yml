@@ -1,0 +1,23 @@
+http:
+  routers:
+    mailbox-ui:
+      rule: "Host(`messages.biginformatics.net`) && PathPrefix(`/ui`)"
+      entrypoints:
+        - websecure
+      service: mailbox-api
+      tls:
+        certResolver: step-ca
+
+    mailbox-api:
+      rule: "Host(`messages.biginformatics.net`) && PathPrefix(`/api`)"
+      entrypoints:
+        - websecure
+      service: mailbox-api
+      tls:
+        certResolver: step-ca
+
+  services:
+    mailbox-api:
+      loadBalancer:
+        servers:
+          - url: "http://172.23.0.2:3100"
