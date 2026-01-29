@@ -341,59 +341,92 @@ async function handleUI(): Promise<Response> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#0ea5e9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/ui/manifest.json">
   <link rel="icon" href="/ui/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/ui/icon.svg">
-  <title>Mailbox Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <title>Mailbox</title>
   <style>
+    :root {
+      --background: #18181b;
+      --foreground: #fafafa;
+      --card: #27272a;
+      --card-foreground: #fafafa;
+      --primary: #38bdf8;
+      --primary-foreground: #082f49;
+      --secondary: #3f3f46;
+      --secondary-foreground: #fafafa;
+      --muted: #3f3f46;
+      --muted-foreground: #a1a1aa;
+      --accent: #38bdf8;
+      --accent-foreground: #082f49;
+      --destructive: #ef4444;
+      --border: rgba(255,255,255,0.1);
+      --input: rgba(255,255,255,0.15);
+      --ring: #71717a;
+      --radius: 0.625rem;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e5e5e5; padding: 20px; }
-    h1 { margin-bottom: 16px; font-size: 1.5rem; color: #fff; }
-    .controls { margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    select, button { padding: 8px 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: #e5e5e5; cursor: pointer; }
-    select:hover, button:hover { border-color: #555; }
-    .status { font-size: 0.875rem; color: #888; }
-    .status.connected { color: #4ade80; }
-    .messages { display: flex; flex-direction: column; gap: 8px; }
-    .message { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px; }
+    body { font-family: 'Nunito Sans', system-ui, sans-serif; background: var(--background); color: var(--foreground); padding: 16px; line-height: 1.5; }
+    h1 { margin-bottom: 16px; font-size: 1.25rem; font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
+    .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    select, button { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; font-size: 0.875rem; transition: all 0.15s ease; }
+    select:hover, button:hover { border-color: var(--ring); background: var(--secondary); }
+    select:focus, button:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(56,189,248,0.2); }
+    button.primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); font-weight: 600; }
+    button.primary:hover { background: #0ea5e9; }
+    .status { font-size: 0.8125rem; color: var(--muted-foreground); display: flex; align-items: center; gap: 6px; }
+    .status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--muted-foreground); }
+    .status.connected { color: #22c55e; }
+    .status.connected::before { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+    .messages { display: flex; flex-direction: column; gap: 10px; }
+    .message { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; transition: all 0.15s ease; }
+    .message:hover { border-color: var(--ring); }
     .message.urgent { border-left: 3px solid #f59e0b; }
-    .message.unread { background: #1f1f1f; }
-    .message-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.875rem; }
-    .message-meta { color: #888; }
-    .message-meta .sender { color: #60a5fa; }
+    .message.unread { background: #2a2a2e; border-color: var(--primary); }
+    .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.8125rem; }
+    .message-meta { color: var(--muted-foreground); }
+    .message-meta .sender { color: var(--primary); font-weight: 600; }
     .message-meta .recipient { color: #a78bfa; }
-    .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; margin-right: 8px; flex-shrink: 0; }
-    .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; margin-right: 8px; flex-shrink: 0; text-transform: uppercase; }
+    .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; margin-right: 10px; flex-shrink: 0; }
+    .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; margin-right: 10px; flex-shrink: 0; text-transform: uppercase; }
     .message-row { display: flex; align-items: flex-start; }
     .message-content { flex: 1; min-width: 0; }
-    .message-title { font-weight: 600; margin-bottom: 4px; }
-    .message-body { color: #aaa; font-size: 0.875rem; white-space: pre-wrap; }
-    .badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; }
-    .badge.urgent { background: #78350f; color: #fcd34d; }
-    .badge.unread { background: #1e3a5f; color: #93c5fd; }
+    .message-title { font-weight: 600; margin-bottom: 4px; font-size: 0.9375rem; }
+    .message-body { color: var(--muted-foreground); font-size: 0.875rem; white-space: pre-wrap; line-height: 1.6; }
+    .badge { font-size: 0.6875rem; padding: 3px 8px; border-radius: calc(var(--radius) * 0.6); font-weight: 600; text-transform: uppercase; letter-spacing: 0.025em; }
+    .badge.urgent { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .badge.unread { background: rgba(56,189,248,0.15); color: var(--primary); }
     .new-message { animation: highlight 2s ease-out; }
-    @keyframes highlight { from { background: #2a2a1a; } to { background: #1a1a1a; } }
+    @keyframes highlight { from { background: rgba(56,189,248,0.1); } to { background: var(--card); } }
     /* Presence indicators */
-    .presence-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; padding: 10px 12px; background: #111; border: 1px solid #333; border-radius: 8px; }
-    .presence-bar .label { font-size: 0.75rem; color: #666; text-transform: uppercase; flex-shrink: 0; }
-    #presenceIndicators { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-    .presence-avatar { position: relative; width: 36px; height: 36px; flex-shrink: 0; margin-bottom: 14px; }
-    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; }
-    .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid #555; transition: border-color 0.3s; }
-    .presence-avatar.online .ring { border-color: #4ade80; box-shadow: 0 0 8px #4ade8055; }
-    .presence-avatar .name { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 0.625rem; color: #888; white-space: nowrap; }
-    .presence-avatar.online .name { color: #4ade80; }
+    .presence-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
+    .presence-bar .label { font-size: 0.6875rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; flex-shrink: 0; }
+    #presenceIndicators { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+    .presence-avatar { position: relative; width: 32px; height: 32px; flex-shrink: 0; margin-bottom: 12px; }
+    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; font-size: 12px; }
+    .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--muted); transition: all 0.2s ease; }
+    .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,0.4); }
+    .presence-avatar .name { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); font-size: 0.5625rem; color: var(--muted-foreground); white-space: nowrap; font-weight: 600; }
+    .presence-avatar.online .name { color: #22c55e; }
+    .filters { display: flex; gap: 12px; align-items: center; }
+    .filter-label { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--muted-foreground); cursor: pointer; }
+    .filter-label input { cursor: pointer; accent-color: var(--primary); }
+    .theme-toggle { background: transparent; border: none; font-size: 1.125rem; padding: 6px; margin-left: auto; }
+    .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
   </style>
 </head>
 <body>
   <div class="presence-bar">
-    <span class="label">Online:</span>
+    <span class="label">Online</span>
     <div id="presenceIndicators"></div>
   </div>
-  <h1>📬 Mailbox Viewer</h1>
+  <h1>📬 Mailbox</h1>
   <div class="controls">
     <select id="recipient">
       <option value="">All mailboxes</option>
@@ -744,109 +777,115 @@ async function handleUIWithKey(key: string): Promise<Response> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#0ea5e9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/ui/manifest.json">
   <link rel="icon" href="/ui/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/ui/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <title>Mailbox - ${sender}</title>
   <style>
+    :root {
+      --background: #18181b;
+      --foreground: #fafafa;
+      --card: #27272a;
+      --card-foreground: #fafafa;
+      --primary: #38bdf8;
+      --primary-foreground: #082f49;
+      --secondary: #3f3f46;
+      --secondary-foreground: #fafafa;
+      --muted: #3f3f46;
+      --muted-foreground: #a1a1aa;
+      --accent: #38bdf8;
+      --accent-foreground: #082f49;
+      --destructive: #ef4444;
+      --border: rgba(255,255,255,0.1);
+      --input: rgba(255,255,255,0.15);
+      --ring: #71717a;
+      --radius: 0.625rem;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e5e5e5; padding: 20px; }
-    h1 { margin-bottom: 16px; font-size: 1.5rem; color: #fff; }
-    .controls { margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    select, button, input, textarea { padding: 8px 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: #e5e5e5; font-family: inherit; font-size: 14px; }
-    select:hover, button:hover { border-color: #555; }
+    body { font-family: 'Nunito Sans', system-ui, sans-serif; background: var(--background); color: var(--foreground); padding: 16px; line-height: 1.5; }
+    h1 { margin-bottom: 16px; font-size: 1.25rem; font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
+    .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    select, button, input, textarea { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 0.875rem; transition: all 0.15s ease; }
+    select:hover, button:hover { border-color: var(--ring); background: var(--secondary); }
+    select:focus, button:focus, input:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(56,189,248,0.2); }
     button { cursor: pointer; }
-    button.primary { background: #2563eb; border-color: #2563eb; }
-    button.primary:hover { background: #1d4ed8; }
-    .status { font-size: 0.875rem; color: #888; }
-    .status.connected { color: #4ade80; }
-    .messages { display: flex; flex-direction: column; gap: 8px; }
-    .message { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px; cursor: pointer; }
-    .message:hover { border-color: #555; }
-    .message.selected { border-color: #2563eb; background: #1e293b; }
+    button.primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); font-weight: 600; }
+    button.primary:hover { background: #0ea5e9; }
+    .status { font-size: 0.8125rem; color: var(--muted-foreground); display: flex; align-items: center; gap: 6px; }
+    .status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--muted-foreground); }
+    .status.connected { color: #22c55e; }
+    .status.connected::before { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+    .messages { display: flex; flex-direction: column; gap: 10px; }
+    .message { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; cursor: pointer; transition: all 0.15s ease; }
+    .message:hover { border-color: var(--ring); }
+    .message.selected { border-color: var(--primary); background: rgba(56,189,248,0.1); }
     .message.urgent { border-left: 3px solid #f59e0b; }
-    .message.unread { background: #1f1f1f; }
-    .message-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.875rem; }
-    .message-meta { color: #888; }
-    .message-meta .sender { color: #60a5fa; }
+    .message.unread { background: #2a2a2e; border-color: var(--primary); }
+    .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.8125rem; }
+    .message-meta { color: var(--muted-foreground); }
+    .message-meta .sender { color: var(--primary); font-weight: 600; }
     .message-meta .recipient { color: #a78bfa; }
-    .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; margin-right: 8px; flex-shrink: 0; }
-    .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; margin-right: 8px; flex-shrink: 0; text-transform: uppercase; }
+    .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; margin-right: 10px; flex-shrink: 0; }
+    .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; margin-right: 10px; flex-shrink: 0; text-transform: uppercase; }
     .message-row { display: flex; align-items: flex-start; }
     .message-content { flex: 1; min-width: 0; }
-    .message-title { font-weight: 600; margin-bottom: 4px; }
-    .message-body { color: #aaa; font-size: 0.875rem; white-space: pre-wrap; }
-    .badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; }
-    .badge.urgent { background: #78350f; color: #fcd34d; }
-    .badge.unread { background: #1e3a5f; color: #93c5fd; }
+    .message-title { font-weight: 600; margin-bottom: 4px; font-size: 0.9375rem; }
+    .message-body { color: var(--muted-foreground); font-size: 0.875rem; white-space: pre-wrap; line-height: 1.6; }
+    .badge { font-size: 0.6875rem; padding: 3px 8px; border-radius: calc(var(--radius) * 0.6); font-weight: 600; text-transform: uppercase; letter-spacing: 0.025em; }
+    .badge.urgent { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .badge.unread { background: rgba(56,189,248,0.15); color: var(--primary); }
     .new-message { animation: highlight 2s ease-out; }
-    @keyframes highlight { from { background: #2a2a1a; } to { background: #1a1a1a; } }
-    .compose { background: #111; border: 1px solid #333; border-radius: 8px; margin-bottom: 16px; }
-    .compose-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; }
-    .compose-header:hover { background: #1a1a1a; border-radius: 8px; }
-    .compose-header h2 { font-size: 1rem; margin: 0; color: #fff; }
-    .compose-toggle { color: #888; font-size: 0.875rem; }
+    @keyframes highlight { from { background: rgba(56,189,248,0.1); } to { background: var(--card); } }
+    /* Compose panel */
+    .compose { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
+    .compose-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; transition: background 0.15s ease; }
+    .compose-header:hover { background: var(--secondary); }
+    .compose-header h2 { font-size: 0.9375rem; font-weight: 600; margin: 0; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
+    .compose-toggle { color: var(--muted-foreground); font-size: 0.75rem; }
     .compose-body { padding: 0 16px 16px; }
     .compose.collapsed .compose-body { display: none; }
-    .compose.collapsed .compose-header { border-radius: 8px; }
-    /* Light mode */
-    body.light { background: #f5f5f5; color: #1a1a1a; }
-    body.light h1 { color: #000; }
-    body.light select, body.light button, body.light input, body.light textarea { background: #fff; color: #1a1a1a; border-color: #ccc; }
-    body.light .compose { background: #fff; border-color: #ddd; }
-    body.light .compose-header:hover { background: #f0f0f0; }
-    body.light .message { background: #fff; border-color: #ddd; }
-    body.light .message:hover { border-color: #bbb; }
-    body.light .message.selected { background: #e0e7ff; border-color: #2563eb; }
-    body.light .message.unread { background: #f8f8f8; }
-    body.light .message-meta { color: #666; }
-    body.light .message-body { color: #444; }
-    body.light .avatar-placeholder { opacity: 0.9; }
-    body.light .reply-info { background: #e0e7ff; }
     /* Filter controls */
-    .filters { display: flex; gap: 16px; align-items: center; }
-    .filter-label { display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #888; cursor: pointer; }
-    .filter-label input { cursor: pointer; }
-    body.light .filter-label { color: #666; }
+    .filters { display: flex; gap: 14px; align-items: center; }
+    .filter-label { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--muted-foreground); cursor: pointer; }
+    .filter-label input { cursor: pointer; accent-color: var(--primary); }
     /* Mark read button */
-    .mark-read-btn { font-size: 0.75rem; padding: 4px 8px; margin-left: 8px; background: #1e3a5f; border-color: #1e3a5f; color: #93c5fd; }
-    .mark-read-btn:hover { background: #2563eb; }
-    body.light .mark-read-btn { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .mark-read-btn { font-size: 0.6875rem; padding: 4px 10px; margin-left: 8px; background: rgba(56,189,248,0.15); border: 1px solid transparent; color: var(--primary); font-weight: 600; }
+    .mark-read-btn:hover { background: var(--primary); color: var(--primary-foreground); }
     /* Theme toggle */
-    .theme-toggle { margin-left: auto; font-size: 1.25rem; background: transparent; border: none; cursor: pointer; padding: 4px 8px; }
+    .theme-toggle { background: transparent; border: none; font-size: 1.125rem; padding: 6px; margin-left: auto; cursor: pointer; }
+    /* Compose form */
     .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-    .compose-row label { color: #888; font-size: 0.875rem; min-width: 80px; }
+    .compose-row label { color: var(--muted-foreground); font-size: 0.8125rem; min-width: 70px; font-weight: 600; }
     .compose-row input[type="text"], .compose-row textarea { flex: 1; min-width: 200px; }
     .compose-row textarea { min-height: 80px; resize: vertical; }
-    .compose-row .checkbox-label { display: flex; align-items: center; gap: 8px; }
-    .compose-actions { display: flex; gap: 12px; align-items: center; }
-    .compose-status { font-size: 0.875rem; margin-left: 12px; }
-    .compose-status.success { color: #4ade80; }
-    .compose-status.error { color: #f87171; }
-    .reply-info { font-size: 0.875rem; color: #60a5fa; margin-bottom: 12px; padding: 8px; background: #1e293b; border-radius: 4px; }
+    .compose-row .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--muted-foreground); }
+    .compose-actions { display: flex; gap: 10px; align-items: center; }
+    .compose-status { font-size: 0.8125rem; margin-left: 12px; }
+    .compose-status.success { color: #22c55e; }
+    .compose-status.error { color: var(--destructive); }
+    .reply-info { font-size: 0.8125rem; color: var(--primary); margin-bottom: 12px; padding: 10px; background: rgba(56,189,248,0.1); border-radius: var(--radius); border: 1px solid rgba(56,189,248,0.2); }
     /* Presence indicators */
-    .presence-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; padding: 10px 12px; background: #111; border: 1px solid #333; border-radius: 8px; }
-    .presence-bar .label { font-size: 0.75rem; color: #666; text-transform: uppercase; flex-shrink: 0; }
-    #presenceIndicators { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-    .presence-avatar { position: relative; width: 36px; height: 36px; flex-shrink: 0; margin-bottom: 14px; }
-    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; }
-    .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid #555; transition: border-color 0.3s; }
-    .presence-avatar.online .ring { border-color: #4ade80; box-shadow: 0 0 8px #4ade8055; }
-    .presence-avatar .name { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 0.625rem; color: #888; white-space: nowrap; }
-    .presence-avatar.online .name { color: #4ade80; }
-    body.light .presence-bar { background: #fff; border-color: #ddd; }
-    body.light .presence-avatar .ring { border-color: #ccc; }
-    body.light .presence-avatar.online .ring { border-color: #22c55e; }
-    body.light .presence-avatar .name { color: #666; }
-    body.light .presence-avatar.online .name { color: #22c55e; }
+    .presence-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
+    .presence-bar .label { font-size: 0.6875rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; flex-shrink: 0; }
+    #presenceIndicators { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+    .presence-avatar { position: relative; width: 32px; height: 32px; flex-shrink: 0; margin-bottom: 12px; }
+    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; font-size: 12px; }
+    .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--muted); transition: all 0.2s ease; }
+    .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,0.4); }
+    .presence-avatar .name { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); font-size: 0.5625rem; color: var(--muted-foreground); white-space: nowrap; font-weight: 600; }
+    .presence-avatar.online .name { color: #22c55e; }
+    .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
   </style>
 </head>
 <body>
   <div class="presence-bar">
-    <span class="label">Online:</span>
+    <span class="label">Online</span>
     <div id="presenceIndicators"></div>
   </div>
   <h1>📬 Mailbox - ${sender}</h1>
@@ -1325,8 +1364,8 @@ async function handleRequest(request: Request): Promise<Response> {
         start_url: "/ui",
         scope: "/ui",
         display: "standalone",
-        background_color: "#0a0a0a",
-        theme_color: "#2563eb",
+        background_color: "#18181b",
+        theme_color: "#0ea5e9",
         icons: [{ src: "/ui/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }]
       }), { headers: { "Content-Type": "application/manifest+json" } });
     }
