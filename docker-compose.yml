@@ -5,8 +5,8 @@ services:
     build: .
     container_name: mailbox-api
     restart: unless-stopped
-#    ports:
-#      - "3100"
+    ports:
+      - "3100:3100"
     environment:
       - PORT=3100
       - PGHOST=${PGHOST}
