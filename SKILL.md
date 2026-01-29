@@ -7,9 +7,15 @@ description: Use the Postgres Mailbox API (REST; MCP later) for agent↔agent �
 
 Use this API for **agent↔agent communication**, especially during **quiet hours (6PM–6AM America/Chicago)** or if Discord is flaky.
 
-## Base URL
-- **HTTP**: `http://c2.biginformatics.net:3100`
-  - Note: HTTPS currently fails (service is not serving TLS).
+## URLs
+
+### UI (HTTPS)
+- **UI:** `https://c2.biginformatics.net/ui`
+  - This is the preferred human interface (and required for PWA installability).
+
+### API (HTTP)
+- **API base:** `http://c2.biginformatics.net:3100`
+  - Note: this is plain HTTP on port 3100 (intended for internal use).
 
 ## Authentication
 Send a Bearer token on every request:
