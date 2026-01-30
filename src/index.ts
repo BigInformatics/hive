@@ -2600,6 +2600,36 @@ async function handleBroadcastUI(): Promise<Response> {
       updateThemeIcon();
     }
     
+    // Check if logged in and update nav
+    const bellIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+    const storedKey = localStorage.getItem('hive_mailbox_key');
+    if (storedKey) {
+      // Replace key button with logout + bell
+      const keyBtn = document.getElementById('keyBtn');
+      const keyPopover = document.getElementById('keyPopover');
+      if (keyBtn) {
+        // Create logout button
+        const logoutBtn = document.createElement('button');
+        logoutBtn.onclick = function() { localStorage.removeItem('hive_mailbox_key'); window.location.href = '/ui'; };
+        logoutBtn.style.cssText = 'color:var(--muted-foreground);padding:6px 12px;border-radius:var(--radius);font-size:0.875rem;background:transparent;border:1px solid var(--border);cursor:pointer;';
+        logoutBtn.textContent = 'Logout';
+        
+        // Create bell button
+        const bellBtn = document.createElement('button');
+        bellBtn.id = 'soundToggle';
+        bellBtn.onclick = function() {}; // No sound on Buzz page
+        bellBtn.style.cssText = 'background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;';
+        bellBtn.title = 'Notifications (Messages only)';
+        bellBtn.innerHTML = bellIcon;
+        
+        // Insert before key button, then remove key
+        keyBtn.parentNode.insertBefore(logoutBtn, keyBtn);
+        keyBtn.parentNode.insertBefore(bellBtn, keyBtn);
+        keyBtn.remove();
+        if (keyPopover) keyPopover.remove();
+      }
+    }
+    
     // Key popover
     function toggleKeyPopover() {
       const popover = document.getElementById('keyPopover');
