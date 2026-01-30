@@ -561,7 +561,13 @@ async function handleUI(): Promise<Response> {
     <span class="label">Online</span>
     <div id="presenceIndicators"></div>
   </div>
-  <h1>📬 Mailbox</h1>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h1 style="margin-bottom: 0;">📬 Mailbox</h1>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <a href="/ui" style="color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-size: 0.875rem; font-weight: 600;">Messages</a>
+      <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Broadcast</a>
+    </div>
+  </div>
   <div class="controls">
     <select id="recipient">
       <option value="">All mailboxes</option>
@@ -1171,7 +1177,13 @@ async function handleUIWithKey(key: string): Promise<Response> {
     <span class="label">Online</span>
     <div id="presenceIndicators"></div>
   </div>
-  <h1>📬 Mailbox - ${sender}</h1>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h1 style="margin-bottom: 0;">📬 Mailbox - ${sender}</h1>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <a href="/ui" style="color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-size: 0.875rem; font-weight: 600;">Messages</a>
+      <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Broadcast</a>
+    </div>
+  </div>
   
   <div id="composePanel" class="compose collapsed">
     <div class="compose-header" onclick="toggleCompose()">
