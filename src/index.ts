@@ -1797,6 +1797,10 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui/stream") return handleUIStream(request);
     if (path === "/ui/presence") return handlePresence();
     
+    // Broadcast UI tab (must be before keyed UI routes)
+    if (path === "/ui/broadcast") return handleBroadcastUI();
+    if (path === "/ui/broadcast/stream") return handleBroadcastUIStream(request);
+    
     // Keyed UI with compose
     const uiKeyMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)$/);
     const uiKeySendMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/send$/);
@@ -1883,16 +1887,6 @@ async function handleRequest(request: Request): Promise<Response> {
     // List broadcast events (auth required)
     if (method === "GET" && path === "/broadcast/events") {
       return requireAuth(request, handleListBroadcastEvents);
-    }
-    
-    // Broadcast UI tab
-    if (path === "/ui/broadcast") {
-      return handleBroadcastUI();
-    }
-    
-    // Broadcast SSE stream for UI
-    if (path === "/ui/broadcast/stream") {
-      return handleBroadcastUIStream(request);
     }
     
     // Ingest endpoint (NO AUTH - public webhook endpoint)
