@@ -2481,6 +2481,11 @@ async function handleBroadcastUI(): Promise<Response> {
         expandedEventId = null;
       }
       
+      // Auto-expand first item if nothing is expanded
+      if (!expandedEventId && filtered.length > 0) {
+        expandedEventId = filtered[0].id;
+      }
+      
       if (filtered.length === 0) {
         container.innerHTML = \`
           <div class="empty-state">
