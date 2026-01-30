@@ -521,6 +521,7 @@ async function handleUI(): Promise<Response> {
     #presenceIndicators { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
     .presence-avatar { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
     .presence-avatar img, .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; opacity: 0.5; transition: opacity 0.2s ease; }
+    .presence-avatar .avatar-placeholder { display: flex; align-items: center; justify-content: center; font-weight: 600; }
     .presence-avatar.online img, .presence-avatar.online .avatar-placeholder { opacity: 1; }
     .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
     .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.4); }
@@ -805,15 +806,16 @@ async function handleUI(): Promise<Response> {
         const avatar = avatarData[info.user];
         const colors = avatarColors[info.user] || { bg: '#333', fg: '#888' };
         const initial = info.user[0].toUpperCase();
-        // Always use placeholder div; avatar as background-image (fails gracefully to show initial)
-        // Text color transparent when avatar exists (hides initial behind image)
-        const bgStyle = avatar 
-          ? \`background:url(\${avatar}) center/cover no-repeat, \${colors.bg};color:transparent\`
-          : \`background:\${colors.bg};color:\${colors.fg}\`;
+        // Use same <img> approach as Messages for consistency
+        const avatarHtml = avatar
+          ? \`<img class="avatar" src="\${avatar}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">\`
+          : '';
+        const fallbackStyle = avatar ? 'display:none' : '';
         return \`
           <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
             <div class="ring" style="border-color:\${pc.ring};\${pc.shadow !== 'none' ? 'box-shadow:0 0 8px ' + pc.shadow : ''}"></div>
-            <div class="avatar-placeholder" style="\${bgStyle}">\${initial}</div>
+            \${avatarHtml}
+            <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg};\${fallbackStyle}">\${initial}</div>
           </div>
         \`;
       }).join('');
@@ -1593,15 +1595,16 @@ async function handleUIWithKey(key: string): Promise<Response> {
         const avatar = avatarData[info.user];
         const colors = avatarColors[info.user] || { bg: '#333', fg: '#888' };
         const initial = info.user[0].toUpperCase();
-        // Always use placeholder div; avatar as background-image (fails gracefully to show initial)
-        // Text color transparent when avatar exists (hides initial behind image)
-        const bgStyle = avatar 
-          ? \`background:url(\${avatar}) center/cover no-repeat, \${colors.bg};color:transparent\`
-          : \`background:\${colors.bg};color:\${colors.fg}\`;
+        // Use same <img> approach as Messages for consistency
+        const avatarHtml = avatar
+          ? \`<img class="avatar" src="\${avatar}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">\`
+          : '';
+        const fallbackStyle = avatar ? 'display:none' : '';
         return \`
           <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
             <div class="ring"></div>
-            <div class="avatar-placeholder" style="\${bgStyle}">\${initial}</div>
+            \${avatarHtml}
+            <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg};\${fallbackStyle}">\${initial}</div>
           </div>
         \`;
       }).join('');
