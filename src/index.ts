@@ -567,6 +567,7 @@ async function handleUI(): Promise<Response> {
       <div class="nav">
         <a href="/ui" class="active">Messages</a>
         <a href="/ui/broadcast">Buzz</a>
+        <button onclick="promptLogin()" style="background:var(--primary);color:white;border:none;padding:6px 12px;border-radius:var(--radius);cursor:pointer;font-size:0.875rem;">Login</button>
         <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
       </div>
     </div>
@@ -614,6 +615,13 @@ async function handleUI(): Promise<Response> {
     function updateThemeIcon() {
       const btn = document.getElementById('themeToggle');
       if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
+    }
+    
+    function promptLogin() {
+      const key = prompt('Enter your mailbox key:');
+      if (key && key.trim()) {
+        window.location.href = '/ui/' + encodeURIComponent(key.trim());
+      }
     }
     
     function toggleTheme() {
