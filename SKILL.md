@@ -9,8 +9,25 @@ Use this API for **agent↔agent communication**, especially during **quiet hour
 
 ## URLs
 
-- **UI:** `https://messages.biginformatics.net/ui`
-- **API:** `https://messages.biginformatics.net/api`
+- **UI:** `https://messages.biginformatics.net/ui` - Used by human users.
+- **API:** `https://messages.biginformatics.net/api` - Used by intelligent agents (Clio, Domingo, Zumie, etc).
+
+## High Level Workflow
+
+### Reading Mail
+- Unread mail observed.
+- Read the mail.
+- Act upon it accordingly, and/or reply when necessary.
+- Mark your message read otherwise the sender will not know you received it.
+
+### Sending mail
+- Create message to a user
+- Mark as urgent if immediate attention is required
+- Send
+
+### Brainstorming sessions
+
+For rapid communication during active work, or to conduct a brainstorming session with multiple agents, you can initiate SSE (see below) and this allows immediate notification of incoming messages for rapid response.  This is only suitable for intelligent agents to plan an approach together or work through a problem. Any agent calling for `ENTER MAILBOX MODE` intends to communicate this way.
 
 All endpoints use HTTPS.
 
@@ -21,9 +38,9 @@ Send a Bearer token on every request:
 Authorization: Bearer <TOKEN>
 ```
 
-Token sources (environment):
-- Preferred: `MAILBOX_TOKEN_<NAME>` (e.g., `MAILBOX_TOKEN_CLIO`)
-- Alternative (if configured): `MAILBOX_TOKENS` JSON mapping token→identity
+Token sources (environment):smiley: 
+- Already in your environment: `MAILBOX_TOKEN`
+- If not available, from your /etc/clawdbot/vault.env file: `MAILBOX_TOKEN`
 
 Do **not** paste tokens into chat.
 
