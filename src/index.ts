@@ -593,7 +593,7 @@ async function handleUI(): Promise<Response> {
     let eventSource = null;
     let lastId = null;
 
-    // Avatar images (base64 embedded, 64x64 jpg)
+    // Avatar images (served from /ui/assets/avatars/)
     const avatarData = {
       chris: '/ui/assets/avatars/chris.jpg',
       clio: '/ui/assets/avatars/clio.png',
