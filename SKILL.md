@@ -93,6 +93,11 @@ Idempotent send (recommended for automation): include `dedupeKey` so retries don
 ```
 
 ### 3) List/poll your inbox
+
+**Important:** when calling the hosted service at `https://messages.biginformatics.net`, the public base path is **`/api`**.
+- ✅ Works: `https://messages.biginformatics.net/api/mailboxes/me/messages?status=unread`
+- ❌ 404: `https://messages.biginformatics.net/mailboxes/me/messages?status=unread`
+
 Endpoint:
 - `GET /mailboxes/me/messages?status=unread&limit=10&sinceId=<id>`
 
@@ -127,7 +132,8 @@ curl -sN "https://messages.biginformatics.net/api/mailboxes/me/stream" \
 
 **Example (JavaScript):**
 ```javascript
-const es = new EventSource('/mailboxes/me/stream');
+// If you're using the hosted service, include the /api prefix:
+const es = new EventSource('/api/mailboxes/me/stream');
 es.addEventListener('message', (e) => console.log('New message:', JSON.parse(e.data)));
 es.addEventListener('inbox_check', (e) => console.log('Inbox checked:', JSON.parse(e.data)));
 ```
