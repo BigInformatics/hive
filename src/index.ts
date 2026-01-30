@@ -458,30 +458,35 @@ async function handleUI(): Promise<Response> {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <title>Mailbox</title>
+  <title>Messages - Team Mailbox</title>
   <style>
     :root {
-      --background: #18181b;
+      --background: #0a0a0a;
       --foreground: #fafafa;
-      --card: #27272a;
+      --card: #18181b;
       --card-foreground: #fafafa;
-      --primary: #38bdf8;
-      --primary-foreground: #082f49;
-      --secondary: #3f3f46;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #27272a;
       --secondary-foreground: #fafafa;
-      --muted: #3f3f46;
+      --muted: #27272a;
       --muted-foreground: #a1a1aa;
-      --accent: #38bdf8;
-      --accent-foreground: #082f49;
-      --destructive: #ef4444;
-      --border: rgba(255,255,255,0.1);
-      --input: rgba(255,255,255,0.15);
-      --ring: #71717a;
-      --radius: 0.625rem;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --border: #27272a;
+      --input: #27272a;
+      --radius: 8px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Nunito Sans', system-ui, sans-serif; background: var(--background); color: var(--foreground); padding: 16px; line-height: 1.5; }
-    h1 { margin-bottom: 16px; font-size: 1.25rem; font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--background); color: var(--foreground); min-height: 100vh; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin: 0; }
+    .nav { display: flex; gap: 8px; align-items: center; }
+    .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }
+    .nav a:hover { background: var(--secondary); color: var(--foreground); }
+    .nav a.active { background: var(--primary); color: var(--primary-foreground); }
+    .theme-toggle { background: var(--secondary); border: none; color: var(--foreground); padding: 6px 10px; border-radius: var(--radius); cursor: pointer; font-size: 1rem; }
     .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select, button { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; font-size: 0.875rem; transition: all 0.15s ease; }
     select:hover, button:hover { border-color: var(--ring); background: var(--secondary); }
@@ -513,20 +518,15 @@ async function handleUI(): Promise<Response> {
     .new-message { animation: highlight 2s ease-out; }
     @keyframes highlight { from { background: rgba(56,189,248,0.1); } to { background: var(--card); } }
     /* Presence indicators */
-    .presence-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
-    .presence-bar .label { font-size: 0.6875rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; flex-shrink: 0; }
-    #presenceIndicators { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
-    .presence-avatar { position: relative; width: 32px; height: 32px; flex-shrink: 0; margin-bottom: 12px; }
-    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; font-size: 12px; }
-    .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--muted); transition: all 0.2s ease; }
-    .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,0.4); }
-    .presence-avatar .name { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); font-size: 0.5625rem; color: var(--muted-foreground); white-space: nowrap; font-weight: 600; }
-    .presence-avatar.online .name { color: #22c55e; }
+    #presenceIndicators { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+    .presence-avatar { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
+    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; opacity: 0.5; transition: opacity 0.2s ease; }
+    .presence-avatar.online img, .presence-avatar.online .avatar-placeholder { opacity: 1; }
+    .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
+    .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.4); }
     .filters { display: flex; gap: 12px; align-items: center; }
     .filter-label { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--muted-foreground); cursor: pointer; }
     .filter-label input { cursor: pointer; accent-color: var(--primary); }
-    .theme-toggle { position: fixed; top: 16px; right: 16px; background: transparent; border: none; font-size: 1.25rem; padding: 8px; cursor: pointer; z-index: 100; opacity: 0.7; transition: opacity 0.15s ease; }
-    .theme-toggle:hover { opacity: 1; }
     .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
     /* Light mode */
     body.light {
@@ -550,24 +550,24 @@ async function handleUI(): Promise<Response> {
     body.light .message.selected { background: #e0f2fe; }
     body.light .badge.urgent { background: rgba(245,158,11,0.1); color: #d97706; }
     body.light .badge.unread { background: rgba(14,165,233,0.1); color: #0284c7; }
-    body.light .presence-avatar .ring { border-color: #d4d4d8; }
-    body.light .presence-avatar.online .ring { border-color: #22c55e; }
-    body.light .presence-avatar .name { color: #71717a; }
-    body.light .presence-avatar.online .name { color: #16a34a; }
+    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.4; }
+    body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
   </style>
 </head>
 <body>
-  <div class="presence-bar">
-    <span class="label">Online</span>
-    <div id="presenceIndicators"></div>
-  </div>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-    <h1 style="margin-bottom: 0;">📬 Mailbox</h1>
-    <div style="display: flex; gap: 12px; align-items: center;">
-      <a href="/ui" style="color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-size: 0.875rem; font-weight: 600;">Messages</a>
-      <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Broadcast</a>
+  <div class="container">
+    <div class="header">
+      <h1>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        Messages
+      </h1>
+      <div class="nav">
+        <a href="/ui" class="active">Messages</a>
+        <a href="/ui/broadcast">Broadcast</a>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+      </div>
     </div>
-  </div>
+    <div id="presenceIndicators"></div>
   <div class="controls">
     <select id="recipient">
       <option value="">All mailboxes</option>
@@ -583,8 +583,8 @@ async function handleUI(): Promise<Response> {
     <button onclick="loadMessages()">Refresh</button>
     <span id="status" class="status">Connecting...</span>
   </div>
-  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌓</button>
-  <div id="messages" class="messages"></div>
+    <div id="messages" class="messages"></div>
+  </div>
 
   <script>
     let eventSource = null;
@@ -794,10 +794,9 @@ async function handleUI(): Promise<Response> {
         const pc = getPresenceColor(info);
         const status = info.online ? 'online' : (info.lastSeen ? \`last seen \${Math.round((Date.now() - info.lastSeen) / 60000)}m ago\` : 'offline');
         return \`
-          <div class="presence-avatar" title="\${info.user} - \${status}">
-            <div class="ring" style="border-color:\${pc.ring};box-shadow:0 0 10px \${pc.shadow}"></div>
+          <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
+            <div class="ring" style="border-color:\${pc.ring};\${pc.shadow !== 'none' ? 'box-shadow:0 0 8px ' + pc.shadow : ''}"></div>
             <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>
-            <span class="name" style="color:\${pc.name}">\${info.user}</span>
           </div>
         \`;
       }).join('');
@@ -2292,6 +2291,15 @@ async function handleBroadcastUI(): Promise<Response> {
       from { background: var(--primary); }
       to { background: var(--card); }
     }
+    /* Presence indicators */
+    #presenceIndicators { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+    .presence-avatar { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
+    .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 600; opacity: 0.5; transition: opacity 0.2s ease; }
+    .presence-avatar.online .avatar-placeholder { opacity: 1; }
+    .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
+    .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+    body.light .presence-avatar .avatar-placeholder { opacity: 0.4; }
+    body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
   </style>
 </head>
 <body>
@@ -2307,6 +2315,7 @@ async function handleBroadcastUI(): Promise<Response> {
         <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
       </div>
     </div>
+    <div id="presenceIndicators"></div>
     
     <div class="filter-bar">
       <select id="appFilter" onchange="applyFilter()">
@@ -2343,6 +2352,48 @@ async function handleBroadcastUI(): Promise<Response> {
       document.body.classList.toggle('light');
       localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
     }
+    
+    // Presence
+    const avatarColors = {
+      chris: { bg: '#4f46e5', fg: '#fff' },
+      clio: { bg: '#0d9488', fg: '#fff' },
+      domingo: { bg: '#dc2626', fg: '#fff' },
+      zumie: { bg: '#f59e0b', fg: '#fff' }
+    };
+    
+    function renderPresence(presence) {
+      const container = document.getElementById('presenceIndicators');
+      container.innerHTML = presence.map(info => {
+        const colors = avatarColors[info.user] || { bg: '#333', fg: '#888' };
+        const initial = info.user[0].toUpperCase();
+        const status = info.online ? 'online' : 'offline';
+        return \`
+          <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
+            <div class="ring"></div>
+            <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>
+          </div>
+        \`;
+      }).join('');
+    }
+    
+    // Fetch presence from Messages SSE (shared)
+    async function loadPresence() {
+      try {
+        const res = await fetch('/ui/stream', { headers: { Accept: 'text/event-stream' } });
+        // Just get initial presence from a quick connection
+      } catch(e) {}
+    }
+    
+    // Simple presence fetch from main UI stream init
+    const presenceSource = new EventSource('/ui/stream');
+    presenceSource.addEventListener('presence', (e) => {
+      const data = JSON.parse(e.data);
+      renderPresence(data.presence);
+    });
+    presenceSource.addEventListener('init', (e) => {
+      const data = JSON.parse(e.data);
+      if (data.presence) renderPresence(data.presence);
+    });
     
     function formatTime(date) {
       return new Date(date).toLocaleString();
