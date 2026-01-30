@@ -889,6 +889,7 @@ async function handleUI(): Promise<Response> {
     loadMessages();
     connectSSE();
   </script>
+<!-- build: img-avatars-v1 -->
 </body>
 </html>`;
 
@@ -1683,6 +1684,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     loadMessages();
     connectSSE();
   </script>
+<!-- build: img-avatars-v1 -->
 </body>
 </html>`;
 
@@ -2556,6 +2558,7 @@ async function handleBroadcastUI(): Promise<Response> {
     
     connect();
   </script>
+<!-- build: img-avatars-v1 -->
 </body>
 </html>`;
 
