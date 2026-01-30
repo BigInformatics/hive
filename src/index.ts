@@ -1267,7 +1267,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .theme-toggle { position: fixed; top: 16px; right: 16px; background: var(--secondary); border: none; color: var(--foreground); padding: 8px; border-radius: var(--radius); cursor: pointer; z-index: 100; }
+    .theme-toggle { background: var(--secondary); border: none; color: var(--foreground); padding: 6px 10px; border-radius: var(--radius); cursor: pointer; font-size: 1rem; }
     h1 { margin-bottom: 16px; font-size: 1.25rem; font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
     .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select, button, input, textarea { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 0.875rem; transition: all 0.15s ease; }
