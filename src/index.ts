@@ -595,10 +595,10 @@ async function handleUI(): Promise<Response> {
 
     // Avatar images (base64 embedded, 64x64 jpg)
     const avatarData = {
-      chris: '/assets/avatars/chris.jpg',
-      clio: '/assets/avatars/clio.png',
-      domingo: '/assets/avatars/domingo.jpg',
-      zumie: '/assets/avatars/zumie.png'
+      chris: '/ui/assets/avatars/chris.jpg',
+      clio: '/ui/assets/avatars/clio.png',
+      domingo: '/ui/assets/avatars/domingo.jpg',
+      zumie: '/ui/assets/avatars/zumie.png'
     }
     const avatarColors = {
       chris: { bg: '#1e3a5f', fg: '#93c5fd' },
@@ -1267,10 +1267,10 @@ async function handleUIWithKey(key: string): Promise<Response> {
     const CURRENT_SENDER = '${sender}';
 
     const avatarData = {
-      chris: '/assets/avatars/chris.jpg',
-      clio: '/assets/avatars/clio.png',
-      domingo: '/assets/avatars/domingo.jpg',
-      zumie: '/assets/avatars/zumie.png'
+      chris: '/ui/assets/avatars/chris.jpg',
+      clio: '/ui/assets/avatars/clio.png',
+      domingo: '/ui/assets/avatars/domingo.jpg',
+      zumie: '/ui/assets/avatars/zumie.png'
     }
     const avatarColors = {
       chris: { bg: '#1e3a5f', fg: '#93c5fd' },
@@ -1825,7 +1825,7 @@ async function handleRequest(request: Request): Promise<Response> {
     }
     
     // Static assets (avatars)
-    const assetMatch = path.match(/^\/assets\/avatars\/([a-z]+)\.(svg|png|jpg)$/);
+    const assetMatch = path.match(/^\/ui\/assets\/avatars\/([a-z]+)\.(svg|png|jpg)$/);
     if (method === "GET" && assetMatch) {
       return handleAvatar(assetMatch[1], assetMatch[2]);
     }
