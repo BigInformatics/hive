@@ -568,7 +568,7 @@ async function handleUI(): Promise<Response> {
         <a href="/ui" class="active">Messages</a>
         <a href="/ui/broadcast">Buzz</a>
         <button id="keyBtn" onclick="toggleKeyPopover()" style="background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;" title="Enter mailbox key">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
         </button>
         <div id="keyPopover" style="display:none;position:absolute;top:50px;right:80px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
           <input id="keyInput" type="text" placeholder="Enter mailbox key" style="width:180px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);margin-bottom:8px;">
