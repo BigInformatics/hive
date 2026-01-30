@@ -2328,6 +2328,12 @@ async function handleBroadcastUI(): Promise<Response> {
     let events = [];
     let eventSource = null;
     let currentFilter = '';
+    let expandedEventId = null;
+    
+    function toggleExpand(id) {
+      expandedEventId = (expandedEventId === id) ? null : id;
+      renderEvents();
+    }
     
     // Theme handling
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -2360,7 +2366,7 @@ async function handleBroadcastUI(): Promise<Response> {
       }
       
       container.innerHTML = filtered.map(e => \`
-        <div class="event-card" onclick="this.classList.toggle('expanded')">
+        <div class="event-card\${expandedEventId === e.id ? ' expanded' : ''}" onclick="toggleExpand('\${e.id}')">
           <div class="event-header">
             <div>
               <div class="event-title">\${escapeHtml(e.title)}</div>
