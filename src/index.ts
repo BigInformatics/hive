@@ -620,9 +620,18 @@ async function handleUI(): Promise<Response> {
     function promptLogin() {
       const key = prompt('Enter your mailbox key:');
       if (key && key.trim()) {
+        localStorage.setItem('hive_mailbox_key', key.trim());
         window.location.href = '/ui/' + encodeURIComponent(key.trim());
       }
     }
+    
+    // Auto-redirect if we have a stored key
+    (function() {
+      const storedKey = localStorage.getItem('hive_mailbox_key');
+      if (storedKey && window.location.pathname === '/ui') {
+        window.location.href = '/ui/' + encodeURIComponent(storedKey);
+      }
+    })();
     
     function toggleTheme() {
       const isLight = document.body.classList.toggle('light');
@@ -1205,6 +1214,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     <div style="display: flex; gap: 12px; align-items: center;">
       <a href="/ui" style="color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-size: 0.875rem; font-weight: 600;">Messages</a>
       <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Buzz</a>
+      <button onclick="logout()" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; background: transparent; border: 1px solid var(--border); cursor: pointer;">Logout</button>
     </div>
   </div>
   
@@ -1287,6 +1297,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
       zumie: { bg: '#5f3a1e', fg: '#fcd34d' }
     };
 
+    // Logout - clear stored key and redirect
+    function logout() {
+      localStorage.removeItem('hive_mailbox_key');
+      window.location.href = '/ui';
+    }
+    
     // Compose panel toggle
     function toggleCompose() {
       const panel = document.getElementById('composePanel');
