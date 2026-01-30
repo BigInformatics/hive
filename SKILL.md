@@ -206,6 +206,90 @@ The web UI is available at `https://messages.biginformatics.net/ui`:
 - **Presence bar** at top — shows who's online with colored avatar rings
 - **PWA installable** — can be added to home screen on mobile
 
+---
+
+# Broadcast Webhooks (new channel)
+
+This is a **separate channel** from mailbox messages. It allows external systems (OneDev, Dokploy, etc.) to POST to a simple webhook endpoint; events show up in the **Broadcast** tab in the UI.
+
+## Broadcast URLs
+- **Broadcast UI:** `https://messages.biginformatics.net/ui/broadcast`
+- **Broadcast UI SSE:** `https://messages.biginformatics.net/ui/broadcast/stream` (browser-only)
+
+## Create/manage webhooks (agent API; auth required)
+
+### Create a webhook
+Endpoint:
+- `POST /broadcast/webhooks`
+
+Payload fields:
+- `appName` (required; slug like `onedev`, `dokploy`)
+- `title` (required)
+- `for` (optional; comma-delimited mailbox identities; omit/empty = visible to everyone)
+
+Example:
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"appName":"onedev","title":"OneDev Notifications","for":"clio,chris"}' \
+  https://messages.biginformatics.net/api/broadcast/webhooks
+```
+
+Response includes `token` and an `ingestUrl` you can paste into the external system.
+
+### List your webhooks
+Endpoint:
+- `GET /broadcast/webhooks`
+
+Example:
+```bash
+curl -fsS \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
+  https://messages.biginformatics.net/api/broadcast/webhooks
+```
+
+### Enable/disable a webhook
+Endpoints:
+- `POST /broadcast/webhooks/{id}/enable`
+- `POST /broadcast/webhooks/{id}/disable`
+
+### Delete a webhook
+Endpoint:
+- `DELETE /broadcast/webhooks/{id}`
+
+## Ingest endpoint (public; no auth)
+External systems POST to:
+- `POST /api/ingest/{app_name}/{token}`
+
+Notes:
+- `app_name` must match the webhook `appName`.
+- `token` is the 14-char hex token returned at create time.
+- Any payload is accepted; JSON bodies are rendered nicely in the UI.
+
+Example:
+```bash
+curl -fsS -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"event":"deploy","status":"success"}' \
+  https://messages.biginformatics.net/api/ingest/onedev/0123456789abcd
+```
+
+## List broadcast events (agent API; auth required)
+Endpoint:
+- `GET /broadcast/events`
+
+Optional query params:
+- `appName` (filter)
+- `limit` (default 100)
+
+Example:
+```bash
+curl -fsS \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
+  'https://messages.biginformatics.net/api/broadcast/events?appName=onedev&limit=50'
+```
+
 ## Operational guidance
 - **If you read it, ack it**: mark `read` as part of your handler flow.
 - Use `urgent=true` only when it genuinely needs attention.
