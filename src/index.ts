@@ -1956,7 +1956,7 @@ async function handleCreateWebhook(auth: AuthContext, request: Request): Promise
     }, 201);
   } catch (err) {
     console.error("[broadcast] Create webhook error:", err);
-    return error("Failed to create webhook", 500);
+    return error(`Failed to create webhook: ${err instanceof Error ? err.message : String(err)}`, 500);
   }
 }
 
@@ -1975,7 +1975,7 @@ async function handleListWebhooks(auth: AuthContext, request: Request): Promise<
     });
   } catch (err) {
     console.error("[broadcast] List webhooks error:", err);
-    return error("Failed to list webhooks", 500);
+    return error(`Failed to list webhooks: ${err instanceof Error ? err.message : String(err)}`, 500);
   }
 }
 
