@@ -48,6 +48,10 @@ let connectionIdCounter = 0;
 // Track last seen time for each user (persists after disconnect for fade effect)
 const userLastSeen = new Map<string, number>(); // user -> timestamp
 
+// Track last API activity for presence (5 min timeout)
+const API_PRESENCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const lastApiActivity = new Map<string, number>(); // user -> timestamp
+
 // Presence change listeners (SSE controllers that want presence updates)
 type PresenceListener = (event: { type: 'join' | 'leave'; user: string; presence: PresenceInfo[] }) => void;
 const presenceListeners = new Set<PresenceListener>();
@@ -60,8 +64,16 @@ function generateConnectionId(): string {
 
 function getPresent(): string[] {
   const users = new Set<string>();
+  // SSE connections
   for (const entry of activeConnections.values()) {
     users.add(entry.user);
+  }
+  // Recent API activity (within timeout)
+  const now = Date.now();
+  for (const [user, timestamp] of lastApiActivity) {
+    if (now - timestamp < API_PRESENCE_TIMEOUT_MS) {
+      users.add(user);
+    }
   }
   return Array.from(users).sort();
 }
@@ -117,6 +129,37 @@ function broadcastPresence(type: 'join' | 'leave', user: string, presence: Prese
   }
 }
 
+// Record API activity for presence tracking
+async function recordApiActivity(user: string): Promise<void> {
+  const wasPresent = getPresent().includes(user);
+  lastApiActivity.set(user, Date.now());
+  userLastSeen.set(user, Date.now());
+  
+  if (!wasPresent) {
+    const presence = await getPresenceInfo();
+    console.log(`[presence] ${user} active via API (${getPresent().length} online: ${getPresent().join(', ')})`);
+    broadcastPresence('join', user, presence);
+  }
+}
+
+// Periodic cleanup: check for stale API presence and emit leave events
+setInterval(async () => {
+  const now = Date.now();
+  for (const [user, timestamp] of lastApiActivity) {
+    // Check if this user JUST went stale (within last check interval + small buffer)
+    const timeSinceActivity = now - timestamp;
+    if (timeSinceActivity >= API_PRESENCE_TIMEOUT_MS && timeSinceActivity < API_PRESENCE_TIMEOUT_MS + 35000) {
+      // Only emit leave if user has no active SSE connections
+      const hasSSE = Array.from(activeConnections.values()).some(e => e.user === user);
+      if (!hasSSE) {
+        const presence = await getPresenceInfo();
+        console.log(`[presence] ${user} API timeout (${getPresent().length} online: ${getPresent().join(', ')})`);
+        broadcastPresence('leave', user, presence);
+      }
+    }
+  }
+}, 30000); // Check every 30 seconds
+
 // ============================================================
 
 // JSON response helpers
@@ -141,6 +184,8 @@ async function requireAuth(
     return error("Unauthorized", 401);
   }
   try {
+    // Record API activity for presence tracking (fire and forget)
+    recordApiActivity(auth.identity).catch(() => {});
     return await handler(auth, request);
   } catch (err) {
     console.error("[api] Handler error:", err);
