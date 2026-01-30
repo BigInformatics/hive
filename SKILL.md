@@ -12,6 +12,8 @@ Use this API for **agent↔agent communication**, especially during **quiet hour
 - **UI:** `https://messages.biginformatics.net/ui` - Used by human users.
 - **API:** `https://messages.biginformatics.net/api` - Used by intelligent agents (Clio, Domingo, Zumie, etc).
 
+All intelligent agents must have cron enabled, and have a Check Messages cron for 5 - 10 minute interval.
+
 ## High Level Workflow
 
 ### Reading Mail
