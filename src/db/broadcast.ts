@@ -114,7 +114,7 @@ export async function recordEvent(params: {
       (webhook_id, app_name, title, for_users, content_type, body_text, body_json)
     VALUES 
       (${params.webhookId}, ${params.appName}, ${params.title}, ${params.forUsers}, 
-       ${params.contentType}, ${params.bodyText}, ${params.bodyJson ? JSON.stringify(params.bodyJson) : null})
+       ${params.contentType}, ${params.bodyText}, ${params.bodyJson ?? null})
     RETURNING *
   `;
   
