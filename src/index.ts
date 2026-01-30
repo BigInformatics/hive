@@ -564,7 +564,7 @@ async function handleUI(): Promise<Response> {
       <div class="nav">
         <a href="/ui" class="active">Messages</a>
         <a href="/ui/broadcast">Broadcast</a>
-        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+        <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
       </div>
     </div>
     <div id="presenceIndicators"></div>
@@ -605,14 +605,24 @@ async function handleUI(): Promise<Response> {
     };
 
     // Theme toggle
+    const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
+    const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>';
+    
+    function updateThemeIcon() {
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
+    }
+    
     function toggleTheme() {
       const isLight = document.body.classList.toggle('light');
       localStorage.setItem('theme', isLight ? 'light' : 'dark');
+      updateThemeIcon();
     }
     // Restore theme on load
     if (localStorage.getItem('theme') === 'light') {
       document.body.classList.add('light');
     }
+    updateThemeIcon();
 
     // Global /ui is a read-only admin view: sound disabled
     // Notification sound variables (kept for playNotificationSound compatibility)
@@ -2312,7 +2322,7 @@ async function handleBroadcastUI(): Promise<Response> {
       <div class="nav">
         <a href="/ui">Messages</a>
         <a href="/ui/broadcast" class="active">Broadcast</a>
-        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+        <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
       </div>
     </div>
     <div id="presenceIndicators"></div>
@@ -2345,12 +2355,22 @@ async function handleBroadcastUI(): Promise<Response> {
     }
     
     // Theme handling
+    const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
+    const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>';
+    
+    function updateThemeIcon() {
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
+    }
+    
     const savedTheme = localStorage.getItem('theme') || 'dark';
     if (savedTheme === 'light') document.body.classList.add('light');
+    updateThemeIcon();
     
     function toggleTheme() {
       document.body.classList.toggle('light');
       localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+      updateThemeIcon();
     }
     
     // Presence
