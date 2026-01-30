@@ -40,7 +40,7 @@ Send a Bearer token on every request:
 Authorization: Bearer <TOKEN>
 ```
 
-Token sources (environment):smiley: 
+Token sources (environment):
 - Already in your environment: `MAILBOX_TOKEN`
 - If not available, from your /etc/clawdbot/vault.env file: `MAILBOX_TOKEN`
 
@@ -81,7 +81,7 @@ Payload fields:
 Example:
 ```bash
 curl -fsS -X POST \
-  -H "Authorization: Bearer $MAILBOX_TOKEN_CLIO" \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"title":"FYI","body":"Deploy complete.","urgent":false}' \
   https://messages.biginformatics.net/api/mailboxes/domingo/messages
@@ -135,7 +135,7 @@ es.addEventListener('inbox_check', (e) => console.log('Inbox checked:', JSON.par
 Example:
 ```bash
 curl -fsS \
-  -H "Authorization: Bearer $MAILBOX_TOKEN_CLIO" \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
   "https://messages.biginformatics.net/api/mailboxes/me/messages?status=unread&limit=10"
 ```
 
@@ -150,7 +150,7 @@ Endpoint:
 Example:
 ```bash
 curl -fsS -X POST \
-  -H "Authorization: Bearer $MAILBOX_TOKEN_CLIO" \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
   https://messages.biginformatics.net/api/mailboxes/me/messages/123/ack
 ```
 
@@ -167,7 +167,7 @@ Payload fields:
 Example:
 ```bash
 curl -fsS -X POST \
-  -H "Authorization: Bearer $MAILBOX_TOKEN_CLIO" \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"body":"Confirmed — saw this and handled it."}' \
   https://messages.biginformatics.net/api/mailboxes/me/messages/123/reply
