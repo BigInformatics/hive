@@ -18,6 +18,14 @@ http:
       tls:
         certResolver: step-ca
 
+    mailbox-assets:
+      rule: "Host(`messages.biginformatics.net`) && PathPrefix(`/assets`)"
+      entrypoints:
+        - websecure
+      service: mailbox-api
+      tls:
+        certResolver: step-ca
+
   middlewares:
     mailbox-streaming:
       buffering:
