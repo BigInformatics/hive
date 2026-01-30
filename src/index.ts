@@ -613,9 +613,10 @@ async function handleUI(): Promise<Response> {
     .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 6px; cursor: pointer; color: var(--foreground); opacity: 0.7; }
+    .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
     .nav .icon-btn:hover { opacity: 1; }
-    .theme-toggle { background: var(--secondary); border: none; color: var(--foreground); padding: 8px; border-radius: var(--radius); cursor: pointer; font-size: 1rem; min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; }
+    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
+    .theme-toggle { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: var(--secondary); border: none; border-radius: var(--radius); cursor: pointer; color: var(--foreground); }
     .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select, button { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; font-size: 0.875rem; transition: all 0.15s ease; }
     select:hover, button:hover { border-color: var(--ring); background: var(--secondary); }
@@ -1271,9 +1272,10 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 6px; cursor: pointer; color: var(--foreground); opacity: 0.7; }
+    .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
     .nav .icon-btn:hover { opacity: 1; }
-    .theme-toggle { background: var(--secondary); border: none; color: var(--foreground); padding: 8px; border-radius: var(--radius); cursor: pointer; font-size: 1rem; min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; }
+    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
+    .theme-toggle { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: var(--secondary); border: none; border-radius: var(--radius); cursor: pointer; color: var(--foreground); }
     h1 { margin-bottom: 16px; font-size: 1.25rem; font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
     .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select, button, input, textarea { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 0.875rem; transition: all 0.15s ease; }
@@ -2430,21 +2432,22 @@ async function handleBroadcastUI(): Promise<Response> {
     }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 6px; cursor: pointer; color: var(--foreground); opacity: 0.7; }
+    .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
     .nav .icon-btn:hover { opacity: 1; }
+    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
     .theme-toggle {
-      background: var(--secondary);
-      border: none;
-      color: var(--foreground);
-      padding: 8px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 1rem;
-      min-width: 36px;
-      min-height: 36px;
+      width: 36px;
+      height: 36px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      padding: 0;
+      line-height: 0;
+      background: var(--secondary);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      color: var(--foreground);
     }
     .filter-bar {
       display: flex;
