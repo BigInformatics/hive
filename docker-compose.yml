@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  hive:
+  mailbox-api:  # Keep old service name for Dokploy compatibility
     build: .
     container_name: hive
     restart: unless-stopped
