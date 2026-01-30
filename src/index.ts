@@ -657,10 +657,11 @@ async function handleUI(): Promise<Response> {
       }
     });
     
-    // Auto-redirect if we have a stored key
+    // Auto-redirect if we have a stored key AND running as installed PWA
     (function() {
       const storedKey = localStorage.getItem('hive_mailbox_key');
-      if (storedKey && window.location.pathname === '/ui') {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      if (storedKey && window.location.pathname === '/ui' && isStandalone) {
         window.location.href = '/ui/' + encodeURIComponent(storedKey);
       }
     })();
@@ -1246,6 +1247,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     <div style="display: flex; gap: 12px; align-items: center;">
       <a href="/ui" style="color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-size: 0.875rem; font-weight: 600;">Messages</a>
       <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Buzz</a>
+      <a href="/ui" onclick="localStorage.removeItem('hive_mailbox_key')" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.75rem;">All</a>
       <button onclick="logout()" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; background: transparent; border: 1px solid var(--border); cursor: pointer;">Logout</button>
     </div>
   </div>
