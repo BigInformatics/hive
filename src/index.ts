@@ -695,7 +695,7 @@ async function handleUI(): Promise<Response> {
 
     function getAvatarHtml(name) {
       if (avatarData[name]) {
-        return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
+        return \`<img class="avatar" src="\${avatarData[name]}" alt="">\`;
       }
       const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
       const initial = (name || '?')[0];
@@ -806,7 +806,7 @@ async function handleUI(): Promise<Response> {
         const colors = avatarColors[info.user] || { bg: '#333', fg: '#888' };
         const initial = info.user[0].toUpperCase();
         const avatarHtml = avatar 
-          ? \`<img src="\${avatar}" alt="\${info.user}">\`
+          ? \`<img src="\${avatar}" alt="">\`
           : \`<div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>\`;
         return \`
           <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
@@ -1402,7 +1402,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
 
     function getAvatarHtml(name) {
       if (avatarData[name]) {
-        return \`<img class="avatar" src="\${avatarData[name]}" alt="\${name}">\`;
+        return \`<img class="avatar" src="\${avatarData[name]}" alt="">\`;
       }
       const colors = avatarColors[name] || { bg: '#333', fg: '#888' };
       const initial = (name || '?')[0];
@@ -1592,7 +1592,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
         const colors = avatarColors[info.user] || { bg: '#333', fg: '#888' };
         const initial = info.user[0].toUpperCase();
         const avatarHtml = avatar 
-          ? \`<img src="\${avatar}" alt="\${info.user}">\`
+          ? \`<img src="\${avatar}" alt="">\`
           : \`<div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>\`;
         return \`
           <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
@@ -2406,7 +2406,7 @@ async function handleBroadcastUI(): Promise<Response> {
         const status = info.online ? 'online' : 'offline';
         const avatar = avatarData[info.user];
         const avatarHtml = avatar 
-          ? \`<img src="\${avatar}" alt="\${info.user}">\`
+          ? \`<img src="\${avatar}" alt="">\`
           : \`<div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>\`;
         return \`
           <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
