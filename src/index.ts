@@ -1142,15 +1142,13 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .compose-status.error { color: var(--destructive); }
     .reply-info { font-size: 0.8125rem; color: var(--primary); margin-bottom: 12px; padding: 10px; background: rgba(56,189,248,0.1); border-radius: var(--radius); border: 1px solid rgba(56,189,248,0.2); }
     /* Presence indicators */
-    .presence-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
-    .presence-bar .label { font-size: 0.6875rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; flex-shrink: 0; }
-    #presenceIndicators { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
-    .presence-avatar { position: relative; width: 32px; height: 32px; flex-shrink: 0; margin-bottom: 12px; }
-    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; font-size: 12px; }
-    .presence-avatar .ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--muted); transition: all 0.2s ease; }
-    .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,0.4); }
-    .presence-avatar .name { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); font-size: 0.5625rem; color: var(--muted-foreground); white-space: nowrap; font-weight: 600; }
-    .presence-avatar.online .name { color: #22c55e; }
+    #presenceIndicators { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+    .presence-avatar { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
+    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; opacity: 0.5; transition: opacity 0.2s ease; }
+    .presence-avatar .avatar-placeholder { display: flex; align-items: center; justify-content: center; font-weight: 600; }
+    .presence-avatar.online img, .presence-avatar.online .avatar-placeholder { opacity: 1; }
+    .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
+    .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.4); }
     .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
     /* Light mode */
     body.light {
@@ -1179,17 +1177,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
     body.light .reply-info { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; }
     body.light .mark-read-btn { background: #e0f2fe; color: #0369a1; }
     body.light .mark-read-btn:hover { background: var(--primary); color: white; }
-    body.light .presence-avatar .ring { border-color: #d4d4d8; }
-    body.light .presence-avatar.online .ring { border-color: #22c55e; }
-    body.light .presence-avatar .name { color: #71717a; }
-    body.light .presence-avatar.online .name { color: #16a34a; }
+    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.4; }
+    body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
   </style>
 </head>
 <body>
-  <div class="presence-bar">
-    <span class="label">Online</span>
-    <div id="presenceIndicators"></div>
-  </div>
+  <div id="presenceIndicators"></div>
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
     <h1 style="margin-bottom: 0;">📬 Mailbox - ${sender}</h1>
     <div style="display: flex; gap: 12px; align-items: center;">
@@ -1592,7 +1585,6 @@ async function handleUIWithKey(key: string): Promise<Response> {
       presenceData = presence || presenceData;
       const container = document.getElementById('presenceIndicators');
       container.innerHTML = presenceData.map(info => {
-        const pc = getPresenceColor(info);
         const status = info.online ? 'online' : (info.lastSeen ? \`last seen \${Math.round((Date.now() - info.lastSeen) / 60000)}m ago\` : 'offline');
         const avatar = avatarData[info.user];
         const colors = avatarColors[info.user] || { bg: '#333', fg: '#888' };
@@ -1601,17 +1593,13 @@ async function handleUIWithKey(key: string): Promise<Response> {
           ? \`<img src="\${avatar}" alt="\${info.user}">\`
           : \`<div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg}">\${initial}</div>\`;
         return \`
-          <div class="presence-avatar" title="\${info.user} - \${status}">
-            <div class="ring" style="border-color:\${pc.ring};box-shadow:0 0 10px \${pc.shadow}"></div>
+          <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
+            <div class="ring"></div>
             \${avatarHtml}
-            <span class="name" style="color:\${pc.name}">\${info.user}</span>
           </div>
         \`;
       }).join('');
     }
-
-    // Update presence colors every 30 seconds for fade effect
-    setInterval(() => renderPresence(), 30000);
 
     // Track seen messages globally (persists across SSE reconnects)
     const seenMessageIds = new Set();
@@ -2321,12 +2309,13 @@ async function handleBroadcastUI(): Promise<Response> {
     /* Presence indicators */
     #presenceIndicators { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
     .presence-avatar { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
-    .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 600; opacity: 0.5; transition: opacity 0.2s ease; }
-    .presence-avatar.online .avatar-placeholder { opacity: 1; }
+    .presence-avatar img, .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; opacity: 0.5; transition: opacity 0.2s ease; }
+    .presence-avatar .avatar-placeholder { display: flex; align-items: center; justify-content: center; font-weight: 600; }
+    .presence-avatar.online img, .presence-avatar.online .avatar-placeholder { opacity: 1; }
     .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
     .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.4); }
-    body.light .presence-avatar .avatar-placeholder { opacity: 0.4; }
-    body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
+    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.4; }
+    body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
   </style>
 </head>
 <body>
