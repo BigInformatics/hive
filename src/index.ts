@@ -550,8 +550,9 @@ async function handleUI(): Promise<Response> {
     body.light .message.selected { background: #e0f2fe; }
     body.light .badge.urgent { background: rgba(245,158,11,0.1); color: #d97706; }
     body.light .badge.unread { background: rgba(14,165,233,0.1); color: #0284c7; }
-    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.4; }
+    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.65; }
     body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
+    body.light .presence-avatar.online .ring { border-color: #16a34a; box-shadow: 0 0 8px rgba(22,163,74,0.4); }
   </style>
 </head>
 <body>
@@ -1177,8 +1178,9 @@ async function handleUIWithKey(key: string): Promise<Response> {
     body.light .reply-info { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; }
     body.light .mark-read-btn { background: #e0f2fe; color: #0369a1; }
     body.light .mark-read-btn:hover { background: var(--primary); color: white; }
-    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.4; }
+    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.65; }
     body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
+    body.light .presence-avatar.online .ring { border-color: #16a34a; box-shadow: 0 0 8px rgba(22,163,74,0.4); }
   </style>
 </head>
 <body>
@@ -2314,8 +2316,9 @@ async function handleBroadcastUI(): Promise<Response> {
     .presence-avatar.online img, .presence-avatar.online .avatar-placeholder { opacity: 1; }
     .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
     .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.4); }
-    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.4; }
+    body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.65; }
     body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
+    body.light .presence-avatar.online .ring { border-color: #16a34a; box-shadow: 0 0 8px rgba(22,163,74,0.4); }
   </style>
 </head>
 <body>
