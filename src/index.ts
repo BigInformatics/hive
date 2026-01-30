@@ -26,12 +26,12 @@ function initUIKeys() {
     try {
       const parsed = JSON.parse(jsonKeys);
       Object.assign(uiMailboxKeys, parsed);
-      console.log(`[mailbox-api] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys`);
+      console.log(`[hive] Loaded ${Object.keys(uiMailboxKeys).length} UI mailbox keys`);
     } catch (e) {
-      console.error("[mailbox-api] Failed to parse UI_MAILBOX_KEYS:", e);
+      console.error("[hive] Failed to parse UI_MAILBOX_KEYS:", e);
     }
   } else {
-    console.log(`[mailbox-api] UI_MAILBOX_KEYS not configured - compose UI disabled`);
+    console.log(`[hive] UI_MAILBOX_KEYS not configured - compose UI disabled`);
   }
 }
 
@@ -2633,10 +2633,10 @@ const server = Bun.serve({
   fetch: handleRequest,
 });
 
-console.log(`[mailbox-api] Listening on http://localhost:${PORT}`);
+console.log(`[hive] Listening on http://localhost:${PORT}`);
 
 process.on("SIGINT", async () => {
-  console.log("\n[mailbox-api] Shutting down...");
+  console.log("\n[hive] Shutting down...");
   await close();
   process.exit(0);
 });

@@ -4,17 +4,17 @@ http:
       rule: "Host(`messages.biginformatics.net`) && PathPrefix(`/ui`)"
       entrypoints:
         - websecure
-      service: mailbox-api
+      service: hive
       middlewares:
         - mailbox-streaming
       tls:
         certResolver: step-ca
 
-    mailbox-api:
+    hive:
       rule: "Host(`messages.biginformatics.net`) && PathPrefix(`/api`)"
       entrypoints:
         - websecure
-      service: mailbox-api
+      service: hive
       tls:
         certResolver: step-ca
 
@@ -22,7 +22,7 @@ http:
       rule: "Host(`messages.biginformatics.net`) && PathPrefix(`/assets`)"
       entrypoints:
         - websecure
-      service: mailbox-api
+      service: hive
       tls:
         certResolver: step-ca
 
@@ -36,7 +36,7 @@ http:
         retryExpression: "false"
 
   services:
-    mailbox-api:
+    hive:
       loadBalancer:
         servers:
           - url: "http://172.23.0.2:3100"

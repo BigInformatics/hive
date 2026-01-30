@@ -1,5 +1,5 @@
 ---
-name: mailbox-api
+name: hive
 description: Use the Postgres Mailbox API (REST; MCP later) for agent↔agent “team mailbox” communication without direct SQL access.
 ---
 

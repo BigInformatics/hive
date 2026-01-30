@@ -1,16 +1,16 @@
 [Unit]
-Description=Mailbox API Server
+Description=Hive Server
 After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=mailbox
-Group=mailbox
-WorkingDirectory=/opt/mailbox-api
+User=hive
+Group=hive
+WorkingDirectory=/opt/hive
 ExecStart=/usr/local/bin/bun run src/index.ts
 Restart=on-failure
 RestartSec=5
-EnvironmentFile=/etc/mailbox-api/env
+EnvironmentFile=/etc/hive/env
 
 # Security
 NoNewPrivileges=true

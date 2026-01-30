@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  mailbox-api:
+  hive:
     build: .
-    container_name: mailbox-api
+    container_name: hive
     restart: unless-stopped
     ports:
       - "3100:3100"
@@ -27,19 +27,19 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
       # Service
-      - "traefik.http.services.mailbox-api.loadbalancer.server.port=3100"
+      - "traefik.http.services.hive.loadbalancer.server.port=3100"
       # Router 1: /ui paths
       - "traefik.http.routers.mailbox-ui.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/ui`)"
       - "traefik.http.routers.mailbox-ui.entrypoints=websecure"
       - "traefik.http.routers.mailbox-ui.tls.certresolver=step-ca"
-      - "traefik.http.routers.mailbox-ui.service=mailbox-api"
+      - "traefik.http.routers.mailbox-ui.service=hive"
       - "traefik.http.routers.mailbox-ui.priority=100"
       # Router 2: /api paths
-      - "traefik.http.routers.mailbox-api-route.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.mailbox-api-route.entrypoints=websecure"
-      - "traefik.http.routers.mailbox-api-route.tls.certresolver=step-ca"
-      - "traefik.http.routers.mailbox-api-route.service=mailbox-api"
-      - "traefik.http.routers.mailbox-api-route.priority=100"
+      - "traefik.http.routers.hive-route.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.hive-route.entrypoints=websecure"
+      - "traefik.http.routers.hive-route.tls.certresolver=step-ca"
+      - "traefik.http.routers.hive-route.service=hive"
+      - "traefik.http.routers.hive-route.priority=100"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3100/healthz"]
       interval: 30s

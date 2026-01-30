@@ -1,5 +1,5 @@
 {
-  "name": "mailbox-api",
+  "name": "hive",
   "version": "0.1.0",
   "description": "Team mailbox REST API for agent-to-agent communication",
   "type": "module",

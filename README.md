@@ -86,7 +86,7 @@ curl -X POST http://localhost:3100/mailboxes/me/messages/123/reply \
 
 ## Deployment
 
-See `systemd/mailbox-api.service` for systemd unit file.
+See `systemd/hive.service` for systemd unit file.
 
 ## Schema
 
