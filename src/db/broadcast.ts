@@ -40,17 +40,7 @@ export async function createWebhook(params: {
 }): Promise<Webhook> {
   const token = generateToken();
   
-  const [row] = await sql<{
-    id: number;
-    app_name: string;
-    token: string;
-    title: string;
-    owner: string;
-    for_users: string | null;
-    enabled: boolean;
-    created_at: Date;
-    last_hit_at: Date | null;
-  }[]>`
+  const [row] = await sql`
     INSERT INTO public.broadcast_webhooks (app_name, token, title, owner, for_users)
     VALUES (${params.appName}, ${token}, ${params.title}, ${params.owner}, ${params.forUsers || null})
     RETURNING *
@@ -119,22 +109,12 @@ export async function recordEvent(params: {
     WHERE id = ${params.webhookId}
   `;
   
-  const [row] = await sql<{
-    id: number;
-    webhook_id: number;
-    app_name: string;
-    title: string;
-    for_users: string | null;
-    received_at: Date;
-    content_type: string | null;
-    body_text: string | null;
-    body_json: unknown | null;
-  }[]>`
+  const [row] = await sql`
     INSERT INTO public.broadcast_events 
       (webhook_id, app_name, title, for_users, content_type, body_text, body_json)
     VALUES 
       (${params.webhookId}, ${params.appName}, ${params.title}, ${params.forUsers}, 
-       ${params.contentType}, ${params.bodyText}, ${params.bodyJson})
+       ${params.contentType}, ${params.bodyText}, ${params.bodyJson ? JSON.stringify(params.bodyJson) : null})
     RETURNING *
   `;
   
