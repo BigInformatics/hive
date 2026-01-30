@@ -567,7 +567,16 @@ async function handleUI(): Promise<Response> {
       <div class="nav">
         <a href="/ui" class="active">Messages</a>
         <a href="/ui/broadcast">Buzz</a>
-        <button onclick="promptLogin()" style="background:var(--primary);color:white;border:none;padding:6px 12px;border-radius:var(--radius);cursor:pointer;font-size:0.875rem;">Login</button>
+        <button id="keyBtn" onclick="toggleKeyPopover()" style="background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;" title="Enter mailbox key">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+        </button>
+        <div id="keyPopover" style="display:none;position:absolute;top:50px;right:80px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+          <input id="keyInput" type="text" placeholder="Enter mailbox key" style="width:180px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);margin-bottom:8px;">
+          <div style="display:flex;gap:8px;">
+            <button onclick="submitKey()" style="flex:1;padding:6px 12px;background:var(--primary);color:white;border:none;border-radius:var(--radius);cursor:pointer;">Go</button>
+            <button onclick="toggleKeyPopover()" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--foreground);">Cancel</button>
+          </div>
+        </div>
         <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
       </div>
     </div>
@@ -617,13 +626,36 @@ async function handleUI(): Promise<Response> {
       if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
     }
     
-    function promptLogin() {
-      const key = prompt('Enter your mailbox key:');
-      if (key && key.trim()) {
-        localStorage.setItem('hive_mailbox_key', key.trim());
-        window.location.href = '/ui/' + encodeURIComponent(key.trim());
+    function toggleKeyPopover() {
+      const popover = document.getElementById('keyPopover');
+      const input = document.getElementById('keyInput');
+      if (popover.style.display === 'none') {
+        popover.style.display = 'block';
+        input.focus();
+      } else {
+        popover.style.display = 'none';
       }
     }
+    
+    function submitKey() {
+      const input = document.getElementById('keyInput');
+      const key = input.value.trim();
+      if (key) {
+        localStorage.setItem('hive_mailbox_key', key);
+        window.location.href = '/ui/' + encodeURIComponent(key);
+      }
+    }
+    
+    // Handle Enter key in input
+    document.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('keyInput');
+      if (input) {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') submitKey();
+          if (e.key === 'Escape') toggleKeyPopover();
+        });
+      }
+    });
     
     // Auto-redirect if we have a stored key
     (function() {
