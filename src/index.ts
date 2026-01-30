@@ -521,6 +521,7 @@ async function handleUI(): Promise<Response> {
     #presenceIndicators { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
     .presence-avatar { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
     .presence-avatar img, .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; opacity: 0.5; transition: opacity 0.2s ease; }
+    .presence-avatar img { object-fit: cover; }
     .presence-avatar .avatar-placeholder { display: flex; align-items: center; justify-content: center; font-weight: 600; }
     .presence-avatar.online img, .presence-avatar.online .avatar-placeholder { opacity: 1; }
     .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
@@ -889,7 +890,7 @@ async function handleUI(): Promise<Response> {
     loadMessages();
     connectSSE();
   </script>
-<!-- build: img-avatars-v2 -->
+<!-- build: img-avatars-v3 -->
 </body>
 </html>`;
 
@@ -1151,6 +1152,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     #presenceIndicators { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
     .presence-avatar { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
     .presence-avatar img, .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; opacity: 0.5; transition: opacity 0.2s ease; }
+    .presence-avatar img { object-fit: cover; }
     .presence-avatar .avatar-placeholder { display: flex; align-items: center; justify-content: center; font-weight: 600; }
     .presence-avatar.online img, .presence-avatar.online .avatar-placeholder { opacity: 1; }
     .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
@@ -1684,7 +1686,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     loadMessages();
     connectSSE();
   </script>
-<!-- build: img-avatars-v2 -->
+<!-- build: img-avatars-v3 -->
 </body>
 </html>`;
 
@@ -2321,6 +2323,7 @@ async function handleBroadcastUI(): Promise<Response> {
     #presenceIndicators { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
     .presence-avatar { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
     .presence-avatar img, .presence-avatar .avatar-placeholder { width: 28px; height: 28px; border-radius: 50%; font-size: 11px; opacity: 0.5; transition: opacity 0.2s ease; }
+    .presence-avatar img { object-fit: cover; }
     .presence-avatar .avatar-placeholder { display: flex; align-items: center; justify-content: center; font-weight: 600; }
     .presence-avatar.online img, .presence-avatar.online .avatar-placeholder { opacity: 1; }
     .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
@@ -2559,7 +2562,7 @@ async function handleBroadcastUI(): Promise<Response> {
     
     connect();
   </script>
-<!-- build: img-avatars-v2 -->
+<!-- build: img-avatars-v3 -->
 </body>
 </html>`;
 
