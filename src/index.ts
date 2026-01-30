@@ -566,7 +566,7 @@ async function handleUI(): Promise<Response> {
       </h1>
       <div class="nav">
         <a href="/ui" class="active">Messages</a>
-        <a href="/ui/broadcast">Buzz</a>
+        <a href="/ui/buzz">Buzz</a>
         <button id="keyBtn" onclick="toggleKeyPopover()" style="background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;" title="Enter mailbox key">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
         </button>
@@ -1248,7 +1248,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     </h1>
     <div style="display: flex; gap: 12px; align-items: center;">
       <a href="/ui" style="color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-size: 0.875rem; font-weight: 600;">Messages</a>
-      <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Buzz</a>
+      <a href="/ui/buzz" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Buzz</a>
       <a href="/ui" onclick="localStorage.removeItem('hive_mailbox_key')" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.75rem;">All</a>
       <button onclick="logout()" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; background: transparent; border: 1px solid var(--border); cursor: pointer;">Logout</button>
       <button id="soundToggleNav" onclick="toggleSound()" style="background: transparent; border: none; padding: 6px; cursor: pointer; color: var(--foreground); opacity: 0.7;" title="Toggle notification sound">
@@ -1916,8 +1916,11 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui/stream") return handleUIStream(request);
     if (path === "/ui/presence") return handlePresence();
     
-    // Broadcast UI tab (must be before keyed UI routes)
-    if (path === "/ui/broadcast") return handleBroadcastUI();
+    // Buzz UI tab (must be before keyed UI routes)
+    if (path === "/ui/buzz") return handleBroadcastUI();
+    if (path === "/ui/buzz/stream") return handleBroadcastUIStream(request);
+    // Legacy /ui/broadcast redirects to /ui/buzz
+    if (path === "/ui/broadcast") return Response.redirect(new URL("/ui/buzz", request.url).toString(), 302);
     if (path === "/ui/broadcast/stream") return handleBroadcastUIStream(request);
     
     // Keyed UI with compose
@@ -2422,7 +2425,7 @@ async function handleBroadcastUI(): Promise<Response> {
       </h1>
       <div class="nav">
         <a href="/ui">Messages</a>
-        <a href="/ui/broadcast" class="active">Buzz</a>
+        <a href="/ui/buzz" class="active">Buzz</a>
         <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
       </div>
     </div>
@@ -2613,7 +2616,7 @@ async function handleBroadcastUI(): Promise<Response> {
     }
     
     function connect() {
-      eventSource = new EventSource('/ui/broadcast/stream');
+      eventSource = new EventSource('/ui/buzz/stream');
       
       eventSource.onopen = () => setStatus(true);
       eventSource.onerror = () => {
