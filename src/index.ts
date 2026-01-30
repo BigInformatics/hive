@@ -889,7 +889,7 @@ async function handleUI(): Promise<Response> {
     loadMessages();
     connectSSE();
   </script>
-<!-- build: img-avatars-v1 -->
+<!-- build: img-avatars-v2 -->
 </body>
 </html>`;
 
@@ -1684,7 +1684,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     loadMessages();
     connectSSE();
   </script>
-<!-- build: img-avatars-v1 -->
+<!-- build: img-avatars-v2 -->
 </body>
 </html>`;
 
@@ -2414,15 +2414,16 @@ async function handleBroadcastUI(): Promise<Response> {
         const initial = info.user[0].toUpperCase();
         const status = info.online ? 'online' : 'offline';
         const avatar = avatarData[info.user];
-        // Always use placeholder div; avatar as background-image (fails gracefully to show initial)
-        // Text color transparent when avatar exists (hides initial behind image)
-        const bgStyle = avatar 
-          ? \`background:url(\${avatar}) center/cover no-repeat, \${colors.bg};color:transparent\`
-          : \`background:\${colors.bg};color:\${colors.fg}\`;
+        // Use same <img> approach as Messages for consistency
+        const avatarHtml = avatar
+          ? \`<img class="avatar" src="\${avatar}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">\`
+          : '';
+        const fallbackStyle = avatar ? 'display:none' : '';
         return \`
           <div class="presence-avatar\${info.online ? ' online' : ''}" title="\${info.user} - \${status}">
             <div class="ring"></div>
-            <div class="avatar-placeholder" style="\${bgStyle}">\${initial}</div>
+            \${avatarHtml}
+            <div class="avatar-placeholder" style="background:\${colors.bg};color:\${colors.fg};\${fallbackStyle}">\${initial}</div>
           </div>
         \`;
       }).join('');
@@ -2558,7 +2559,7 @@ async function handleBroadcastUI(): Promise<Response> {
     
     connect();
   </script>
-<!-- build: img-avatars-v1 -->
+<!-- build: img-avatars-v2 -->
 </body>
 </html>`;
 
