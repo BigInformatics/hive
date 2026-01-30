@@ -1890,8 +1890,8 @@ async function handleRequest(request: Request): Promise<Response> {
     }
     
     // Ingest endpoint (NO AUTH - public webhook endpoint)
-    // Must be last to avoid matching other routes
-    const ingestMatch = path.match(/^\/([a-z][a-z0-9_-]*)\/([a-f0-9]{14})$/);
+    // Route: /api/ingest/{app_name}/{token} (path has /api stripped, so matches /ingest/...)
+    const ingestMatch = path.match(/^\/ingest\/([a-z][a-z0-9_-]*)\/([a-f0-9]{14})$/);
     if (method === "POST" && ingestMatch) {
       return handleWebhookIngest(ingestMatch[1], ingestMatch[2], request);
     }
@@ -1948,7 +1948,7 @@ async function handleCreateWebhook(auth: AuthContext, request: Request): Promise
       forUsers: body.for,
     });
     
-    const ingestUrl = `https://messages.biginformatics.net/${webhook.appName}/${webhook.token}`;
+    const ingestUrl = `https://messages.biginformatics.net/api/ingest/${webhook.appName}/${webhook.token}`;
     
     return json({
       ...webhook,
@@ -1970,7 +1970,7 @@ async function handleListWebhooks(auth: AuthContext, request: Request): Promise<
     return json({
       webhooks: webhooks.map(w => ({
         ...w,
-        ingestUrl: `https://messages.biginformatics.net/${w.appName}/${w.token}`,
+        ingestUrl: `https://messages.biginformatics.net/api/ingest/${w.appName}/${w.token}`,
       })),
     });
   } catch (err) {
@@ -1994,7 +1994,7 @@ async function handleGetWebhook(auth: AuthContext, id: number): Promise<Response
     
     return json({
       ...webhook,
-      ingestUrl: `https://messages.biginformatics.net/${webhook.appName}/${webhook.token}`,
+      ingestUrl: `https://messages.biginformatics.net/api/ingest/${webhook.appName}/${webhook.token}`,
     });
   } catch (err) {
     console.error("[broadcast] Get webhook error:", err);
@@ -2019,7 +2019,7 @@ async function handleWebhookToggle(auth: AuthContext, id: number, enabled: boole
     
     return json({
       ...updated,
-      ingestUrl: `https://messages.biginformatics.net/${updated!.appName}/${updated!.token}`,
+      ingestUrl: `https://messages.biginformatics.net/api/ingest/${updated!.appName}/${updated!.token}`,
     });
   } catch (err) {
     console.error("[broadcast] Toggle webhook error:", err);
