@@ -1,4 +1,4 @@
-// Mailbox API Server
+// Hive - Team Communication Hub
 import { healthCheck, close } from "./db/client";
 import { 
   sendMessage, listMessages, getMessage, 
@@ -453,12 +453,12 @@ async function handleUI(): Promise<Response> {
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/ui/manifest.json">
-  <link rel="icon" href="/ui/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/ui/icon.svg">
+  <link rel="icon" href="/ui/assets/icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/ui/assets/icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <title>Messages - Team Mailbox</title>
+  <title>Messages - Hive</title>
   <style>
     :root {
       --background: #0a0a0a;
@@ -1058,12 +1058,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/ui/manifest.json">
-  <link rel="icon" href="/ui/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/ui/icon.svg">
+  <link rel="icon" href="/ui/assets/icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/ui/assets/icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <title>Mailbox - ${sender}</title>
+  <title>Hive - ${sender}</title>
   <style>
     :root {
       --background: #18181b;
@@ -1193,7 +1193,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
 <body>
   <div id="presenceIndicators"></div>
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-    <h1 style="margin-bottom: 0;">📬 Mailbox - ${sender}</h1>
+    <h1 style="margin-bottom: 0;">🐝 Hive - ${sender}</h1>
     <div style="display: flex; gap: 12px; align-items: center;">
       <a href="/ui" style="color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-size: 0.875rem; font-weight: 600;">Messages</a>
       <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Broadcast</a>
@@ -1801,15 +1801,17 @@ async function handleRequest(request: Request): Promise<Response> {
     // PWA manifest and icon (serve at both root and /ui/ paths for compatibility)
     if (path === "/manifest.json" || path === "/ui/manifest.json") {
       return new Response(JSON.stringify({
-        name: "Team Mailbox",
-        short_name: "Mailbox",
+        name: "The Hive",
+        short_name: "Hive",
         description: "Internal team messaging and coordination",
         start_url: "/ui",
         scope: "/ui",
         display: "standalone",
         background_color: "#18181b",
         theme_color: "#0ea5e9",
-        icons: [{ src: "/ui/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }]
+        icons: [
+          { src: "/ui/assets/icon.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+        ]
       }), { headers: { "Content-Type": "application/manifest+json" } });
     }
     
@@ -1822,6 +1824,19 @@ async function handleRequest(request: Request): Promise<Response> {
         <text x="400" y="175" font-family="system-ui" font-size="40" font-weight="bold" fill="#0a0a0a" text-anchor="middle">!</text>
       </svg>`;
       return new Response(icon, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" } });
+    }
+    
+    // App icon
+    if (method === "GET" && (path === "/ui/assets/icon.png" || path === "/icon.png")) {
+      try {
+        const file = Bun.file("./assets/icon.png");
+        if (await file.exists()) {
+          return new Response(file, { 
+            headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } 
+          });
+        }
+      } catch { }
+      return error("Icon not found", 404);
     }
     
     // Static assets (avatars)
@@ -2167,7 +2182,7 @@ async function handleBroadcastUI(): Promise<Response> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Broadcast - Team Mailbox</title>
+  <title>Broadcast - Hive</title>
   <style>
     :root {
       --background: #0a0a0a;
