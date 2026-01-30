@@ -458,7 +458,7 @@ async function handleUI(): Promise<Response> {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <title>Messages - Hive</title>
+  <title>Hive - Messages</title>
   <style>
     :root {
       --background: #0a0a0a;
@@ -566,7 +566,7 @@ async function handleUI(): Promise<Response> {
       </h1>
       <div class="nav">
         <a href="/ui" class="active">Messages</a>
-        <a href="/ui/broadcast">Broadcast</a>
+        <a href="/ui/broadcast">Buzz</a>
         <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
       </div>
     </div>
@@ -1063,7 +1063,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <title>Hive - ${sender}</title>
+  <title>Hive - Messages</title>
   <style>
     :root {
       --background: #18181b;
@@ -1196,7 +1196,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     <h1 style="margin-bottom: 0;">🐝 Hive - ${sender}</h1>
     <div style="display: flex; gap: 12px; align-items: center;">
       <a href="/ui" style="color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); font-size: 0.875rem; font-weight: 600;">Messages</a>
-      <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Broadcast</a>
+      <a href="/ui/broadcast" style="color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem;">Buzz</a>
     </div>
   </div>
   
@@ -2182,7 +2182,7 @@ async function handleBroadcastUI(): Promise<Response> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Broadcast - Hive</title>
+  <title>Hive - Buzz</title>
   <style>
     :root {
       --background: #0a0a0a;
