@@ -1919,9 +1919,6 @@ async function handleRequest(request: Request): Promise<Response> {
     // Buzz UI tab (must be before keyed UI routes)
     if (path === "/ui/buzz") return handleBroadcastUI();
     if (path === "/ui/buzz/stream") return handleBroadcastUIStream(request);
-    // Legacy /ui/broadcast redirects to /ui/buzz
-    if (path === "/ui/broadcast") return Response.redirect(new URL("/ui/buzz", request.url).toString(), 302);
-    if (path === "/ui/broadcast/stream") return handleBroadcastUIStream(request);
     
     // Keyed UI with compose
     const uiKeyMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)$/);
