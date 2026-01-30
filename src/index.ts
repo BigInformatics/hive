@@ -476,11 +476,11 @@ function renderHeader(config: HeaderConfig): string {
     // Logged in: Logout | bell | theme
     nav += `
         <button onclick="logout()" style="color:var(--muted-foreground);padding:6px 12px;border-radius:var(--radius);font-size:0.875rem;background:transparent;border:1px solid var(--border);cursor:pointer;">Logout</button>
-        <button id="soundToggle" onclick="toggleSound()" style="background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;display:inline-flex;align-items:center;" title="Toggle notification sound">${ICONS.bell}</button>`;
+        <button id="soundToggle" class="icon-btn" onclick="toggleSound()" title="Toggle notification sound">${ICONS.bell}</button>`;
   } else {
     // Logged out: key | theme (matches /ui exactly)
     nav += `
-        <button id="keyBtn" onclick="toggleKeyPopover()" style="background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;display:inline-flex;align-items:center;" title="Enter mailbox key">
+        <button id="keyBtn" class="icon-btn" onclick="toggleKeyPopover()" title="Enter mailbox key">
           ${ICONS.key}
         </button>
         <div id="keyPopover" style="display:none;position:absolute;top:50px;right:80px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
@@ -613,7 +613,9 @@ async function handleUI(): Promise<Response> {
     .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .theme-toggle { background: var(--secondary); border: none; color: var(--foreground); padding: 6px 10px; border-radius: var(--radius); cursor: pointer; font-size: 1rem; }
+    .nav .icon-btn { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 6px; cursor: pointer; color: var(--foreground); opacity: 0.7; }
+    .nav .icon-btn:hover { opacity: 1; }
+    .theme-toggle { background: var(--secondary); border: none; color: var(--foreground); padding: 6px 10px; border-radius: var(--radius); cursor: pointer; font-size: 1rem; min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; }
     .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select, button { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; font-size: 0.875rem; transition: all 0.15s ease; }
     select:hover, button:hover { border-color: var(--ring); background: var(--secondary); }
@@ -694,7 +696,7 @@ async function handleUI(): Promise<Response> {
       <div class="nav">
         <a href="/ui" class="active">Messages</a>
         <a href="/ui/buzz">Buzz</a>
-        <button id="keyBtn" onclick="toggleKeyPopover()" style="background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;display:inline-flex;align-items:center;" title="Enter mailbox key">
+        <button id="keyBtn" class="icon-btn" onclick="toggleKeyPopover()" title="Enter mailbox key">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
         </button>
         <div id="keyPopover" style="display:none;position:absolute;top:50px;right:80px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
@@ -1269,7 +1271,9 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .theme-toggle { background: var(--secondary); border: none; color: var(--foreground); padding: 6px 10px; border-radius: var(--radius); cursor: pointer; font-size: 1rem; }
+    .nav .icon-btn { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 6px; cursor: pointer; color: var(--foreground); opacity: 0.7; }
+    .nav .icon-btn:hover { opacity: 1; }
+    .theme-toggle { background: var(--secondary); border: none; color: var(--foreground); padding: 6px 10px; border-radius: var(--radius); cursor: pointer; font-size: 1rem; min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; }
     h1 { margin-bottom: 16px; font-size: 1.25rem; font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
     .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select, button, input, textarea { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 0.875rem; transition: all 0.15s ease; }
@@ -2426,6 +2430,8 @@ async function handleBroadcastUI(): Promise<Response> {
     }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
+    .nav .icon-btn { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; padding: 6px; cursor: pointer; color: var(--foreground); opacity: 0.7; }
+    .nav .icon-btn:hover { opacity: 1; }
     .theme-toggle {
       background: var(--secondary);
       border: none;
@@ -2434,6 +2440,11 @@ async function handleBroadcastUI(): Promise<Response> {
       border-radius: var(--radius);
       cursor: pointer;
       font-size: 1rem;
+      min-width: 36px;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     .filter-bar {
       display: flex;
@@ -2539,7 +2550,7 @@ async function handleBroadcastUI(): Promise<Response> {
       <div class="nav">
         <a href="/ui">Messages</a>
         <a href="/ui/buzz" class="active">Buzz</a>
-        <button id="keyBtn" onclick="toggleKeyPopover()" style="background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;display:inline-flex;align-items:center;" title="Enter mailbox key">
+        <button id="keyBtn" class="icon-btn" onclick="toggleKeyPopover()" title="Enter mailbox key">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
         </button>
         <div id="keyPopover" style="display:none;position:absolute;top:50px;right:80px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
@@ -2617,8 +2628,8 @@ async function handleBroadcastUI(): Promise<Response> {
         // Create bell button (same styling as key button)
         const bellBtn = document.createElement('button');
         bellBtn.id = 'soundToggle';
+        bellBtn.className = 'icon-btn';
         bellBtn.onclick = function() {}; // No sound on Buzz page
-        bellBtn.style.cssText = 'background:transparent;border:none;padding:6px;cursor:pointer;color:var(--foreground);opacity:0.7;display:inline-flex;align-items:center;';
         bellBtn.title = 'Notifications (Messages only)';
         bellBtn.innerHTML = bellIcon;
         
