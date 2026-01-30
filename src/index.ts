@@ -442,6 +442,238 @@ function serializeMessage(msg: {
   };
 }
 
+// ============================================================
+// SHARED HEADER COMPONENT
+// ============================================================
+
+type HeaderConfig = {
+  activeTab: 'messages' | 'buzz';
+  loggedIn: boolean;
+  sender?: string;
+};
+
+function renderHeader(config: HeaderConfig): string {
+  const { activeTab, loggedIn } = config;
+  
+  const mailIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>';
+  const buzzIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>';
+  const keyIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>';
+  const bellIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+  
+  const titleIcon = activeTab === 'messages' ? mailIcon : buzzIcon;
+  const titleText = activeTab === 'messages' ? 'Messages' : 'Buzz';
+  
+  const messagesClass = activeTab === 'messages' ? 'class="active"' : '';
+  const buzzClass = activeTab === 'buzz' ? 'class="active"' : '';
+  
+  // Build nav items
+  let navItems = `
+    <a href="/ui" ${messagesClass}>Messages</a>
+    <a href="/ui/buzz" ${buzzClass}>Buzz</a>`;
+  
+  if (loggedIn) {
+    navItems += `
+    <a href="/ui" onclick="localStorage.removeItem('hive_mailbox_key')" style="font-size: 0.75rem;">All</a>
+    <button onclick="logout()" class="logout-btn">Logout</button>
+    <button id="soundToggle" onclick="toggleSound()" class="icon-btn" title="Toggle notification sound">${bellIcon}</button>`;
+  } else {
+    navItems += `
+    <button id="keyBtn" onclick="toggleKeyPopover()" class="icon-btn" title="Enter mailbox key">${keyIcon}</button>`;
+  }
+  
+  navItems += `
+    <button id="themeToggle" onclick="toggleTheme()" class="icon-btn" title="Toggle theme"></button>`;
+  
+  // Key popover (only for logged out)
+  const keyPopover = !loggedIn ? `
+    <div id="keyPopover" class="key-popover">
+      <input id="keyInput" type="text" placeholder="Enter mailbox key">
+      <div class="key-popover-buttons">
+        <button onclick="submitKey()" class="key-submit">Go</button>
+        <button onclick="toggleKeyPopover()" class="key-cancel">Cancel</button>
+      </div>
+    </div>` : '';
+  
+  return `
+  <div class="header">
+    <h1>${titleIcon} ${titleText}</h1>
+    <div class="nav">${navItems}</div>
+    ${keyPopover}
+  </div>
+  <div id="presenceIndicators"></div>`;
+}
+
+// Shared CSS for header (to be included in all pages)
+const headerCSS = `
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .header h1 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.5rem;
+  }
+  .nav {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .nav a {
+    color: var(--muted-foreground);
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+  .nav a:hover {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+  .nav a.active {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 600;
+  }
+  .logout-btn {
+    color: var(--muted-foreground);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .logout-btn:hover {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+  .icon-btn {
+    background: transparent;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    color: var(--foreground);
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+  .icon-btn:hover {
+    opacity: 1;
+  }
+  .key-popover {
+    display: none;
+    position: absolute;
+    top: 50px;
+    right: 80px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .key-popover input {
+    width: 180px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
+    color: var(--foreground);
+    margin-bottom: 8px;
+  }
+  .key-popover-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .key-submit {
+    flex: 1;
+    padding: 6px 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .key-cancel {
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--foreground);
+  }
+`;
+
+// Shared JS for header (to be included in all pages)
+const headerJS = `
+  // Theme icons
+  const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
+  const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+  const bellIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+  const bellOffIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>';
+  
+  // Theme
+  function updateThemeIcon() {
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
+  }
+  
+  function toggleTheme() {
+    const isLight = document.body.classList.toggle('light');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    updateThemeIcon();
+  }
+  
+  // Initialize theme
+  if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light');
+  }
+  updateThemeIcon();
+  
+  // Key popover (for logged out)
+  function toggleKeyPopover() {
+    const popover = document.getElementById('keyPopover');
+    if (!popover) return;
+    const input = document.getElementById('keyInput');
+    if (popover.style.display === 'none' || !popover.style.display) {
+      popover.style.display = 'block';
+      if (input) input.focus();
+    } else {
+      popover.style.display = 'none';
+    }
+  }
+  
+  function submitKey() {
+    const key = document.getElementById('keyInput')?.value.trim();
+    if (key) {
+      localStorage.setItem('hive_mailbox_key', key);
+      window.location.href = '/ui/' + encodeURIComponent(key);
+    }
+  }
+  
+  // Logout
+  function logout() {
+    localStorage.removeItem('hive_mailbox_key');
+    window.location.href = '/ui';
+  }
+  
+  // Keyboard shortcuts for popover
+  document.addEventListener('keydown', function(e) {
+    const popover = document.getElementById('keyPopover');
+    if (popover && popover.style.display === 'block') {
+      if (e.key === 'Enter') submitKey();
+      if (e.key === 'Escape') toggleKeyPopover();
+    }
+  });
+`;
+
 // UI endpoint: HTML page (no auth, internal only)
 async function handleUI(): Promise<Response> {
   const html = `<!DOCTYPE html>
