@@ -610,7 +610,7 @@ async function handleUI(): Promise<Response> {
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
     .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin: 0; }
     .nav { display: flex; gap: 8px; align-items: center; }
-    .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }
+    .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; height: 36px; display: inline-flex; align-items: center; }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
     .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
@@ -1269,7 +1269,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
     .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin: 0; }
     .nav { display: flex; gap: 8px; align-items: center; }
-    .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }
+    .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; height: 36px; display: inline-flex; align-items: center; }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
     .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
@@ -2429,6 +2429,9 @@ async function handleBroadcastUI(): Promise<Response> {
       padding: 6px 12px;
       border-radius: var(--radius);
       font-size: 0.875rem;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
     }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
