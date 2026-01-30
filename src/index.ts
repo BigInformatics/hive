@@ -8,6 +8,7 @@ import {
 } from "./db/messages";
 import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
 import { subscribe, emit, type MailboxEvent } from "./events";
+import * as broadcast from "./db/broadcast";
 
 const PORT = parseInt(process.env.PORT || "3100");
 
@@ -1848,11 +1849,658 @@ async function handleRequest(request: Request): Promise<Response> {
       return requireAuth(request, (auth) => handleReply(auth, replyMatch[1], request));
     }
 
+    // ============================================================
+    // BROADCAST WEBHOOK ENDPOINTS
+    // ============================================================
+    
+    // Create webhook (auth required)
+    if (method === "POST" && path === "/broadcast/webhooks") {
+      return requireAuth(request, handleCreateWebhook);
+    }
+    
+    // List webhooks (auth required)
+    if (method === "GET" && path === "/broadcast/webhooks") {
+      return requireAuth(request, handleListWebhooks);
+    }
+    
+    // Get webhook by ID (auth required)
+    const webhookIdMatch = path.match(/^\/broadcast\/webhooks\/(\d+)$/);
+    if (method === "GET" && webhookIdMatch) {
+      return requireAuth(request, (auth) => handleGetWebhook(auth, parseInt(webhookIdMatch[1])));
+    }
+    
+    // Enable/disable webhook (auth required)
+    const webhookEnableMatch = path.match(/^\/broadcast\/webhooks\/(\d+)\/(enable|disable)$/);
+    if (method === "POST" && webhookEnableMatch) {
+      return requireAuth(request, (auth) => handleWebhookToggle(auth, parseInt(webhookEnableMatch[1]), webhookEnableMatch[2] === "enable"));
+    }
+    
+    // Delete webhook (auth required)
+    if (method === "DELETE" && webhookIdMatch) {
+      return requireAuth(request, (auth) => handleDeleteWebhook(auth, parseInt(webhookIdMatch[1])));
+    }
+    
+    // List broadcast events (auth required)
+    if (method === "GET" && path === "/broadcast/events") {
+      return requireAuth(request, handleListBroadcastEvents);
+    }
+    
+    // Broadcast UI tab
+    if (path === "/ui/broadcast") {
+      return handleBroadcastUI();
+    }
+    
+    // Broadcast SSE stream for UI
+    if (path === "/ui/broadcast/stream") {
+      return handleBroadcastUIStream(request);
+    }
+    
+    // Ingest endpoint (NO AUTH - public webhook endpoint)
+    // Must be last to avoid matching other routes
+    const ingestMatch = path.match(/^\/([a-z][a-z0-9_-]*)\/([a-f0-9]{14})$/);
+    if (method === "POST" && ingestMatch) {
+      return handleWebhookIngest(ingestMatch[1], ingestMatch[2], request);
+    }
+
     return error("Not found", 404);
   } catch (err) {
     console.error("[api] Unhandled error:", err);
     return error("Internal server error", 500);
   }
+}
+
+// ============================================================
+// BROADCAST WEBHOOK HANDLERS
+// ============================================================
+
+// SSE listeners for broadcast events
+type BroadcastListener = (event: broadcast.BroadcastEvent) => void;
+const broadcastListeners = new Set<{ listener: BroadcastListener; forUser?: string }>();
+
+function broadcastToListeners(event: broadcast.BroadcastEvent): void {
+  for (const { listener, forUser } of broadcastListeners) {
+    // Check if this listener should receive the event
+    if (event.forUsers) {
+      const allowedUsers = event.forUsers.split(",").map(u => u.trim().toLowerCase());
+      if (forUser && !allowedUsers.includes(forUser.toLowerCase())) {
+        continue; // Skip - not in the for_users list
+      }
+    }
+    try {
+      listener(event);
+    } catch (err) {
+      console.error("[broadcast] Listener error:", err);
+    }
+  }
+}
+
+async function handleCreateWebhook(auth: AuthContext, request: Request): Promise<Response> {
+  try {
+    const body = await request.json() as { appName?: string; title?: string; for?: string };
+    
+    if (!body.appName || !body.title) {
+      return error("appName and title are required", 400);
+    }
+    
+    // Validate appName format
+    if (!/^[a-z][a-z0-9_-]*$/.test(body.appName)) {
+      return error("appName must start with a letter and contain only lowercase letters, numbers, underscores, and hyphens", 400);
+    }
+    
+    const webhook = await broadcast.createWebhook({
+      appName: body.appName,
+      title: body.title,
+      owner: auth.identity,
+      forUsers: body.for,
+    });
+    
+    const ingestUrl = `https://messages.biginformatics.net/${webhook.appName}/${webhook.token}`;
+    
+    return json({
+      ...webhook,
+      ingestUrl,
+    }, 201);
+  } catch (err) {
+    console.error("[broadcast] Create webhook error:", err);
+    return error("Failed to create webhook", 500);
+  }
+}
+
+async function handleListWebhooks(auth: AuthContext, request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const all = url.searchParams.get("all") === "true" && auth.isAdmin;
+    
+    const webhooks = await broadcast.listWebhooks(all ? undefined : auth.identity);
+    
+    return json({
+      webhooks: webhooks.map(w => ({
+        ...w,
+        ingestUrl: `https://messages.biginformatics.net/${w.appName}/${w.token}`,
+      })),
+    });
+  } catch (err) {
+    console.error("[broadcast] List webhooks error:", err);
+    return error("Failed to list webhooks", 500);
+  }
+}
+
+async function handleGetWebhook(auth: AuthContext, id: number): Promise<Response> {
+  try {
+    const webhook = await broadcast.getWebhookById(id);
+    
+    if (!webhook) {
+      return error("Webhook not found", 404);
+    }
+    
+    // Only owner or admin can view
+    if (webhook.owner !== auth.identity && !auth.isAdmin) {
+      return error("Forbidden", 403);
+    }
+    
+    return json({
+      ...webhook,
+      ingestUrl: `https://messages.biginformatics.net/${webhook.appName}/${webhook.token}`,
+    });
+  } catch (err) {
+    console.error("[broadcast] Get webhook error:", err);
+    return error("Failed to get webhook", 500);
+  }
+}
+
+async function handleWebhookToggle(auth: AuthContext, id: number, enabled: boolean): Promise<Response> {
+  try {
+    const webhook = await broadcast.getWebhookById(id);
+    
+    if (!webhook) {
+      return error("Webhook not found", 404);
+    }
+    
+    // Only owner or admin can toggle
+    if (webhook.owner !== auth.identity && !auth.isAdmin) {
+      return error("Forbidden", 403);
+    }
+    
+    const updated = await broadcast.setWebhookEnabled(id, enabled);
+    
+    return json({
+      ...updated,
+      ingestUrl: `https://messages.biginformatics.net/${updated!.appName}/${updated!.token}`,
+    });
+  } catch (err) {
+    console.error("[broadcast] Toggle webhook error:", err);
+    return error("Failed to toggle webhook", 500);
+  }
+}
+
+async function handleDeleteWebhook(auth: AuthContext, id: number): Promise<Response> {
+  try {
+    const webhook = await broadcast.getWebhookById(id);
+    
+    if (!webhook) {
+      return error("Webhook not found", 404);
+    }
+    
+    // Only owner or admin can delete
+    if (webhook.owner !== auth.identity && !auth.isAdmin) {
+      return error("Forbidden", 403);
+    }
+    
+    await broadcast.deleteWebhook(id);
+    
+    return json({ ok: true });
+  } catch (err) {
+    console.error("[broadcast] Delete webhook error:", err);
+    return error("Failed to delete webhook", 500);
+  }
+}
+
+async function handleListBroadcastEvents(auth: AuthContext, request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const appName = url.searchParams.get("app") || undefined;
+    const limit = parseInt(url.searchParams.get("limit") || "100");
+    
+    const events = await broadcast.listEvents({
+      appName,
+      forUser: auth.identity,
+      limit: Math.min(limit, 500),
+    });
+    
+    return json({ events });
+  } catch (err) {
+    console.error("[broadcast] List events error:", err);
+    return error("Failed to list events", 500);
+  }
+}
+
+async function handleWebhookIngest(appName: string, token: string, request: Request): Promise<Response> {
+  try {
+    const webhook = await broadcast.getWebhookByToken(appName, token);
+    
+    if (!webhook || !webhook.enabled) {
+      return error("Not found", 404);
+    }
+    
+    // Parse body
+    const contentType = request.headers.get("content-type") || "";
+    let bodyText: string | null = null;
+    let bodyJson: unknown | null = null;
+    
+    const rawBody = await request.text();
+    
+    // Limit body size (256KB)
+    if (rawBody.length > 256 * 1024) {
+      return error("Payload too large", 413);
+    }
+    
+    if (contentType.includes("application/json")) {
+      try {
+        bodyJson = JSON.parse(rawBody);
+      } catch {
+        bodyText = rawBody;
+      }
+    } else {
+      bodyText = rawBody;
+    }
+    
+    // Record the event
+    const event = await broadcast.recordEvent({
+      webhookId: webhook.id,
+      appName: webhook.appName,
+      title: webhook.title,
+      forUsers: webhook.forUsers,
+      contentType: contentType || null,
+      bodyText,
+      bodyJson,
+    });
+    
+    console.log(`[broadcast] Received event for ${appName}/${token}: ${event.id}`);
+    
+    // Broadcast to listeners
+    broadcastToListeners(event);
+    
+    return json({ ok: true, id: event.id });
+  } catch (err) {
+    console.error("[broadcast] Ingest error:", err);
+    return error("Failed to process webhook", 500);
+  }
+}
+
+// Broadcast UI page
+async function handleBroadcastUI(): Promise<Response> {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broadcast - Team Mailbox</title>
+  <style>
+    :root {
+      --background: #0a0a0a;
+      --foreground: #fafafa;
+      --card: #18181b;
+      --card-foreground: #fafafa;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #27272a;
+      --secondary-foreground: #fafafa;
+      --muted: #27272a;
+      --muted-foreground: #a1a1aa;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --border: #27272a;
+      --input: #27272a;
+      --radius: 8px;
+    }
+    body.light {
+      --background: #fafafa;
+      --foreground: #18181b;
+      --card: #ffffff;
+      --card-foreground: #18181b;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #f4f4f5;
+      --secondary-foreground: #18181b;
+      --muted: #f4f4f5;
+      --muted-foreground: #71717a;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --border: #e4e4e7;
+      --input: #e4e4e7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: system-ui, -apple-system, sans-serif; 
+      background: var(--background); 
+      color: var(--foreground);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .nav { display: flex; gap: 12px; align-items: center; }
+    .nav a { 
+      color: var(--muted-foreground); 
+      text-decoration: none; 
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+    }
+    .nav a:hover { background: var(--secondary); color: var(--foreground); }
+    .nav a.active { background: var(--primary); color: var(--primary-foreground); }
+    .theme-toggle {
+      background: var(--secondary);
+      border: none;
+      color: var(--foreground);
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar select {
+      background: var(--card);
+      color: var(--foreground);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+    }
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .status-badge.connected { background: #22c55e20; color: #22c55e; }
+    .status-badge.disconnected { background: #ef444420; color: #ef4444; }
+    .events { display: flex; flex-direction: column; gap: 12px; }
+    .event-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .event-card:hover { border-color: var(--primary); }
+    .event-card.expanded { border-color: var(--primary); }
+    .event-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .event-title { font-weight: 600; font-size: 0.9375rem; }
+    .event-meta { 
+      display: flex; 
+      gap: 12px; 
+      margin-top: 8px; 
+      font-size: 0.8125rem; 
+      color: var(--muted-foreground);
+    }
+    .event-app { 
+      background: var(--secondary); 
+      padding: 2px 8px; 
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.75rem;
+    }
+    .event-body {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      display: none;
+    }
+    .event-card.expanded .event-body { display: block; }
+    .event-body pre {
+      background: var(--secondary);
+      padding: 12px;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      font-size: 0.8125rem;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted-foreground);
+    }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .new-event {
+      animation: highlight 2s ease-out;
+    }
+    @keyframes highlight {
+      from { background: var(--primary); }
+      to { background: var(--card); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>
+        Broadcast
+      </h1>
+      <div class="nav">
+        <a href="/ui">Messages</a>
+        <a href="/ui/broadcast" class="active">Broadcast</a>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+      </div>
+    </div>
+    
+    <div class="filter-bar">
+      <select id="appFilter" onchange="applyFilter()">
+        <option value="">All Apps</option>
+      </select>
+      <span id="connectionStatus" class="status-badge disconnected">Disconnected</span>
+    </div>
+    
+    <div id="events" class="events">
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>
+        <p>No broadcast events yet</p>
+        <p style="font-size: 0.8125rem; margin-top: 8px;">Events from webhooks will appear here in real-time</p>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let events = [];
+    let eventSource = null;
+    let currentFilter = '';
+    
+    // Theme handling
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    if (savedTheme === 'light') document.body.classList.add('light');
+    
+    function toggleTheme() {
+      document.body.classList.toggle('light');
+      localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+    }
+    
+    function formatTime(date) {
+      return new Date(date).toLocaleString();
+    }
+    
+    function renderEvents() {
+      const container = document.getElementById('events');
+      const filtered = currentFilter 
+        ? events.filter(e => e.appName === currentFilter)
+        : events;
+      
+      if (filtered.length === 0) {
+        container.innerHTML = \`
+          <div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>
+            <p>\${currentFilter ? 'No events for this app' : 'No broadcast events yet'}</p>
+            <p style="font-size: 0.8125rem; margin-top: 8px;">Events from webhooks will appear here in real-time</p>
+          </div>
+        \`;
+        return;
+      }
+      
+      container.innerHTML = filtered.map(e => \`
+        <div class="event-card" onclick="this.classList.toggle('expanded')">
+          <div class="event-header">
+            <div>
+              <div class="event-title">\${escapeHtml(e.title)}</div>
+              <div class="event-meta">
+                <span class="event-app">\${escapeHtml(e.appName)}</span>
+                <span>\${formatTime(e.receivedAt)}</span>
+                \${e.forUsers ? '<span>For: ' + escapeHtml(e.forUsers) + '</span>' : ''}
+              </div>
+            </div>
+          </div>
+          <div class="event-body">
+            <pre>\${e.bodyJson ? JSON.stringify(e.bodyJson, null, 2) : escapeHtml(e.bodyText || '(empty)')}</pre>
+          </div>
+        </div>
+      \`).join('');
+    }
+    
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    function updateAppFilter() {
+      const apps = [...new Set(events.map(e => e.appName))].sort();
+      const select = document.getElementById('appFilter');
+      const currentValue = select.value;
+      
+      select.innerHTML = '<option value="">All Apps</option>' + 
+        apps.map(a => \`<option value="\${a}">\${a}</option>\`).join('');
+      
+      if (apps.includes(currentValue)) {
+        select.value = currentValue;
+      }
+    }
+    
+    function applyFilter() {
+      currentFilter = document.getElementById('appFilter').value;
+      renderEvents();
+    }
+    
+    function setStatus(connected) {
+      const badge = document.getElementById('connectionStatus');
+      badge.textContent = connected ? 'Connected' : 'Disconnected';
+      badge.className = 'status-badge ' + (connected ? 'connected' : 'disconnected');
+    }
+    
+    function connect() {
+      eventSource = new EventSource('/ui/broadcast/stream');
+      
+      eventSource.onopen = () => setStatus(true);
+      eventSource.onerror = () => {
+        setStatus(false);
+        eventSource.close();
+        setTimeout(connect, 3000);
+      };
+      
+      eventSource.addEventListener('init', (e) => {
+        const data = JSON.parse(e.data);
+        events = data.events || [];
+        updateAppFilter();
+        renderEvents();
+      });
+      
+      eventSource.addEventListener('event', (e) => {
+        const event = JSON.parse(e.data);
+        events.unshift(event);
+        if (events.length > 500) events.pop();
+        updateAppFilter();
+        renderEvents();
+        
+        // Highlight new event
+        const first = document.querySelector('.event-card');
+        if (first) {
+          first.classList.add('new-event');
+          setTimeout(() => first.classList.remove('new-event'), 2000);
+        }
+      });
+    }
+    
+    connect();
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, {
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
+// Broadcast SSE stream for UI
+function handleBroadcastUIStream(request: Request): Response {
+  const url = new URL(request.url);
+  const viewer = url.searchParams.get("viewer")?.toLowerCase();
+  
+  const stream = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
+      let closed = false;
+      
+      // Send initial events
+      const initialEvents = await broadcast.listEvents({ forUser: viewer, limit: 100 });
+      controller.enqueue(encoder.encode(`event: init\ndata: ${JSON.stringify({ events: initialEvents })}\n\n`));
+      
+      // Listen for new events
+      const listenerEntry = {
+        listener: (event: broadcast.BroadcastEvent) => {
+          if (closed) return;
+          try {
+            controller.enqueue(encoder.encode(`event: event\ndata: ${JSON.stringify(event)}\n\n`));
+          } catch {
+            closed = true;
+          }
+        },
+        forUser: viewer,
+      };
+      broadcastListeners.add(listenerEntry);
+      
+      // Ping every 30 seconds
+      const pingInterval = setInterval(() => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`: ping\n\n`));
+        } catch {
+          closed = true;
+          clearInterval(pingInterval);
+        }
+      }, 30000);
+      
+      // Cleanup
+      return () => {
+        closed = true;
+        clearInterval(pingInterval);
+        broadcastListeners.delete(listenerEntry);
+      };
+    },
+  });
+  
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
 }
 
 const server = Bun.serve({

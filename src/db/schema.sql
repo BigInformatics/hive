@@ -39,3 +39,46 @@ CREATE INDEX IF NOT EXISTS idx_mailbox_fts
     USING gin(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(body, '')));
 
 COMMENT ON TABLE public.mailbox_messages IS 'Unified team mailbox for agent-to-agent communication';
+
+-- ============================================================
+-- BROADCAST WEBHOOKS (new channel for external notifications)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.broadcast_webhooks (
+    id BIGSERIAL PRIMARY KEY,
+    app_name VARCHAR(50) NOT NULL,
+    token CHAR(14) NOT NULL UNIQUE,
+    title VARCHAR(255) NOT NULL,
+    owner VARCHAR(50) NOT NULL,
+    for_users VARCHAR(255),
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_hit_at TIMESTAMPTZ,
+    
+    CONSTRAINT valid_app_name CHECK (app_name ~ '^[a-z][a-z0-9_-]*$'),
+    CONSTRAINT valid_owner CHECK (owner ~ '^[a-z][a-z0-9_-]*$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_broadcast_webhooks_app_token 
+    ON public.broadcast_webhooks (app_name, token);
+
+CREATE TABLE IF NOT EXISTS public.broadcast_events (
+    id BIGSERIAL PRIMARY KEY,
+    webhook_id BIGINT NOT NULL REFERENCES public.broadcast_webhooks(id) ON DELETE CASCADE,
+    app_name VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    for_users VARCHAR(255),
+    received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    content_type VARCHAR(100),
+    body_text TEXT,
+    body_json JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_broadcast_events_webhook 
+    ON public.broadcast_events (webhook_id, received_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_broadcast_events_app 
+    ON public.broadcast_events (app_name, received_at DESC);
+
+COMMENT ON TABLE public.broadcast_webhooks IS 'Webhook configurations for broadcast channel';
+COMMENT ON TABLE public.broadcast_events IS 'Received webhook events for broadcast channel';
