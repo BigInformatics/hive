@@ -2354,6 +2354,11 @@ async function handleBroadcastUI(): Promise<Response> {
         ? events.filter(e => e.appName === currentFilter)
         : events;
       
+      // Clear expanded state if the event no longer exists
+      if (expandedEventId && !events.find(e => e.id === expandedEventId)) {
+        expandedEventId = null;
+      }
+      
       if (filtered.length === 0) {
         container.innerHTML = \`
           <div class="empty-state">
