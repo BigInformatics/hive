@@ -18,11 +18,11 @@ const PORT = parseInt(process.env.PORT || "3100");
 initFromEnv();
 
 // UI mailbox keys config (for compose feature)
-type UIKeyConfig = { sender: string };
+type UIKeyConfig = { sender: string; admin?: boolean };
 const uiMailboxKeys: Record<string, UIKeyConfig> = {};
 
 function initUIKeys() {
-  // UI_MAILBOX_KEYS='{"key1":{"sender":"chris"},...}'
+  // UI_MAILBOX_KEYS='{"key1":{"sender":"chris","admin":true},...}'
   const jsonKeys = process.env.UI_MAILBOX_KEYS;
   if (jsonKeys && jsonKeys !== "SET_ME") {
     try {
@@ -1557,6 +1557,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
     let selectedMessage = null;
     let replyToId = null;
     const CURRENT_SENDER = '${sender}';
+    const IS_ADMIN = ${config.admin ? 'true' : 'false'};
 
     const avatarData = {
       chris: '/ui/assets/avatars/chris.jpg',
@@ -1852,8 +1853,13 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
       const res = await fetch('/ui/messages?' + params);
       const data = await res.json();
       
-      // Client-side filter for waiting (tasks where I'm the responder)
+      // Access control: non-admins only see messages they sent or received
       let messages = data.messages;
+      if (!IS_ADMIN) {
+        messages = messages.filter(m => m.sender === CURRENT_SENDER || m.recipient === CURRENT_SENDER);
+      }
+      
+      // Client-side filter for waiting (tasks where I'm the responder)
       if (filterWaiting) {
         messages = messages.filter(m => m.responseWaiting && m.waitingResponder === CURRENT_SENDER);
       }
