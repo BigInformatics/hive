@@ -611,7 +611,8 @@ function renderHeader(config: HeaderConfig): string {
       </h1>
 ${nav}
     </div>
-    <div id="presenceIndicators"></div>`;
+    <div id="presenceIndicators"></div>
+    <div id="statsBar" class="stats-bar"></div>`;
 }
 
 // Shared JS for header - theme, key popover, logout
@@ -1412,6 +1413,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .badge { font-size: 0.6875rem; padding: 3px 8px; border-radius: calc(var(--radius) * 0.6); font-weight: 600; text-transform: uppercase; letter-spacing: 0.025em; }
     .badge.urgent { background: rgba(245,158,11,0.15); color: #fbbf24; }
     .badge.unread { background: rgba(56,189,248,0.15); color: var(--primary); }
+    .badge.waiting { background: rgba(168,85,247,0.15); color: #a855f7; }
+    .stats-bar { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; font-size: 0.875rem; color: var(--muted-foreground); }
+    .stats-bar .stat { display: flex; align-items: center; gap: 6px; }
+    .stats-bar .stat-count { font-weight: 700; color: var(--foreground); }
+    .stats-bar .stat-count.has-items { color: var(--primary); }
+    .stats-bar .stat-count.waiting { color: #a855f7; }
     .new-message { animation: highlight 2s ease-out; }
     @keyframes highlight { from { background: rgba(56,189,248,0.1); } to { background: var(--card); } }
     /* Compose panel */
@@ -1536,6 +1543,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
     <div class="filters">
       <label class="filter-label"><input type="checkbox" id="filterUrgent" onchange="loadMessages()"> Urgent only</label>
       <label class="filter-label"><input type="checkbox" id="filterUnread" onchange="loadMessages()"> Unread only</label>
+      <label class="filter-label"><input type="checkbox" id="filterWaiting" onchange="loadMessages()"> Waiting only</label>
     </div>
     <button onclick="loadMessages()">Refresh</button>
     <span id="status" class="status">Connecting...</span>
@@ -1751,6 +1759,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
               <div class="message-title">
                 \${msg.urgent ? '<span class="badge urgent">URGENT</span> ' : ''}
                 \${msg.status === 'unread' ? '<span class="badge unread">UNREAD</span> ' : ''}
+                \${msg.responsePending ? '<span class="badge waiting">WAITING</span> ' : ''}
                 \${msg.title}
               </div>
               \${msg.body ? \`<div class="message-body">\${msg.body}</div>\` : ''}
@@ -1834,6 +1843,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
       const recipient = document.getElementById('recipient').value;
       const filterUrgent = document.getElementById('filterUrgent')?.checked || false;
       const filterUnread = document.getElementById('filterUnread')?.checked || false;
+      const filterWaiting = document.getElementById('filterWaiting')?.checked || false;
       const params = new URLSearchParams({ limit: '50' });
       if (recipient) params.set('recipient', recipient);
       if (filterUrgent) params.set('urgent', 'true');
@@ -1842,11 +1852,17 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
       const res = await fetch('/ui/messages?' + params);
       const data = await res.json();
       
+      // Client-side filter for waiting (pending tasks where I'm the responder)
+      let messages = data.messages;
+      if (filterWaiting) {
+        messages = messages.filter(m => m.responsePending && m.pendingResponder === CURRENT_SENDER);
+      }
+      
       const container = document.getElementById('messages');
-      if (data.messages.length === 0) {
+      if (messages.length === 0) {
         container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">No messages match filters</div>';
       } else {
-        container.innerHTML = data.messages.map(m => renderMessage(m)).join('');
+        container.innerHTML = messages.map(m => renderMessage(m)).join('');
       }
       
       if (data.messages.length > 0) {
@@ -1903,6 +1919,20 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
           </div>
         \`;
       }).join('');
+      
+      // Update stats bar with unread and waiting counts for current user
+      const statsBar = document.getElementById('statsBar');
+      if (statsBar && presenceData) {
+        const myInfo = presenceData.find(p => p.user === CURRENT_SENDER);
+        if (myInfo) {
+          const unread = myInfo.unread || 0;
+          const waiting = myInfo.waiting || 0;
+          statsBar.innerHTML = \`
+            <span class="stat">Unread: <span class="stat-count \${unread > 0 ? 'has-items' : ''}">\${unread}</span></span>
+            <span class="stat">Waiting: <span class="stat-count waiting \${waiting > 0 ? 'has-items' : ''}">\${waiting}</span></span>
+          \`;
+        }
+      }
     }
 
     // Track seen messages globally (persists across SSE reconnects)
