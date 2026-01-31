@@ -1094,6 +1094,12 @@ async function handleUI(): Promise<Response> {
     setInterval(() => renderPresence(), 30000);
 
     function connectSSE() {
+      // Public /ui page: no SSE connection (requires login)
+      document.getElementById('status').textContent = 'Not connected (login required)';
+      document.getElementById('status').className = 'status';
+    }
+    
+    function connectSSE_disabled() {
       const recipient = document.getElementById('recipient').value;
       const url = recipient ? '/ui/stream?recipient=' + recipient : '/ui/stream';
       
@@ -1179,13 +1185,12 @@ async function handleUIMessages(request: Request): Promise<Response> {
   // Access control: require a valid UI key
   const uiKey = url.searchParams.get("key");
   if (!uiKey) {
-    // No key = not logged in = no messages
-    return json({ messages: [], error: "Login required" });
+    return error("Unauthorized - login required", 401);
   }
   
   const config = uiMailboxKeys[uiKey];
   if (!config) {
-    return json({ messages: [], error: "Invalid key" });
+    return error("Unauthorized - invalid key", 401);
   }
   
   const viewer = config.sender;
@@ -1219,15 +1224,23 @@ async function handleUIMessages(request: Request): Promise<Response> {
 // Valid users for presence tracking (prevents spoofing)
 const VALID_PRESENCE_USERS = ['chris', 'clio', 'domingo', 'zumie'];
 
-// UI endpoint: SSE stream (no auth, internal only)
+// UI endpoint: SSE stream (requires key for auth)
 async function handleUIStream(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const recipient = url.searchParams.get("recipient") || undefined;
-  const viewerParam = url.searchParams.get("viewer");
-  // Only accept viewer if it's a valid user (prevents spoofing arbitrary names)
-  const viewer = viewerParam && VALID_PRESENCE_USERS.includes(viewerParam.toLowerCase()) 
-    ? viewerParam.toLowerCase() 
-    : undefined;
+  
+  // Access control: require valid UI key
+  const uiKey = url.searchParams.get("key");
+  if (!uiKey) {
+    return error("Unauthorized - login required", 401);
+  }
+  const keyConfig = uiMailboxKeys[uiKey];
+  if (!keyConfig) {
+    return error("Unauthorized - invalid key", 401);
+  }
+  
+  const viewer = keyConfig.sender;
+  const isAdmin = keyConfig.admin || false;
   
   const connId = generateConnectionId();
   
@@ -1274,11 +1287,16 @@ async function handleUIStream(request: Request): Promise<Response> {
       const pollInterval = setInterval(async () => {
         if (closed) return;
         try {
-          const messages = await listAllMessages({ 
+          let messages = await listAllMessages({ 
             recipient,
             limit: 10,
             sinceId: lastSeenId > 0n ? lastSeenId : undefined 
           });
+          
+          // Access control: non-admins only see their own messages
+          if (!isAdmin) {
+            messages = messages.filter(m => m.sender === viewer || m.recipient === viewer);
+          }
           
           // Sort by id ascending for proper event order
           messages.sort((a, b) => Number(a.id - b.id));
@@ -1946,8 +1964,8 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
 
     function connectSSE() {
       const recipient = document.getElementById('recipient').value;
-      // Include viewer param to track presence for current user
-      let url = '/ui/stream?viewer=' + encodeURIComponent(CURRENT_SENDER);
+      // Include key for auth and access control
+      let url = '/ui/stream?key=' + encodeURIComponent(MAILBOX_KEY);
       if (recipient) url += '&recipient=' + encodeURIComponent(recipient);
       
       if (eventSource) eventSource.close();
