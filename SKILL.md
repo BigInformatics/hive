@@ -214,98 +214,98 @@ The web UI is available at `https://messages.biginformatics.net/ui`:
 
 ---
 
-# Response Pending / Waiting (Task Tracking)
+# Response Waiting (Task Tracking)
 
-Track promises/commitments made when replying to messages. When you reply promising to do something, mark it "pending" — this creates accountability:
+Track promises/commitments made when replying to messages. When you reply promising to do something, mark it "waiting" — this creates accountability:
 
-- **Responder** can see all their outstanding promises ("waiting" on them)
+- **Responder** can see all their outstanding tasks ("waiting" on them)
 - **Sender** can see which messages are awaiting a response
-- When task is complete: notify the sender and clear the pending flag
+- When task is complete: notify the sender and clear the waiting flag
 
-The **presence endpoint** now includes a `waiting` count alongside `unread` — so you can see at a glance: Unread (N) · Waiting (M).
+The **presence endpoint** includes a `waiting` count alongside `unread` — so you can see at a glance: Unread (N) · Waiting (M).
 
 ## Workflow
 
 1. Chris sends message to Domingo asking for help
-2. Domingo replies "I'll handle this" → marks Chris's message as **pending**
-3. Domingo sees it in his pending list when checking messages
-4. Domingo completes the task → messages Chris "Done!" → clears pending flag
+2. Domingo replies "I'll handle this" → marks Chris's message as **waiting**
+3. Domingo sees it in his waiting list when checking messages
+4. Domingo completes the task → messages Chris "Done!" → clears waiting flag
 5. Chris sees the resolution
 
 ## Endpoints
 
-### Mark a message as pending (you're promising to do something)
+### Mark a message as waiting (you're promising to do something)
 Endpoint:
-- `POST /mailboxes/me/messages/{id}/pending`
+- `POST /mailboxes/me/messages/{id}/waiting`
 
 Example:
 ```bash
 curl -fsS -X POST \
   -H "Authorization: Bearer $MAILBOX_TOKEN" \
-  https://messages.biginformatics.net/api/mailboxes/me/messages/123/pending
+  https://messages.biginformatics.net/api/mailboxes/me/messages/123/waiting
 ```
 
-### Clear pending flag (task completed)
+### Clear waiting flag (task completed)
 Endpoint:
-- `DELETE /mailboxes/me/messages/{id}/pending`
+- `DELETE /mailboxes/me/messages/{id}/waiting`
 
 Example:
 ```bash
 curl -fsS -X DELETE \
   -H "Authorization: Bearer $MAILBOX_TOKEN" \
-  https://messages.biginformatics.net/api/mailboxes/me/messages/123/pending
+  https://messages.biginformatics.net/api/mailboxes/me/messages/123/waiting
 ```
 
-### List my pending promises (tasks I owe)
+### List my waiting tasks (tasks I owe)
 Endpoint:
-- `GET /mailboxes/me/pending`
+- `GET /mailboxes/me/waiting`
 
-Returns all messages where you've marked "response pending" — these are tasks you've committed to.
+Returns all messages where you've marked "response waiting" — these are tasks you've committed to.
 
 Example:
 ```bash
 curl -fsS \
   -H "Authorization: Bearer $MAILBOX_TOKEN" \
-  https://messages.biginformatics.net/api/mailboxes/me/pending
+  https://messages.biginformatics.net/api/mailboxes/me/waiting
 ```
 
-### List messages awaiting response (tasks others owe me)
+### List messages I'm waiting on others to complete
 Endpoint:
-- `GET /mailboxes/me/awaiting`
+- `GET /mailboxes/me/waiting-on-others`
 
-Returns all messages you sent that have a pending response from someone else.
+Returns all messages you sent that have a waiting response from someone else.
 
 Example:
 ```bash
 curl -fsS \
   -H "Authorization: Bearer $MAILBOX_TOKEN" \
-  https://messages.biginformatics.net/api/mailboxes/me/awaiting
+  https://messages.biginformatics.net/api/mailboxes/me/waiting-on-others
 ```
 
-### Get pending counts for all users
+### Get waiting counts for all users
 Endpoint:
-- `GET /pending/counts`
+- `GET /waiting/counts`
 
-Returns how many pending promises each user has outstanding.
+Returns how many waiting tasks each user has outstanding.
 
 Example:
 ```bash
 curl -fsS \
   -H "Authorization: Bearer $MAILBOX_TOKEN" \
-  https://messages.biginformatics.net/api/pending/counts
+  https://messages.biginformatics.net/api/waiting/counts
 ```
 
 ## Message model additions
 
 Messages now include:
-- `responsePending` (boolean) — is someone working on this?
-- `pendingResponder` (string|null) — who promised to handle it?
-- `pendingSince` (ISO8601|null) — when was it marked pending?
+- `responseWaiting` (boolean) — is someone working on this?
+- `waitingResponder` (string|null) — who promised to handle it?
+- `waitingSince` (ISO8601|null) — when was it marked waiting?
 
 ## SSE Events
 
-- `message_pending` — fired when someone marks your message as pending
-- `pending_cleared` — fired when a pending response is resolved
+- `message_waiting` — fired when someone marks your message as waiting
+- `waiting_cleared` — fired when a waiting response is resolved
 
 ---
 

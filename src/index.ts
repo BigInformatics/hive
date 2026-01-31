@@ -4,8 +4,8 @@ import {
   sendMessage, listMessages, getMessage, 
   ackMessage, ackMessages, searchMessages,
   isValidMailbox, listAllMessages, getUnreadCounts,
-  markPending, clearPending, listMyPendingPromises, 
-  listAwaitingResponse, getPendingCounts,
+  markWaiting, clearWaiting, listMyWaiting, 
+  listWaitingOnOthers, getWaitingCounts,
   type SendMessageInput 
 } from "./db/messages";
 import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
@@ -86,14 +86,14 @@ async function getPresenceInfo(): Promise<PresenceInfo[]> {
   const onlineUsers = getPresent();
   const now = Date.now();
   const unreadCounts = await getUnreadCounts();
-  const pendingCounts = await getPendingCounts();
+  const waitingCounts = await getWaitingCounts();
   
   return allUsers.map(user => ({
     user,
     online: onlineUsers.includes(user),
     lastSeen: onlineUsers.includes(user) ? now : (userLastSeen.get(user) || 0),
     unread: unreadCounts[user] || 0,
-    waiting: pendingCounts[user] || 0  // Tasks waiting on this user
+    waiting: waitingCounts[user] || 0  // Tasks waiting on this user
   }));
 }
 
@@ -385,10 +385,10 @@ async function handleReply(
 }
 
 // ============================================================
-// RESPONSE PENDING HANDLERS
+// RESPONSE WAITING HANDLERS
 // ============================================================
 
-async function handleMarkPending(
+async function handleMarkWaiting(
   auth: AuthContext,
   id: string
 ): Promise<Response> {
@@ -400,14 +400,14 @@ async function handleMarkPending(
     return error("Message not found", 404);
   }
   
-  const updated = await markPending(messageId, auth.identity);
+  const updated = await markWaiting(messageId, auth.identity);
   if (!updated) {
-    return error("Failed to mark pending", 500);
+    return error("Failed to mark waiting", 500);
   }
   
-  // Emit event so sender knows their message has a pending response
+  // Emit event so sender knows their message has a waiting response
   emit(original.sender, {
-    type: "message_pending",
+    type: "message_waiting",
     messageId: messageId.toString(),
     responder: auth.identity,
   });
@@ -415,7 +415,7 @@ async function handleMarkPending(
   return json({ message: serializeMessage(updated) });
 }
 
-async function handleClearPending(
+async function handleClearWaiting(
   auth: AuthContext,
   id: string
 ): Promise<Response> {
@@ -432,19 +432,19 @@ async function handleClearPending(
   
   const msg = rows[0];
   
-  // Only the pending_responder can clear (the one who made the promise)
-  if (msg.pending_responder !== auth.identity) {
-    return error("Only the pending responder can clear this", 403);
+  // Only the waiting_responder can clear (the one who made the promise)
+  if (msg.waiting_responder !== auth.identity) {
+    return error("Only the waiting responder can clear this", 403);
   }
   
-  const updated = await clearPending(messageId);
+  const updated = await clearWaiting(messageId);
   if (!updated) {
-    return error("Failed to clear pending", 500);
+    return error("Failed to clear waiting", 500);
   }
   
-  // Emit event so sender knows the pending response was resolved
+  // Emit event so sender knows the waiting response was resolved
   emit(msg.sender as string, {
-    type: "pending_cleared",
+    type: "waiting_cleared",
     messageId: messageId.toString(),
     responder: auth.identity,
   });
@@ -452,30 +452,30 @@ async function handleClearPending(
   return json({ message: serializeMessage(updated) });
 }
 
-async function handleMyPendingPromises(
+async function handleMyWaiting(
   auth: AuthContext
 ): Promise<Response> {
-  const messages = await listMyPendingPromises(auth.identity);
+  const messages = await listMyWaiting(auth.identity);
   return json({ 
     messages: messages.map(serializeMessage),
     count: messages.length 
   });
 }
 
-async function handleAwaitingResponse(
+async function handleWaitingOnOthers(
   auth: AuthContext
 ): Promise<Response> {
-  const messages = await listAwaitingResponse(auth.identity);
+  const messages = await listWaitingOnOthers(auth.identity);
   return json({ 
     messages: messages.map(serializeMessage),
     count: messages.length 
   });
 }
 
-async function handlePendingCounts(
+async function handleWaitingCounts(
   _auth: AuthContext
 ): Promise<Response> {
-  const counts = await getPendingCounts();
+  const counts = await getWaitingCounts();
   return json({ counts });
 }
 
@@ -523,9 +523,9 @@ function serializeMessage(msg: {
   replyToMessageId: bigint | null;
   dedupeKey: string | null;
   metadata: Record<string, unknown> | null;
-  responsePending?: boolean;
-  pendingResponder?: string | null;
-  pendingSince?: Date | null;
+  responseWaiting?: boolean;
+  waitingResponder?: string | null;
+  waitingSince?: Date | null;
 }) {
   return {
     id: msg.id.toString(),
@@ -541,9 +541,9 @@ function serializeMessage(msg: {
     replyToMessageId: msg.replyToMessageId?.toString() || null,
     dedupeKey: msg.dedupeKey,
     metadata: msg.metadata,
-    responsePending: msg.responsePending || false,
-    pendingResponder: msg.pendingResponder || null,
-    pendingSince: msg.pendingSince?.toISOString() || null,
+    responseWaiting: msg.responseWaiting || false,
+    waitingResponder: msg.waitingResponder || null,
+    waitingSince: msg.waitingSince?.toISOString() || null,
   };
 }
 
@@ -1759,7 +1759,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
               <div class="message-title">
                 \${msg.urgent ? '<span class="badge urgent">URGENT</span> ' : ''}
                 \${msg.status === 'unread' ? '<span class="badge unread">UNREAD</span> ' : ''}
-                \${msg.responsePending ? '<span class="badge waiting">WAITING</span> ' : ''}
+                \${msg.responseWaiting ? '<span class="badge waiting">WAITING</span> ' : ''}
                 \${msg.title}
               </div>
               \${msg.body ? \`<div class="message-body">\${msg.body}</div>\` : ''}
@@ -1852,10 +1852,10 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
       const res = await fetch('/ui/messages?' + params);
       const data = await res.json();
       
-      // Client-side filter for waiting (pending tasks where I'm the responder)
+      // Client-side filter for waiting (tasks where I'm the responder)
       let messages = data.messages;
       if (filterWaiting) {
-        messages = messages.filter(m => m.responsePending && m.pendingResponder === CURRENT_SENDER);
+        messages = messages.filter(m => m.responseWaiting && m.waitingResponder === CURRENT_SENDER);
       }
       
       const container = document.getElementById('messages');
@@ -2230,38 +2230,38 @@ async function handleRequest(request: Request): Promise<Response> {
     }
 
     // ============================================================
-    // RESPONSE PENDING ENDPOINTS
+    // RESPONSE WAITING ENDPOINTS
     // ============================================================
 
-    // Mark a message as pending response from the authenticated user
-    // POST /mailboxes/me/messages/{id}/pending
-    const pendingMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)\/pending$/);
-    if (method === "POST" && pendingMatch) {
-      return requireAuth(request, (auth) => handleMarkPending(auth, pendingMatch[1]));
+    // Mark a message as waiting response from the authenticated user
+    // POST /mailboxes/me/messages/{id}/waiting
+    const waitingMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)\/waiting$/);
+    if (method === "POST" && waitingMatch) {
+      return requireAuth(request, (auth) => handleMarkWaiting(auth, waitingMatch[1]));
     }
 
-    // Clear pending flag on a message
-    // DELETE /mailboxes/me/messages/{id}/pending
-    if (method === "DELETE" && pendingMatch) {
-      return requireAuth(request, (auth) => handleClearPending(auth, pendingMatch[1]));
+    // Clear waiting flag on a message
+    // DELETE /mailboxes/me/messages/{id}/waiting
+    if (method === "DELETE" && waitingMatch) {
+      return requireAuth(request, (auth) => handleClearWaiting(auth, waitingMatch[1]));
     }
 
-    // List my pending promises (tasks I've committed to)
-    // GET /mailboxes/me/pending
-    if (method === "GET" && path === "/mailboxes/me/pending") {
-      return requireAuth(request, handleMyPendingPromises);
+    // List my waiting tasks (tasks I've committed to)
+    // GET /mailboxes/me/waiting
+    if (method === "GET" && path === "/mailboxes/me/waiting") {
+      return requireAuth(request, handleMyWaiting);
     }
 
-    // List messages awaiting response (tasks I'm waiting on)
-    // GET /mailboxes/me/awaiting
-    if (method === "GET" && path === "/mailboxes/me/awaiting") {
-      return requireAuth(request, handleAwaitingResponse);
+    // List messages I'm waiting on others to complete
+    // GET /mailboxes/me/waiting-on-others
+    if (method === "GET" && path === "/mailboxes/me/waiting-on-others") {
+      return requireAuth(request, handleWaitingOnOthers);
     }
 
-    // Get pending counts for all users
-    // GET /pending/counts
-    if (method === "GET" && path === "/pending/counts") {
-      return requireAuth(request, handlePendingCounts);
+    // Get waiting counts for all users
+    // GET /waiting/counts
+    if (method === "GET" && path === "/waiting/counts") {
+      return requireAuth(request, handleWaitingCounts);
     }
 
     // ============================================================

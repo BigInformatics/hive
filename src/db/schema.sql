@@ -40,19 +40,19 @@ CREATE INDEX IF NOT EXISTS idx_mailbox_fts
 
 COMMENT ON TABLE public.mailbox_messages IS 'Unified team mailbox for agent-to-agent communication';
 
--- Response pending tracking (for task promises)
+-- Response waiting tracking (for task promises)
 ALTER TABLE public.mailbox_messages 
-ADD COLUMN IF NOT EXISTS response_pending BOOLEAN NOT NULL DEFAULT false;
+ADD COLUMN IF NOT EXISTS response_waiting BOOLEAN NOT NULL DEFAULT false;
 
 ALTER TABLE public.mailbox_messages 
-ADD COLUMN IF NOT EXISTS pending_responder VARCHAR(50);
+ADD COLUMN IF NOT EXISTS waiting_responder VARCHAR(50);
 
 ALTER TABLE public.mailbox_messages 
-ADD COLUMN IF NOT EXISTS pending_since TIMESTAMPTZ;
+ADD COLUMN IF NOT EXISTS waiting_since TIMESTAMPTZ;
 
-CREATE INDEX IF NOT EXISTS idx_mailbox_pending 
-    ON public.mailbox_messages (pending_responder, created_at DESC)
-    WHERE response_pending = true;
+CREATE INDEX IF NOT EXISTS idx_mailbox_waiting 
+    ON public.mailbox_messages (waiting_responder, created_at DESC)
+    WHERE response_waiting = true;
 
 -- ============================================================
 -- BROADCAST WEBHOOKS (new channel for external notifications)
