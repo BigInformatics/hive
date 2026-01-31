@@ -2130,6 +2130,11 @@ async function handleRequest(request: Request): Promise<Response> {
       return requireAuth(request, handleListBroadcastEvents);
     }
     
+    // GET /buzz - Simple buzz endpoint for agents (alias for broadcast events)
+    if (method === "GET" && path === "/buzz") {
+      return requireAuth(request, handleBuzz);
+    }
+    
     // Ingest endpoint (NO AUTH - public webhook endpoint)
     // Route: /api/ingest/{app_name}/{token} (path has /api stripped, so matches /ingest/...)
     const ingestMatch = path.match(/^\/ingest\/([a-z][a-z0-9_-]*)\/([a-f0-9]{14})$/);
@@ -2306,6 +2311,43 @@ async function handleListBroadcastEvents(auth: AuthContext, request: Request): P
   } catch (err) {
     console.error("[broadcast] List events error:", err);
     return error("Failed to list events", 500);
+  }
+}
+
+// GET /api/buzz - Simple endpoint for agents to check broadcast events
+async function handleBuzz(auth: AuthContext, request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const appName = url.searchParams.get("app") || undefined;
+    const limit = parseInt(url.searchParams.get("limit") || "50");
+    const sinceId = url.searchParams.get("since") ? parseInt(url.searchParams.get("since")!) : undefined;
+    
+    let events = await broadcast.listEvents({
+      appName,
+      forUser: auth.identity,
+      limit: Math.min(limit, 200),
+    });
+    
+    // Filter by sinceId if provided (only return events newer than this id)
+    if (sinceId) {
+      events = events.filter(e => e.id > sinceId);
+    }
+    
+    // Register API presence
+    lastApiActivity.set(auth.identity, Date.now());
+    
+    return json({
+      events: events.map(e => ({
+        id: e.id,
+        app: e.appName,
+        title: e.title,
+        receivedAt: e.receivedAt.toISOString(),
+        body: e.bodyJson || e.bodyText,
+      })),
+    });
+  } catch (err) {
+    console.error("[buzz] Error:", err);
+    return error("Failed to fetch buzz", 500);
   }
 }
 
