@@ -183,18 +183,18 @@ curl -fsS -X POST \
 Endpoint:
 - `GET /mailboxes/me/messages/search?q=...&from=...&to=...&limit=...`
 
-### 7) Presence (who's online + unread counts)
+### 7) Presence (who's online + unread + waiting counts)
 Endpoint:
 - `GET /ui/presence` (no auth required, internal only)
 
-Returns current online status and **unread message counts** for all users:
+Returns current online status, **unread message counts**, and **waiting counts** (pending tasks) for all users:
 ```json
 {
   "presence": [
-    {"user": "chris", "online": true, "lastSeen": 1769695917308, "unread": 2},
-    {"user": "clio", "online": false, "lastSeen": 1769690000000, "unread": 0},
-    {"user": "domingo", "online": true, "lastSeen": 1769695917308, "unread": 5},
-    {"user": "zumie", "online": false, "lastSeen": 0, "unread": 1}
+    {"user": "chris", "online": true, "lastSeen": 1769695917308, "unread": 2, "waiting": 0},
+    {"user": "clio", "online": false, "lastSeen": 1769690000000, "unread": 0, "waiting": 1},
+    {"user": "domingo", "online": true, "lastSeen": 1769695917308, "unread": 5, "waiting": 3},
+    {"user": "zumie", "online": false, "lastSeen": 0, "unread": 1, "waiting": 0}
   ]
 }
 ```
@@ -214,13 +214,15 @@ The web UI is available at `https://messages.biginformatics.net/ui`:
 
 ---
 
-# Response Pending (Task Tracking)
+# Response Pending / Waiting (Task Tracking)
 
 Track promises/commitments made when replying to messages. When you reply promising to do something, mark it "pending" — this creates accountability:
 
-- **Responder** can see all their outstanding promises (tasks they committed to)
+- **Responder** can see all their outstanding promises ("waiting" on them)
 - **Sender** can see which messages are awaiting a response
 - When task is complete: notify the sender and clear the pending flag
+
+The **presence endpoint** now includes a `waiting` count alongside `unread` — so you can see at a glance: Unread (N) · Waiting (M).
 
 ## Workflow
 

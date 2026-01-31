@@ -59,7 +59,7 @@ const lastApiActivity = new Map<string, number>(); // user -> timestamp
 type PresenceListener = (event: { type: 'join' | 'leave'; user: string; presence: PresenceInfo[] }) => void;
 const presenceListeners = new Set<PresenceListener>();
 
-type PresenceInfo = { user: string; online: boolean; lastSeen: number; unread: number };
+type PresenceInfo = { user: string; online: boolean; lastSeen: number; unread: number; waiting: number };
 
 function generateConnectionId(): string {
   return `conn_${++connectionIdCounter}_${Date.now()}`;
@@ -86,12 +86,14 @@ async function getPresenceInfo(): Promise<PresenceInfo[]> {
   const onlineUsers = getPresent();
   const now = Date.now();
   const unreadCounts = await getUnreadCounts();
+  const pendingCounts = await getPendingCounts();
   
   return allUsers.map(user => ({
     user,
     online: onlineUsers.includes(user),
     lastSeen: onlineUsers.includes(user) ? now : (userLastSeen.get(user) || 0),
-    unread: unreadCounts[user] || 0
+    unread: unreadCounts[user] || 0,
+    waiting: pendingCounts[user] || 0  // Tasks waiting on this user
   }));
 }
 
