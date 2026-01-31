@@ -1037,27 +1037,9 @@ async function handleUI(): Promise<Response> {
     }
 
     async function loadMessages() {
-      const recipient = document.getElementById('recipient').value;
-      const filterUrgent = document.getElementById('filterUrgent')?.checked || false;
-      const filterUnread = document.getElementById('filterUnread')?.checked || false;
-      const params = new URLSearchParams({ limit: '50' });
-      if (recipient) params.set('recipient', recipient);
-      if (filterUrgent) params.set('urgent', 'true');
-      if (filterUnread) params.set('unread', 'true');
-      
-      const res = await fetch('/ui/messages?' + params);
-      const data = await res.json();
-      
+      // Public /ui page: show login prompt instead of messages
       const container = document.getElementById('messages');
-      if (data.messages.length === 0) {
-        container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">No messages match filters</div>';
-      } else {
-        container.innerHTML = data.messages.map(m => renderMessage(m)).join('');
-      }
-      
-      if (data.messages.length > 0) {
-        lastId = data.messages[0].id;
-      }
+      container.innerHTML = '<div style="text-align:center;color:#888;padding:48px 20px;"><p style="font-size:1.1rem;margin-bottom:16px;">🔐 Please log in to view messages</p><p>Click the key icon above to enter your mailbox key.</p></div>';
     }
 
     // Presence state with lastSeen timestamps
@@ -1193,12 +1175,32 @@ async function handleUIMessages(request: Request): Promise<Response> {
   const sinceId = url.searchParams.get("sinceId");
   const urgentOnly = url.searchParams.get("urgent") === "true";
   const unreadOnly = url.searchParams.get("unread") === "true";
+  
+  // Access control: require a valid UI key
+  const uiKey = url.searchParams.get("key");
+  if (!uiKey) {
+    // No key = not logged in = no messages
+    return json({ messages: [], error: "Login required" });
+  }
+  
+  const config = uiMailboxKeys[uiKey];
+  if (!config) {
+    return json({ messages: [], error: "Invalid key" });
+  }
+  
+  const viewer = config.sender;
+  const isAdmin = config.admin || false;
 
   let messages = await listAllMessages({
     recipient,
     limit: urgentOnly || unreadOnly ? 200 : limit, // Fetch more if filtering
     sinceId: sinceId ? BigInt(sinceId) : undefined,
   });
+
+  // Access control filter: non-admins only see their own messages
+  if (!isAdmin) {
+    messages = messages.filter(m => m.sender === viewer || m.recipient === viewer);
+  }
 
   // Apply filters
   if (urgentOnly) {
@@ -1534,11 +1536,11 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
 
   <div class="controls">
     <select id="recipient">
-      <option value="">All mailboxes</option>
-      <option value="chris">chris</option>
-      <option value="clio">clio</option>
-      <option value="domingo">domingo</option>
-      <option value="zumie">zumie</option>
+      ${config.admin ? '<option value="">All mailboxes</option>' : ''}
+      <option value="chris"${sender === 'chris' ? ' selected' : ''}>chris</option>
+      <option value="clio"${sender === 'clio' ? ' selected' : ''}>clio</option>
+      <option value="domingo"${sender === 'domingo' ? ' selected' : ''}>domingo</option>
+      <option value="zumie"${sender === 'zumie' ? ' selected' : ''}>zumie</option>
     </select>
     <div class="filters">
       <label class="filter-label"><input type="checkbox" id="filterUrgent" onchange="loadMessages()"> Urgent only</label>
@@ -1850,16 +1852,13 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
       if (filterUrgent) params.set('urgent', 'true');
       if (filterUnread) params.set('unread', 'true');
       
+      // Pass key for server-side access control
+      params.set('key', MAILBOX_KEY);
       const res = await fetch('/ui/messages?' + params);
       const data = await res.json();
       
-      // Access control: non-admins only see messages they sent or received
+      // Server-side access control already applied; client-side filter for waiting
       let messages = data.messages;
-      if (!IS_ADMIN) {
-        messages = messages.filter(m => m.sender === CURRENT_SENDER || m.recipient === CURRENT_SENDER);
-      }
-      
-      // Client-side filter for waiting (tasks where I'm the responder)
       if (filterWaiting) {
         messages = messages.filter(m => m.responseWaiting && m.waitingResponder === CURRENT_SENDER);
       }
