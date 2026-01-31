@@ -15,6 +15,9 @@ export interface Message {
   replyToMessageId: bigint | null;
   dedupeKey: string | null;
   metadata: Record<string, unknown> | null;
+  responsePending: boolean;
+  pendingResponder: string | null;
+  pendingSince: Date | null;
 }
 
 export interface SendMessageInput {
@@ -248,6 +251,9 @@ function rowToMessage(row: Record<string, unknown>): Message {
     replyToMessageId: row.reply_to_message_id as bigint | null,
     dedupeKey: row.dedupe_key as string | null,
     metadata: row.metadata as Record<string, unknown> | null,
+    responsePending: row.response_pending as boolean ?? false,
+    pendingResponder: row.pending_responder as string | null,
+    pendingSince: row.pending_since as Date | null,
   };
 }
 
@@ -304,6 +310,87 @@ export async function getUnreadCounts(): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
   for (const row of rows) {
     counts[row.recipient as string] = Number(row.count);
+  }
+  return counts;
+}
+
+// ============================================================
+// RESPONSE PENDING TRACKING
+// ============================================================
+
+/**
+ * Mark a message as having a pending response from the given responder.
+ * Used when replying to a message with a promise to do something.
+ */
+export async function markPending(messageId: bigint, responder: string): Promise<Message | null> {
+  const [row] = await sql`
+    UPDATE public.mailbox_messages 
+    SET response_pending = true,
+        pending_responder = ${responder},
+        pending_since = NOW()
+    WHERE id = ${messageId}
+    RETURNING *
+  `;
+  return row ? rowToMessage(row) : null;
+}
+
+/**
+ * Clear the pending flag on a message (task completed).
+ */
+export async function clearPending(messageId: bigint): Promise<Message | null> {
+  const [row] = await sql`
+    UPDATE public.mailbox_messages 
+    SET response_pending = false,
+        pending_responder = NULL,
+        pending_since = NULL
+    WHERE id = ${messageId}
+    RETURNING *
+  `;
+  return row ? rowToMessage(row) : null;
+}
+
+/**
+ * List all messages where the given user has made a pending promise.
+ * These are tasks you've committed to but not yet completed.
+ */
+export async function listMyPendingPromises(responder: string): Promise<Message[]> {
+  const rows = await sql`
+    SELECT * FROM public.mailbox_messages 
+    WHERE response_pending = true 
+      AND pending_responder = ${responder}
+    ORDER BY pending_since ASC
+  `;
+  return rows.map(rowToMessage);
+}
+
+/**
+ * List all messages sent by the given user that are awaiting a response.
+ * These are tasks you're waiting on someone else to complete.
+ */
+export async function listAwaitingResponse(sender: string): Promise<Message[]> {
+  const rows = await sql`
+    SELECT * FROM public.mailbox_messages 
+    WHERE response_pending = true 
+      AND sender = ${sender}
+    ORDER BY pending_since ASC
+  `;
+  return rows.map(rowToMessage);
+}
+
+/**
+ * Get pending counts: how many promises each user has outstanding.
+ */
+export async function getPendingCounts(): Promise<Record<string, number>> {
+  const rows = await sql`
+    SELECT pending_responder, COUNT(*) as count
+    FROM public.mailbox_messages
+    WHERE response_pending = true AND pending_responder IS NOT NULL
+    GROUP BY pending_responder
+  `;
+  
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    counts[row.pending_responder as string] = Number(row.count);
   }
   return counts;
 }

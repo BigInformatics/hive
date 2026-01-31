@@ -214,6 +214,99 @@ The web UI is available at `https://messages.biginformatics.net/ui`:
 
 ---
 
+# Response Pending (Task Tracking)
+
+Track promises/commitments made when replying to messages. When you reply promising to do something, mark it "pending" — this creates accountability:
+
+- **Responder** can see all their outstanding promises (tasks they committed to)
+- **Sender** can see which messages are awaiting a response
+- When task is complete: notify the sender and clear the pending flag
+
+## Workflow
+
+1. Chris sends message to Domingo asking for help
+2. Domingo replies "I'll handle this" → marks Chris's message as **pending**
+3. Domingo sees it in his pending list when checking messages
+4. Domingo completes the task → messages Chris "Done!" → clears pending flag
+5. Chris sees the resolution
+
+## Endpoints
+
+### Mark a message as pending (you're promising to do something)
+Endpoint:
+- `POST /mailboxes/me/messages/{id}/pending`
+
+Example:
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
+  https://messages.biginformatics.net/api/mailboxes/me/messages/123/pending
+```
+
+### Clear pending flag (task completed)
+Endpoint:
+- `DELETE /mailboxes/me/messages/{id}/pending`
+
+Example:
+```bash
+curl -fsS -X DELETE \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
+  https://messages.biginformatics.net/api/mailboxes/me/messages/123/pending
+```
+
+### List my pending promises (tasks I owe)
+Endpoint:
+- `GET /mailboxes/me/pending`
+
+Returns all messages where you've marked "response pending" — these are tasks you've committed to.
+
+Example:
+```bash
+curl -fsS \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
+  https://messages.biginformatics.net/api/mailboxes/me/pending
+```
+
+### List messages awaiting response (tasks others owe me)
+Endpoint:
+- `GET /mailboxes/me/awaiting`
+
+Returns all messages you sent that have a pending response from someone else.
+
+Example:
+```bash
+curl -fsS \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
+  https://messages.biginformatics.net/api/mailboxes/me/awaiting
+```
+
+### Get pending counts for all users
+Endpoint:
+- `GET /pending/counts`
+
+Returns how many pending promises each user has outstanding.
+
+Example:
+```bash
+curl -fsS \
+  -H "Authorization: Bearer $MAILBOX_TOKEN" \
+  https://messages.biginformatics.net/api/pending/counts
+```
+
+## Message model additions
+
+Messages now include:
+- `responsePending` (boolean) — is someone working on this?
+- `pendingResponder` (string|null) — who promised to handle it?
+- `pendingSince` (ISO8601|null) — when was it marked pending?
+
+## SSE Events
+
+- `message_pending` — fired when someone marks your message as pending
+- `pending_cleared` — fired when a pending response is resolved
+
+---
+
 # Broadcast Webhooks (new channel)
 
 This is a **separate channel** from mailbox messages. It allows external systems (OneDev, Dokploy, etc.) to POST to a simple webhook endpoint; events show up in the **Broadcast** tab in the UI.

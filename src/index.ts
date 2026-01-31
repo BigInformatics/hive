@@ -4,6 +4,8 @@ import {
   sendMessage, listMessages, getMessage, 
   ackMessage, ackMessages, searchMessages,
   isValidMailbox, listAllMessages, getUnreadCounts,
+  markPending, clearPending, listMyPendingPromises, 
+  listAwaitingResponse, getPendingCounts,
   type SendMessageInput 
 } from "./db/messages";
 import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
@@ -380,6 +382,101 @@ async function handleReply(
   return json({ message: serializeMessage(message) }, 201);
 }
 
+// ============================================================
+// RESPONSE PENDING HANDLERS
+// ============================================================
+
+async function handleMarkPending(
+  auth: AuthContext,
+  id: string
+): Promise<Response> {
+  const messageId = BigInt(id);
+  
+  // Verify the message exists and the caller is the recipient (the one making the promise)
+  const original = await getMessage(auth.identity, messageId);
+  if (!original) {
+    return error("Message not found", 404);
+  }
+  
+  const updated = await markPending(messageId, auth.identity);
+  if (!updated) {
+    return error("Failed to mark pending", 500);
+  }
+  
+  // Emit event so sender knows their message has a pending response
+  emit(original.sender, {
+    type: "message_pending",
+    messageId: messageId.toString(),
+    responder: auth.identity,
+  });
+  
+  return json({ message: serializeMessage(updated) });
+}
+
+async function handleClearPending(
+  auth: AuthContext,
+  id: string
+): Promise<Response> {
+  const messageId = BigInt(id);
+  
+  // Get the message to verify permissions and get the sender for notification
+  const rows = await import("./db/client").then(m => m.sql`
+    SELECT * FROM public.mailbox_messages WHERE id = ${messageId}
+  `);
+  
+  if (rows.length === 0) {
+    return error("Message not found", 404);
+  }
+  
+  const msg = rows[0];
+  
+  // Only the pending_responder can clear (the one who made the promise)
+  if (msg.pending_responder !== auth.identity) {
+    return error("Only the pending responder can clear this", 403);
+  }
+  
+  const updated = await clearPending(messageId);
+  if (!updated) {
+    return error("Failed to clear pending", 500);
+  }
+  
+  // Emit event so sender knows the pending response was resolved
+  emit(msg.sender as string, {
+    type: "pending_cleared",
+    messageId: messageId.toString(),
+    responder: auth.identity,
+  });
+  
+  return json({ message: serializeMessage(updated) });
+}
+
+async function handleMyPendingPromises(
+  auth: AuthContext
+): Promise<Response> {
+  const messages = await listMyPendingPromises(auth.identity);
+  return json({ 
+    messages: messages.map(serializeMessage),
+    count: messages.length 
+  });
+}
+
+async function handleAwaitingResponse(
+  auth: AuthContext
+): Promise<Response> {
+  const messages = await listAwaitingResponse(auth.identity);
+  return json({ 
+    messages: messages.map(serializeMessage),
+    count: messages.length 
+  });
+}
+
+async function handlePendingCounts(
+  _auth: AuthContext
+): Promise<Response> {
+  const counts = await getPendingCounts();
+  return json({ counts });
+}
+
 async function handleSearch(
   auth: AuthContext,
   request: Request
@@ -424,6 +521,9 @@ function serializeMessage(msg: {
   replyToMessageId: bigint | null;
   dedupeKey: string | null;
   metadata: Record<string, unknown> | null;
+  responsePending?: boolean;
+  pendingResponder?: string | null;
+  pendingSince?: Date | null;
 }) {
   return {
     id: msg.id.toString(),
@@ -439,6 +539,9 @@ function serializeMessage(msg: {
     replyToMessageId: msg.replyToMessageId?.toString() || null,
     dedupeKey: msg.dedupeKey,
     metadata: msg.metadata,
+    responsePending: msg.responsePending || false,
+    pendingResponder: msg.pendingResponder || null,
+    pendingSince: msg.pendingSince?.toISOString() || null,
   };
 }
 
@@ -2092,6 +2195,41 @@ async function handleRequest(request: Request): Promise<Response> {
 
     if (method === "POST" && replyMatch) {
       return requireAuth(request, (auth) => handleReply(auth, replyMatch[1], request));
+    }
+
+    // ============================================================
+    // RESPONSE PENDING ENDPOINTS
+    // ============================================================
+
+    // Mark a message as pending response from the authenticated user
+    // POST /mailboxes/me/messages/{id}/pending
+    const pendingMatch = path.match(/^\/mailboxes\/me\/messages\/(\d+)\/pending$/);
+    if (method === "POST" && pendingMatch) {
+      return requireAuth(request, (auth) => handleMarkPending(auth, pendingMatch[1]));
+    }
+
+    // Clear pending flag on a message
+    // DELETE /mailboxes/me/messages/{id}/pending
+    if (method === "DELETE" && pendingMatch) {
+      return requireAuth(request, (auth) => handleClearPending(auth, pendingMatch[1]));
+    }
+
+    // List my pending promises (tasks I've committed to)
+    // GET /mailboxes/me/pending
+    if (method === "GET" && path === "/mailboxes/me/pending") {
+      return requireAuth(request, handleMyPendingPromises);
+    }
+
+    // List messages awaiting response (tasks I'm waiting on)
+    // GET /mailboxes/me/awaiting
+    if (method === "GET" && path === "/mailboxes/me/awaiting") {
+      return requireAuth(request, handleAwaitingResponse);
+    }
+
+    // Get pending counts for all users
+    // GET /pending/counts
+    if (method === "GET" && path === "/pending/counts") {
+      return requireAuth(request, handlePendingCounts);
     }
 
     // ============================================================
