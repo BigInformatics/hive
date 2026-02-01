@@ -1536,11 +1536,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
     /* Copy ID button */
     .copy-id-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #ffffff; cursor: pointer; border-radius: 4px; transition: all 0.15s; }
     .copy-id-btn:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
-    .copy-id-btn.copied { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.4); }
-    .copy-id-btn.copied svg rect, .copy-id-btn.copied svg path, .copy-id-btn.copied svg polyline { stroke: #22c55e; }
-    .copy-id-btn svg { pointer-events: none; display: block; width: 14px; height: 14px; }
-    .copy-id-btn svg rect, .copy-id-btn svg path { stroke: #ffffff; }
-    body.light .copy-id-btn svg rect, body.light .copy-id-btn svg path { stroke: #374151; }
+    .copy-id-btn.copied { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.4); color: #22c55e; }
+    .copy-id-btn svg { pointer-events: none; display: block; width: 14px !important; height: 14px !important; min-width: 14px; flex: 0 0 auto; stroke: currentColor; }
     /* Theme toggle - uses same styling as nav buttons */
     /* Compose form */
     .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
