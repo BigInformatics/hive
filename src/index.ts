@@ -1534,8 +1534,9 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .mark-read-btn { font-size: 0.6875rem; padding: 4px 10px; margin-left: 8px; background: rgba(56,189,248,0.15); border: 1px solid transparent; color: var(--primary); font-weight: 600; }
     .mark-read-btn:hover { background: var(--primary); color: var(--primary-foreground); }
     /* Copy ID button */
-    .copy-id-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-right: 8px; background: transparent; border: 1px solid var(--border); color: #9ca3af; cursor: pointer; border-radius: 4px; opacity: 0.7; transition: opacity 0.15s, color 0.15s; }
-    .copy-id-btn:hover { opacity: 1; background: var(--muted); color: #e5e7eb; }
+    .copy-id-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #ffffff; cursor: pointer; border-radius: 4px; transition: all 0.15s; }
+    .copy-id-btn:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
+    .copy-id-btn.copied { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.4); color: #22c55e; }
     .copy-id-btn svg { pointer-events: none; display: block; }
     /* Theme toggle - uses same styling as nav buttons */
     /* Compose form */
@@ -1586,8 +1587,9 @@ async function handleUIWithKey(key: string): Promise<Response> {
     body.light .reply-info { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; }
     body.light .mark-read-btn { background: #e0f2fe; color: #0369a1; }
     body.light .mark-read-btn:hover { background: var(--primary); color: white; }
-    body.light .copy-id-btn { border-color: #d1d5db; color: #6b7280; }
-    body.light .copy-id-btn:hover { background: #f3f4f6; color: #374151; }
+    body.light .copy-id-btn { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.15); color: #374151; }
+    body.light .copy-id-btn:hover { background: rgba(0,0,0,0.1); border-color: rgba(0,0,0,0.2); }
+    body.light .copy-id-btn.copied { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3); color: #16a34a; }
     body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.65; }
     body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
     body.light .presence-avatar.online .ring { border-color: #16a34a; box-shadow: 0 0 8px rgba(22,163,74,0.4); }
@@ -1837,12 +1839,15 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
         document.body.removeChild(ta);
       }
       
-      // Visual feedback
+      // Visual feedback - show checkmark and "copied" state
       if (success && btn) {
         const original = btn.innerHTML;
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
-        btn.style.color = '#22c55e';
-        setTimeout(() => { btn.innerHTML = original; btn.style.color = ''; }, 1000);
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.classList.add('copied');
+        setTimeout(() => { 
+          btn.innerHTML = original; 
+          btn.classList.remove('copied');
+        }, 1500);
       }
     }
 
