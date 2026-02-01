@@ -1534,9 +1534,9 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .mark-read-btn { font-size: 0.6875rem; padding: 4px 10px; margin-left: 8px; background: rgba(56,189,248,0.15); border: 1px solid transparent; color: var(--primary); font-weight: 600; }
     .mark-read-btn:hover { background: var(--primary); color: var(--primary-foreground); }
     /* Copy ID button */
-    .copy-id-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-right: 8px; background: transparent; border: 1px solid var(--border); color: var(--muted-foreground); cursor: pointer; border-radius: 4px; opacity: 0.6; transition: opacity 0.15s, color 0.15s; }
-    .copy-id-btn:hover { opacity: 1; background: var(--muted); }
-    .copy-id-btn svg { pointer-events: none; }
+    .copy-id-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-right: 8px; background: transparent; border: 1px solid var(--border); color: #9ca3af; cursor: pointer; border-radius: 4px; opacity: 0.7; transition: opacity 0.15s, color 0.15s; }
+    .copy-id-btn:hover { opacity: 1; background: var(--muted); color: #e5e7eb; }
+    .copy-id-btn svg { pointer-events: none; display: block; }
     /* Theme toggle - uses same styling as nav buttons */
     /* Compose form */
     .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
@@ -1586,8 +1586,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
     body.light .reply-info { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; }
     body.light .mark-read-btn { background: #e0f2fe; color: #0369a1; }
     body.light .mark-read-btn:hover { background: var(--primary); color: white; }
-    body.light .copy-id-btn { border-color: #d1d5db; }
-    body.light .copy-id-btn:hover { background: #f3f4f6; }
+    body.light .copy-id-btn { border-color: #d1d5db; color: #6b7280; }
+    body.light .copy-id-btn:hover { background: #f3f4f6; color: #374151; }
     body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.65; }
     body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
     body.light .presence-avatar.online .ring { border-color: #16a34a; box-shadow: 0 0 8px rgba(22,163,74,0.4); }
