@@ -1889,7 +1889,9 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
         ? \`<button class="mark-read-btn" onclick="event.stopPropagation(); markAsRead('\${msg.id}')">Mark read</button>\`
         : '';
       
-      const copyBtn = \`<button class="copy-id-btn" onclick="event.stopPropagation(); copyMessageId('\${msg.id}')" title="Copy message ID">⧉</button>\`;
+      // SVG copy icon - using single quotes for SVG attributes to avoid escaping issues
+      const copyIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+      const copyBtn = \`<button class="copy-id-btn" onclick="event.stopPropagation(); copyMessageId('\${msg.id}')" title="Copy message ID">\${copyIcon}</button>\`;
 
       return \`
         <div class="\${classes.join(' ')}" data-id="\${msg.id}" data-sender="\${msg.sender}" data-title="\${msg.title.replace(/"/g, '&quot;')}" onclick="selectMessage(this)">
