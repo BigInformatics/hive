@@ -1534,8 +1534,9 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .mark-read-btn { font-size: 0.6875rem; padding: 4px 10px; margin-left: 8px; background: rgba(56,189,248,0.15); border: 1px solid transparent; color: var(--primary); font-weight: 600; }
     .mark-read-btn:hover { background: var(--primary); color: var(--primary-foreground); }
     /* Copy ID button */
-    .copy-id-btn { font-size: 0.75rem; padding: 2px 6px; margin-right: 8px; background: transparent; border: 1px solid var(--border); color: var(--muted-foreground); cursor: pointer; border-radius: 4px; opacity: 0.6; transition: opacity 0.15s; }
+    .copy-id-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-right: 8px; background: transparent; border: 1px solid var(--border); color: var(--muted-foreground); cursor: pointer; border-radius: 4px; opacity: 0.6; transition: opacity 0.15s, color 0.15s; }
     .copy-id-btn:hover { opacity: 1; background: var(--muted); }
+    .copy-id-btn svg { pointer-events: none; }
     /* Theme toggle - uses same styling as nav buttons */
     /* Compose form */
     .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
@@ -1813,11 +1814,13 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
     async function copyMessageId(msgId) {
       try {
         await navigator.clipboard.writeText(msgId);
-        // Brief visual feedback
-        const btn = event.target;
-        const original = btn.textContent;
-        btn.textContent = '✓';
-        setTimeout(() => btn.textContent = original, 1000);
+        // Brief visual feedback - swap to check icon
+        const btn = event.target.closest('.copy-id-btn');
+        const original = btn.innerHTML;
+        const checkIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.innerHTML = checkIcon;
+        btn.style.color = '#22c55e';
+        setTimeout(() => { btn.innerHTML = original; btn.style.color = ''; }, 1000);
       } catch (e) {
         console.error('Copy failed:', e);
         // Fallback: prompt user
@@ -1863,7 +1866,8 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
         ? \`<button class="mark-read-btn" onclick="event.stopPropagation(); markAsRead('\${msg.id}')">Mark read</button>\`
         : '';
       
-      const copyBtn = \`<button class="copy-id-btn" onclick="event.stopPropagation(); copyMessageId('\${msg.id}')" title="Copy message ID">📋</button>\`;
+      const copyIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+      const copyBtn = \`<button class="copy-id-btn" onclick="event.stopPropagation(); copyMessageId('\${msg.id}')" title="Copy message ID">\${copyIcon}</button>\`;
 
       return \`
         <div class="\${classes.join(' ')}" data-id="\${msg.id}" data-sender="\${msg.sender}" data-title="\${msg.title.replace(/"/g, '&quot;')}" onclick="selectMessage(this)">
