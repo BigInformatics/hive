@@ -1812,21 +1812,37 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
     }
 
     async function copyMessageId(msgId) {
+      const btn = event.target.closest('.copy-id-btn');
+      let success = false;
+      
+      // Try modern clipboard API first
       if (navigator?.clipboard?.writeText) {
         try {
           await navigator.clipboard.writeText(msgId);
-          // Brief visual feedback - swap to check icon
-          const btn = event.target.closest('.copy-id-btn');
-          const original = btn.innerHTML;
-          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
-          btn.style.color = '#22c55e';
-          setTimeout(() => { btn.innerHTML = original; btn.style.color = ''; }, 1000);
-        } catch (e) {
-          console.error('Copy failed:', e);
-          prompt('Message ID:', msgId);
-        }
-      } else {
-        prompt('Message ID:', msgId);
+          success = true;
+        } catch (e) { /* fall through to legacy */ }
+      }
+      
+      // Fallback: execCommand with hidden textarea
+      if (!success) {
+        const ta = document.createElement('textarea');
+        ta.value = msgId;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          success = document.execCommand('copy');
+        } catch (e) { /* ignore */ }
+        document.body.removeChild(ta);
+      }
+      
+      // Visual feedback
+      if (success && btn) {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.style.color = '#22c55e';
+        setTimeout(() => { btn.innerHTML = original; btn.style.color = ''; }, 1000);
       }
     }
 
@@ -1868,7 +1884,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
         ? \`<button class="mark-read-btn" onclick="event.stopPropagation(); markAsRead('\${msg.id}')">Mark read</button>\`
         : '';
       
-      const copyBtn = \`<button class="copy-id-btn" onclick="event.stopPropagation(); copyMessageId('\${msg.id}')" title="Copy message ID"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>\`;
+      const copyBtn = \`<button class="copy-id-btn" onclick="event.stopPropagation(); copyMessageId('\${msg.id}')" title="Copy message ID"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>\`;
 
       return \`
         <div class="\${classes.join(' ')}" data-id="\${msg.id}" data-sender="\${msg.sender}" data-title="\${msg.title.replace(/"/g, '&quot;')}" onclick="selectMessage(this)">
