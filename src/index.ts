@@ -1196,8 +1196,12 @@ async function handleUIMessages(request: Request): Promise<Response> {
   const viewer = config.sender;
   const isAdmin = config.admin || false;
 
+  // For non-admins: don't use recipient filter from dropdown
+  // Access control filter will handle visibility
+  const effectiveRecipient = isAdmin ? recipient : undefined;
+  
   let messages = await listAllMessages({
-    recipient,
+    recipient: effectiveRecipient,
     limit: urgentOnly || unreadOnly ? 200 : limit, // Fetch more if filtering
     sinceId: sinceId ? BigInt(sinceId) : undefined,
   });
@@ -1205,6 +1209,11 @@ async function handleUIMessages(request: Request): Promise<Response> {
   // Access control filter: non-admins only see their own messages
   if (!isAdmin) {
     messages = messages.filter(m => m.sender === viewer || m.recipient === viewer);
+    
+    // If dropdown has a specific mailbox selected, also filter to conversations with that user
+    if (recipient && recipient !== viewer) {
+      messages = messages.filter(m => m.sender === recipient || m.recipient === recipient);
+    }
   }
 
   // Apply filters
