@@ -1254,11 +1254,24 @@ async function handleUIStream(request: Request): Promise<Response> {
         addPresence(connId, viewer, 'ui');
       }
       
+      // Helper to filter presence based on viewer permissions
+      const filterPresence = (presenceList: PresenceInfo[]) => {
+        if (isAdmin) return presenceList;
+        return presenceList.map(p => ({
+          user: p.user,
+          online: p.online,
+          lastSeen: p.lastSeen,
+          unread: p.user === viewer ? p.unread : 0,
+          waiting: p.user === viewer ? p.waiting : 0
+        }));
+      };
+      
       // Send initial connection event with current presence
       controller.enqueue(encoder.encode(`: connected to UI stream\n\n`));
       getPresenceInfo().then(presence => {
         try {
-          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
+          const filtered = filterPresence(presence);
+          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence: filtered })}\n\n`));
         } catch { /* stream may be closed */ }
       });
       
@@ -1266,7 +1279,12 @@ async function handleUIStream(request: Request): Promise<Response> {
       const presenceHandler: PresenceListener = (event) => {
         if (closed) return;
         try {
-          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify(event)}\n\n`));
+          // Filter presence in the event
+          const filteredEvent = {
+            ...event,
+            presence: filterPresence(event.presence)
+          };
+          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify(filteredEvent)}\n\n`));
         } catch {
           closed = true;
         }
@@ -1341,8 +1359,58 @@ async function handleUIStream(request: Request): Promise<Response> {
 }
 
 // Presence endpoint - returns current online users
-async function handlePresence(): Promise<Response> {
-  return json({ presence: await getPresenceInfo() });
+async function handlePresence(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const uiKey = url.searchParams.get("key");
+  
+  // Get full presence info
+  const allPresence = await getPresenceInfo();
+  
+  // If no key or invalid key, return presence with counts hidden
+  if (!uiKey) {
+    // Show online status only, hide counts
+    return json({ 
+      presence: allPresence.map(p => ({ 
+        user: p.user, 
+        online: p.online, 
+        lastSeen: p.lastSeen,
+        unread: 0,  // Hidden
+        waiting: 0  // Hidden
+      }))
+    });
+  }
+  
+  const config = uiMailboxKeys[uiKey];
+  if (!config) {
+    return json({ 
+      presence: allPresence.map(p => ({ 
+        user: p.user, 
+        online: p.online, 
+        lastSeen: p.lastSeen,
+        unread: 0,
+        waiting: 0
+      }))
+    });
+  }
+  
+  const viewer = config.sender;
+  const isAdmin = config.admin || false;
+  
+  // Admin sees all counts
+  if (isAdmin) {
+    return json({ presence: allPresence });
+  }
+  
+  // Non-admin: only show their own counts, hide others
+  return json({ 
+    presence: allPresence.map(p => ({
+      user: p.user,
+      online: p.online,
+      lastSeen: p.lastSeen,
+      unread: p.user === viewer ? p.unread : 0,
+      waiting: p.user === viewer ? p.waiting : 0
+    }))
+  });
 }
 
 // UI with compose (keyed)
@@ -2194,7 +2262,7 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui") return handleUI();
     if (path === "/ui/messages") return handleUIMessages(request);
     if (path === "/ui/stream") return handleUIStream(request);
-    if (path === "/ui/presence") return handlePresence();
+    if (path === "/ui/presence") return handlePresence(request);
     
     // Buzz UI tab (must be before keyed UI routes)
     if (path === "/ui/buzz") return handleBroadcastUI();
