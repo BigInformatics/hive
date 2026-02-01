@@ -1533,6 +1533,9 @@ async function handleUIWithKey(key: string): Promise<Response> {
     /* Mark read button */
     .mark-read-btn { font-size: 0.6875rem; padding: 4px 10px; margin-left: 8px; background: rgba(56,189,248,0.15); border: 1px solid transparent; color: var(--primary); font-weight: 600; }
     .mark-read-btn:hover { background: var(--primary); color: var(--primary-foreground); }
+    /* Copy ID button */
+    .copy-id-btn { font-size: 0.75rem; padding: 2px 6px; margin-right: 8px; background: transparent; border: 1px solid var(--border); color: var(--muted-foreground); cursor: pointer; border-radius: 4px; opacity: 0.6; transition: opacity 0.15s; }
+    .copy-id-btn:hover { opacity: 1; background: var(--muted); }
     /* Theme toggle - uses same styling as nav buttons */
     /* Compose form */
     .compose-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
@@ -1582,6 +1585,8 @@ async function handleUIWithKey(key: string): Promise<Response> {
     body.light .reply-info { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; }
     body.light .mark-read-btn { background: #e0f2fe; color: #0369a1; }
     body.light .mark-read-btn:hover { background: var(--primary); color: white; }
+    body.light .copy-id-btn { border-color: #d1d5db; }
+    body.light .copy-id-btn:hover { background: #f3f4f6; }
     body.light .presence-avatar img, body.light .presence-avatar .avatar-placeholder { opacity: 0.65; }
     body.light .presence-avatar.online img, body.light .presence-avatar.online .avatar-placeholder { opacity: 1; }
     body.light .presence-avatar.online .ring { border-color: #16a34a; box-shadow: 0 0 8px rgba(22,163,74,0.4); }
@@ -1805,6 +1810,21 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
       }
     }
 
+    async function copyMessageId(msgId) {
+      try {
+        await navigator.clipboard.writeText(msgId);
+        // Brief visual feedback
+        const btn = event.target;
+        const original = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(() => btn.textContent = original, 1000);
+      } catch (e) {
+        console.error('Copy failed:', e);
+        // Fallback: prompt user
+        prompt('Message ID:', msgId);
+      }
+    }
+
     function getAvatarHtml(name) {
       if (avatarData[name]) {
         return \`<img class="avatar" src="\${avatarData[name]}" alt="">\`;
@@ -1842,6 +1862,8 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
       const markReadBtn = canMarkRead 
         ? \`<button class="mark-read-btn" onclick="event.stopPropagation(); markAsRead('\${msg.id}')">Mark read</button>\`
         : '';
+      
+      const copyBtn = \`<button class="copy-id-btn" onclick="event.stopPropagation(); copyMessageId('\${msg.id}')" title="Copy message ID">📋</button>\`;
 
       return \`
         <div class="\${classes.join(' ')}" data-id="\${msg.id}" data-sender="\${msg.sender}" data-title="\${msg.title.replace(/"/g, '&quot;')}" onclick="selectMessage(this)">
@@ -1852,7 +1874,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true })}
                 <span class="message-meta">
                   <span class="sender">\${msg.sender}</span> → <span class="recipient">\${msg.recipient}</span>
                 </span>
-                <span class="message-meta">\${formatDate(msg.createdAt)}\${markReadBtn}</span>
+                <span class="message-meta">\${copyBtn}\${formatDate(msg.createdAt)}\${markReadBtn}</span>
               </div>
               <div class="message-title">
                 \${msg.urgent ? '<span class="badge urgent">URGENT</span> ' : ''}
