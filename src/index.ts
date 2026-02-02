@@ -3832,26 +3832,50 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[]): str
   const afterSpan = t.onOrAfterAt ? '<span>After ' + new Date(t.onOrAfterAt).toLocaleDateString() + '</span>' : '';
   const blockedBadge = t.blockedReason ? '<span class="badge badge-blocked">Blocked</span>' : '';
   
-  const claimBtn = !t.assigneeUserId ? '<button class="action-btn" onclick="claimTask(\'' + t.id + '\')">Claim</button>' : '';
-  const readyBtn = t.status === 'queued' ? '<button class="action-btn" onclick="updateStatus(\'' + t.id + '\', \'ready\')">Ready</button>' : '';
-  const startBtn = t.status === 'ready' && !t.blockedReason ? '<button class="action-btn primary" onclick="updateStatus(\'' + t.id + '\', \'in_progress\')">Start</button>' : '';
-  const reviewBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="updateStatus(\'' + t.id + '\', \'review\')">Review</button>' : '';
-  const holdBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="updateStatus(\'' + t.id + '\', \'holding\')">Hold</button>' : '';
-  const completeBtn = t.status === 'review' ? '<button class="action-btn primary" onclick="updateStatus(\'' + t.id + '\', \'complete\')">Complete</button>' : '';
+  const claimBtn = !t.assigneeUserId ? '<button class="action-btn" onclick="event.stopPropagation();claimTask(\'' + t.id + '\')">Claim</button>' : '';
+  const readyBtn = t.status === 'queued' ? '<button class="action-btn" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'ready\')">Ready</button>' : '';
+  const startBtn = t.status === 'ready' && !t.blockedReason ? '<button class="action-btn primary" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'in_progress\')">Start</button>' : '';
+  const reviewBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'review\')">Review</button>' : '';
+  const holdBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'holding\')">Hold</button>' : '';
+  const completeBtn = t.status === 'review' ? '<button class="action-btn primary" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'complete\')">Complete</button>' : '';
   
-  return '<div class="task-card" data-id="' + t.id + '" data-status="' + t.status + '" data-assignee="' + (t.assigneeUserId || '') + '" data-project="' + (t.projectId || '') + '">' +
+  // Format dates
+  const createdAt = new Date(t.createdAt).toLocaleString();
+  const updatedAt = new Date(t.updatedAt).toLocaleString();
+  
+  // Detail section
+  const detailBody = t.detail ? '<div class="task-detail-body">' + escapeHtml(t.detail) + '</div>' : '<div class="task-detail-body" style="color:var(--muted-foreground);font-style:italic;">No description</div>';
+  
+  return '<div class="task-card" data-id="' + t.id + '" data-status="' + t.status + '" data-assignee="' + (t.assigneeUserId || '') + '" data-project="' + (t.projectId || '') + '" onclick="toggleTaskExpand(this)">' +
     '<div class="task-accent" style="background:' + accentColor + '"></div>' +
     '<div class="task-content">' +
       '<div class="task-header">' +
         '<div>' +
-          '<div class="task-title">' + t.title + '</div>' +
+          '<div class="task-title">' + escapeHtml(t.title) + '</div>' +
           '<div class="task-meta">' + projectSpan + assigneeSpan + afterSpan + '</div>' +
         '</div>' +
         '<div class="task-badges">' + blockedBadge + '<span class="badge badge-' + t.status + '">' + t.status.replace('_', ' ') + '</span></div>' +
       '</div>' +
+      '<div class="task-detail">' +
+        '<div class="task-detail-row"><span class="task-detail-label">Created:</span><span class="task-detail-value">' + createdAt + '</span></div>' +
+        '<div class="task-detail-row"><span class="task-detail-label">Updated:</span><span class="task-detail-value">' + updatedAt + '</span></div>' +
+        '<div class="task-detail-row"><span class="task-detail-label">Created by:</span><span class="task-detail-value">' + (t.creatorUserId || 'Unknown') + '</span></div>' +
+        (t.blockedReason ? '<div class="task-detail-row"><span class="task-detail-label">Blocked:</span><span class="task-detail-value" style="color:#ef4444;">' + escapeHtml(t.blockedReason) + '</span></div>' : '') +
+        detailBody +
+        '<div class="task-detail-actions">' + claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + '</div>' +
+      '</div>' +
       '<div class="task-actions">' + claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + '</div>' +
     '</div>' +
   '</div>';
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function handleSwarmUIStream(request: Request): Response {
@@ -4117,7 +4141,17 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     
     /* Quick actions */
     .task-actions { display: none; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
-    .task-card:hover .task-actions { display: flex; }
+    .task-card:hover .task-actions, .task-card.expanded .task-actions { display: flex; }
+    
+    /* Expanded task detail */
+    .task-card.expanded { border-color: var(--primary); }
+    .task-detail { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .task-card.expanded .task-detail { display: block; }
+    .task-detail-row { display: flex; gap: 8px; margin-bottom: 8px; font-size: 0.8125rem; }
+    .task-detail-label { color: var(--muted-foreground); min-width: 80px; }
+    .task-detail-value { color: var(--foreground); }
+    .task-detail-body { white-space: pre-wrap; line-height: 1.5; color: var(--foreground); margin-top: 8px; padding: 12px; background: var(--secondary); border-radius: var(--radius); }
+    .task-detail-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
     .action-btn { 
       font-size: 0.75rem; 
       padding: 4px 8px; 
@@ -4272,6 +4306,16 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open');
       document.getElementById('sidebarOverlay').classList.toggle('open');
+    }
+    
+    // Toggle task expansion
+    function toggleTaskExpand(card) {
+      // Close other expanded cards
+      document.querySelectorAll('.task-card.expanded').forEach(c => {
+        if (c !== card) c.classList.remove('expanded');
+      });
+      // Toggle this card
+      card.classList.toggle('expanded');
     }
     
     // Toggle all filters in a section
