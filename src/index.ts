@@ -3348,18 +3348,8 @@ function handleBroadcastUIStream(request: Request): Response {
 // ============================================================
 
 async function handleSwarmUI(): Promise<Response> {
-  const projects = await swarm.listProjects({ includeArchived: false });
-  const tasks = await swarm.listTasks({ 
-    includeCompleted: false,
-    includeFuture: true,
-    sort: 'planned',
-    limit: 100
-  });
-  const enrichedTasks = await swarm.enrichTasksWithBlocked(tasks);
-  
-  // Use shared renderer with no auth
-  const html = renderSwarmHTML(projects, enrichedTasks, null, null);
-  return new Response(html, { headers: { "Content-Type": "text/html" } });
+  // Public Swarm requires login - redirect to main UI
+  return Response.redirect("/ui", 302);
 }
 
 // Legacy inline HTML version - keeping for reference, now using renderSwarmHTML
@@ -3791,15 +3781,16 @@ async function handleSwarmUIWithKey(key: string): Promise<Response> {
   return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
-// Keyed Buzz UI - validates key and renders with auth context
+// Keyed Buzz UI - validates key and renders Buzz with auth context
 async function handleBroadcastUIWithKey(key: string): Promise<Response> {
   const config = uiMailboxKeys[key];
   if (!config) {
     return error("Invalid key", 404);
   }
   
-  // Redirect to the main buzz UI for now (it doesn't need auth for viewing)
-  return Response.redirect("/ui/buzz", 302);
+  // For now, render the existing Buzz UI (public view is fine for Buzz as it's broadcast)
+  // TODO: Could add key-aware filtering here if needed
+  return handleBroadcastUI();
 }
 
 // Shared HTML renderer for Swarm UI
