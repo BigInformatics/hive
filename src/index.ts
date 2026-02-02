@@ -3854,6 +3854,43 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       border-right: 1px solid var(--border); 
       padding: 20px;
       flex-shrink: 0;
+      background: var(--background);
+      transition: transform 0.25s ease;
+    }
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 40;
+    }
+    .hamburger {
+      display: none;
+      width: 36px; height: 36px;
+      background: var(--secondary);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      color: var(--foreground);
+      align-items: center;
+      justify-content: center;
+      margin-right: 8px;
+    }
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 50;
+        transform: translateX(-100%);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay.open { display: block; }
+      .hamburger { display: inline-flex; }
+      .content { padding: 16px; }
+      .header { padding: 12px 16px; }
+      .nav a { padding: 4px 8px; font-size: 0.8rem; }
     }
     .main { flex: 1; display: flex; flex-direction: column; }
     .header { 
@@ -4001,8 +4038,9 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
   </style>
 </head>
 <body>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
   <div class="layout">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="filter-section">
         <h3>Status</h3>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="queued"> Queued</label>
@@ -4028,7 +4066,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     </aside>
     <main class="main">
       <header class="header">
-        <h1>${ICONS.swarm} Swarm${identity ? '<span class="user-badge">' + identity + '</span>' : ''}</h1>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="hamburger" onclick="toggleSidebar()" title="Toggle filters">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <h1 style="margin:0;">${ICONS.swarm} Swarm${identity ? '<span class="user-badge">' + identity + '</span>' : ''}</h1>
+        </div>
         <nav class="nav">
           <a href="/ui${keyPath}">Messages</a>
           <a href="/ui${keyPath}/buzz">Buzz</a>
@@ -4068,6 +4111,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
   <script>
     const UI_KEY = ${key ? "'" + key + "'" : 'null'};
     function getToken() { return UI_KEY; }
+    
+    // Sidebar toggle for mobile
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebarOverlay').classList.toggle('open');
+    }
     
     // Theme
     const savedTheme = localStorage.getItem('theme');
