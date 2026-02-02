@@ -3397,9 +3397,14 @@ function serializeTaskEvent(e: swarm.SwarmTaskEvent) {
 
 // Projects
 async function handleSwarmListProjects(auth: AuthContext): Promise<Response> {
-  const includeArchived = false; // Could be a query param
-  const projects = await swarm.listProjects({ includeArchived });
-  return json({ projects: projects.map(serializeProject) });
+  try {
+    const includeArchived = false; // Could be a query param
+    const projects = await swarm.listProjects({ includeArchived });
+    return json({ projects: projects.map(serializeProject) });
+  } catch (err) {
+    console.error("[swarm] List projects error:", err);
+    return error("Failed to list projects", 500);
+  }
 }
 
 async function handleSwarmCreateProject(auth: AuthContext, request: Request): Promise<Response> {
