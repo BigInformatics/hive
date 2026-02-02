@@ -11,6 +11,7 @@ import {
 import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
 import { subscribe, emit, type MailboxEvent } from "./events";
 import * as broadcast from "./db/broadcast";
+import * as swarm from "./db/swarm";
 
 const PORT = parseInt(process.env.PORT || "3100");
 
@@ -2462,11 +2463,398 @@ async function handleRequest(request: Request): Promise<Response> {
       return handleWebhookIngest(ingestMatch[1], ingestMatch[2], request);
     }
 
+    // ============================================================
+    // SWARM API - Task Management
+    // ============================================================
+    
+    // Projects
+    if (method === "GET" && path === "/swarm/projects") {
+      return requireAuth(request, handleSwarmListProjects);
+    }
+    if (method === "POST" && path === "/swarm/projects") {
+      return requireAuth(request, (auth) => handleSwarmCreateProject(auth, request));
+    }
+    const swarmProjectMatch = path.match(/^\/swarm\/projects\/([0-9a-f-]{36})$/);
+    if (method === "GET" && swarmProjectMatch) {
+      return requireAuth(request, (auth) => handleSwarmGetProject(auth, swarmProjectMatch[1]));
+    }
+    if (method === "PATCH" && swarmProjectMatch) {
+      return requireAuth(request, (auth) => handleSwarmUpdateProject(auth, swarmProjectMatch[1], request));
+    }
+    const swarmProjectArchiveMatch = path.match(/^\/swarm\/projects\/([0-9a-f-]{36})\/archive$/);
+    if (method === "POST" && swarmProjectArchiveMatch) {
+      return requireAuth(request, (auth) => handleSwarmArchiveProject(auth, swarmProjectArchiveMatch[1]));
+    }
+    if (method === "DELETE" && swarmProjectArchiveMatch) {
+      return requireAuth(request, (auth) => handleSwarmUnarchiveProject(auth, swarmProjectArchiveMatch[1]));
+    }
+    
+    // Tasks
+    if (method === "GET" && path === "/swarm/tasks") {
+      return requireAuth(request, (auth) => handleSwarmListTasks(auth, request));
+    }
+    if (method === "POST" && path === "/swarm/tasks") {
+      return requireAuth(request, (auth) => handleSwarmCreateTask(auth, request));
+    }
+    const swarmTaskMatch = path.match(/^\/swarm\/tasks\/([0-9a-f-]{36})$/);
+    if (method === "GET" && swarmTaskMatch) {
+      return requireAuth(request, (auth) => handleSwarmGetTask(auth, swarmTaskMatch[1]));
+    }
+    if (method === "PATCH" && swarmTaskMatch) {
+      return requireAuth(request, (auth) => handleSwarmUpdateTask(auth, swarmTaskMatch[1], request));
+    }
+    const swarmTaskClaimMatch = path.match(/^\/swarm\/tasks\/([0-9a-f-]{36})\/claim$/);
+    if (method === "POST" && swarmTaskClaimMatch) {
+      return requireAuth(request, (auth) => handleSwarmClaimTask(auth, swarmTaskClaimMatch[1]));
+    }
+    const swarmTaskStatusMatch = path.match(/^\/swarm\/tasks\/([0-9a-f-]{36})\/status$/);
+    if (method === "POST" && swarmTaskStatusMatch) {
+      return requireAuth(request, (auth) => handleSwarmUpdateTaskStatus(auth, swarmTaskStatusMatch[1], request));
+    }
+    const swarmTaskEventsMatch = path.match(/^\/swarm\/tasks\/([0-9a-f-]{36})\/events$/);
+    if (method === "GET" && swarmTaskEventsMatch) {
+      return requireAuth(request, (auth) => handleSwarmGetTaskEvents(auth, swarmTaskEventsMatch[1]));
+    }
+
     return error("Not found", 404);
   } catch (err) {
     console.error("[api] Unhandled error:", err);
     return error("Internal server error", 500);
   }
+}
+
+// ============================================================
+// SWARM TASK MANAGEMENT HANDLERS
+// ============================================================
+
+// Helper to emit Buzz events for Swarm changes
+async function emitSwarmBuzz(
+  app: string,
+  title: string,
+  body: string,
+  taskId?: string,
+  projectId?: string
+): Promise<void> {
+  try {
+    // Find or create a system webhook for swarm events
+    let webhook = await broadcast.getWebhookByAppName("swarm-events");
+    if (!webhook) {
+      webhook = await broadcast.createWebhook({
+        appName: "swarm-events",
+        title: "Swarm Task Events",
+        owner: "system",
+      });
+    }
+    
+    await broadcast.createBroadcastEvent({
+      webhookId: webhook.id,
+      appName: "swarm-events",
+      title,
+      bodyText: body,
+      bodyJson: { taskId, projectId },
+    });
+  } catch (err) {
+    console.error("[swarm] Failed to emit buzz event:", err);
+  }
+}
+
+// Projects
+
+async function handleSwarmListProjects(auth: AuthContext): Promise<Response> {
+  const url = new URL(`http://localhost${auth.path || "/swarm/projects"}`);
+  const includeArchived = url.searchParams.get("archived") === "true";
+  
+  const projects = await swarm.listProjects({ includeArchived });
+  return json({ projects });
+}
+
+async function handleSwarmCreateProject(auth: AuthContext, request: Request): Promise<Response> {
+  const body = await request.json() as Record<string, unknown>;
+  
+  if (!body.title || typeof body.title !== "string") {
+    return error("title is required", 400);
+  }
+  if (!body.color || typeof body.color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(body.color)) {
+    return error("color must be a valid hex color (#RRGGBB)", 400);
+  }
+  if (!body.projectLeadUserId || typeof body.projectLeadUserId !== "string") {
+    return error("projectLeadUserId is required", 400);
+  }
+  if (!body.developerLeadUserId || typeof body.developerLeadUserId !== "string") {
+    return error("developerLeadUserId is required", 400);
+  }
+  
+  const project = await swarm.createProject({
+    title: body.title,
+    description: body.description as string | undefined,
+    onedevUrl: body.onedevUrl as string | undefined,
+    dokployDeployUrl: body.dokployDeployUrl as string | undefined,
+    color: body.color,
+    projectLeadUserId: body.projectLeadUserId,
+    developerLeadUserId: body.developerLeadUserId,
+  });
+  
+  await emitSwarmBuzz(
+    "swarm-events",
+    `Project created: ${project.title}`,
+    `New project "${project.title}" created by ${auth.identity}`,
+    undefined,
+    project.id
+  );
+  
+  return json({ project }, 201);
+}
+
+async function handleSwarmGetProject(id: string): Promise<Response> {
+  const project = await swarm.getProject(id);
+  if (!project) {
+    return error("Project not found", 404);
+  }
+  return json({ project });
+}
+
+async function handleSwarmUpdateProject(auth: AuthContext, id: string, request: Request): Promise<Response> {
+  const body = await request.json() as Record<string, unknown>;
+  
+  // Validate color if provided
+  if (body.color !== undefined && (typeof body.color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(body.color))) {
+    return error("color must be a valid hex color (#RRGGBB)", 400);
+  }
+  
+  const project = await swarm.updateProject(id, {
+    title: body.title as string | undefined,
+    description: body.description as string | null | undefined,
+    onedevUrl: body.onedevUrl as string | null | undefined,
+    dokployDeployUrl: body.dokployDeployUrl as string | null | undefined,
+    color: body.color as string | undefined,
+    projectLeadUserId: body.projectLeadUserId as string | undefined,
+    developerLeadUserId: body.developerLeadUserId as string | undefined,
+  });
+  
+  if (!project) {
+    return error("Project not found", 404);
+  }
+  
+  return json({ project });
+}
+
+async function handleSwarmArchiveProject(auth: AuthContext, id: string): Promise<Response> {
+  const project = await swarm.archiveProject(id);
+  if (!project) {
+    return error("Project not found", 404);
+  }
+  
+  await emitSwarmBuzz(
+    "swarm-events",
+    `Project archived: ${project.title}`,
+    `Project "${project.title}" archived by ${auth.identity}`,
+    undefined,
+    project.id
+  );
+  
+  return json({ project });
+}
+
+async function handleSwarmUnarchiveProject(auth: AuthContext, id: string): Promise<Response> {
+  const project = await swarm.unarchiveProject(id);
+  if (!project) {
+    return error("Project not found", 404);
+  }
+  return json({ project });
+}
+
+// Tasks
+
+async function handleSwarmListTasks(auth: AuthContext, request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  
+  // Parse multi-value params
+  const statuses = url.searchParams.getAll("status") as swarm.TaskStatus[];
+  const assignees = url.searchParams.getAll("assignee");
+  const projects = url.searchParams.getAll("project");
+  
+  const tasks = await swarm.listTasks({
+    statuses: statuses.length > 0 ? statuses : undefined,
+    assignees: assignees.length > 0 ? assignees : undefined,
+    includeUnassigned: url.searchParams.get("unassigned") === "true",
+    projects: projects.length > 0 ? projects : undefined,
+    includeNoProject: url.searchParams.get("noProject") === "true",
+    creatorUserId: url.searchParams.get("creator") || undefined,
+    query: url.searchParams.get("q") || undefined,
+    includeFuture: url.searchParams.get("includeFuture") === "true",
+    includeCompleted: url.searchParams.get("includeCompleted") === "true",
+    sort: (url.searchParams.get("sort") as "planned" | "createdAt" | "updatedAt") || "planned",
+    sortDir: (url.searchParams.get("dir") as "asc" | "desc") || "asc",
+    limit: parseInt(url.searchParams.get("limit") || "100"),
+  });
+  
+  // Enrich with blocked status
+  const enrichedTasks = await swarm.enrichTasksWithBlocked(tasks);
+  
+  return json({ tasks: enrichedTasks });
+}
+
+async function handleSwarmCreateTask(auth: AuthContext, request: Request): Promise<Response> {
+  const body = await request.json() as Record<string, unknown>;
+  
+  if (!body.title || typeof body.title !== "string") {
+    return error("title is required", 400);
+  }
+  
+  // Validate mustBeDoneAfterTaskId doesn't create self-reference
+  if (body.mustBeDoneAfterTaskId === body.id) {
+    return error("Task cannot depend on itself", 400);
+  }
+  
+  const task = await swarm.createTask({
+    projectId: body.projectId as string | undefined,
+    title: body.title,
+    detail: body.detail as string | undefined,
+    creatorUserId: auth.identity,
+    assigneeUserId: body.assigneeUserId as string | undefined,
+    status: (body.status as swarm.TaskStatus) || "queued",
+    onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt as string) : undefined,
+    mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId as string | undefined,
+    sortKey: body.sortKey as number | undefined,
+    nextTaskId: body.nextTaskId as string | undefined,
+    nextTaskAssigneeUserId: body.nextTaskAssigneeUserId as string | undefined,
+  });
+  
+  // Record creation event
+  await swarm.createTaskEvent({
+    taskId: task.id,
+    actorUserId: auth.identity,
+    kind: "created",
+    afterState: { title: task.title, status: task.status },
+  });
+  
+  await emitSwarmBuzz(
+    "swarm-events",
+    `Task created: ${task.title}`,
+    `New task "${task.title}" created by ${auth.identity}`,
+    task.id,
+    task.projectId || undefined
+  );
+  
+  return json({ task }, 201);
+}
+
+async function handleSwarmGetTask(id: string): Promise<Response> {
+  const task = await swarm.getTask(id);
+  if (!task) {
+    return error("Task not found", 404);
+  }
+  
+  // Enrich with blocked status
+  const enriched = await swarm.enrichTaskWithBlocked(task);
+  
+  return json({ task: enriched });
+}
+
+async function handleSwarmUpdateTask(auth: AuthContext, id: string, request: Request): Promise<Response> {
+  const body = await request.json() as Record<string, unknown>;
+  
+  // Don't allow status changes via PATCH - use /status endpoint
+  if (body.status !== undefined) {
+    return error("Use POST /swarm/tasks/:id/status to change status", 400);
+  }
+  
+  // Validate mustBeDoneAfterTaskId doesn't create self-reference
+  if (body.mustBeDoneAfterTaskId === id) {
+    return error("Task cannot depend on itself", 400);
+  }
+  
+  const task = await swarm.updateTask(id, {
+    projectId: body.projectId as string | null | undefined,
+    title: body.title as string | undefined,
+    detail: body.detail as string | null | undefined,
+    assigneeUserId: body.assigneeUserId as string | null | undefined,
+    onOrAfterAt: body.onOrAfterAt !== undefined 
+      ? (body.onOrAfterAt ? new Date(body.onOrAfterAt as string) : null)
+      : undefined,
+    mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId as string | null | undefined,
+    sortKey: body.sortKey as number | null | undefined,
+    nextTaskId: body.nextTaskId as string | null | undefined,
+    nextTaskAssigneeUserId: body.nextTaskAssigneeUserId as string | null | undefined,
+  });
+  
+  if (!task) {
+    return error("Task not found", 404);
+  }
+  
+  return json({ task });
+}
+
+async function handleSwarmClaimTask(auth: AuthContext, id: string): Promise<Response> {
+  const task = await swarm.claimTask(id, auth.identity);
+  if (!task) {
+    return error("Task not found", 404);
+  }
+  
+  await emitSwarmBuzz(
+    "swarm-events",
+    `Task claimed: ${task.title}`,
+    `${auth.identity} claimed task "${task.title}"`,
+    task.id,
+    task.projectId || undefined
+  );
+  
+  return json({ task });
+}
+
+async function handleSwarmTaskStatus(auth: AuthContext, id: string, request: Request): Promise<Response> {
+  const body = await request.json() as Record<string, unknown>;
+  
+  if (!body.status || typeof body.status !== "string") {
+    return error("status is required", 400);
+  }
+  
+  const validStatuses: swarm.TaskStatus[] = ["queued", "ready", "in_progress", "holding", "review", "complete"];
+  if (!validStatuses.includes(body.status as swarm.TaskStatus)) {
+    return error(`status must be one of: ${validStatuses.join(", ")}`, 400);
+  }
+  
+  // Get current task to check blocking rules
+  const current = await swarm.getTask(id);
+  if (!current) {
+    return error("Task not found", 404);
+  }
+  
+  // Check blocking rules for certain transitions
+  const targetStatus = body.status as swarm.TaskStatus;
+  const blockedStatuses: swarm.TaskStatus[] = ["in_progress", "review", "complete"];
+  
+  if (blockedStatuses.includes(targetStatus)) {
+    const blockedReason = await swarm.computeBlockedReason(current);
+    if (blockedReason) {
+      return error(`Cannot transition to ${targetStatus}: task is blocked (${blockedReason})`, 400);
+    }
+  }
+  
+  const task = await swarm.updateTaskStatus(id, targetStatus, auth.identity);
+  if (!task) {
+    return error("Task not found", 404);
+  }
+  
+  await emitSwarmBuzz(
+    "swarm-events",
+    `Task ${targetStatus}: ${task.title}`,
+    `${auth.identity} changed task "${task.title}" to ${targetStatus}`,
+    task.id,
+    task.projectId || undefined
+  );
+  
+  return json({ task });
+}
+
+async function handleSwarmGetTaskEvents(id: string): Promise<Response> {
+  const task = await swarm.getTask(id);
+  if (!task) {
+    return error("Task not found", 404);
+  }
+  
+  const events = await swarm.getTaskEvents(id);
+  return json({ events });
 }
 
 // ============================================================
@@ -3287,6 +3675,374 @@ process.on("SIGINT", async () => {
   await close();
   process.exit(0);
 });
+
+// ============================================================
+// SWARM HANDLERS - Task Management
+// ============================================================
+
+function serializeProject(p: swarm.SwarmProject) {
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    onedevUrl: p.onedevUrl,
+    dokployDeployUrl: p.dokployDeployUrl,
+    color: p.color,
+    projectLeadUserId: p.projectLeadUserId,
+    developerLeadUserId: p.developerLeadUserId,
+    archivedAt: p.archivedAt?.toISOString() || null,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
+
+function serializeTask(t: swarm.SwarmTask) {
+  return {
+    id: t.id,
+    projectId: t.projectId,
+    title: t.title,
+    detail: t.detail,
+    creatorUserId: t.creatorUserId,
+    assigneeUserId: t.assigneeUserId,
+    status: t.status,
+    onOrAfterAt: t.onOrAfterAt?.toISOString() || null,
+    mustBeDoneAfterTaskId: t.mustBeDoneAfterTaskId,
+    sortKey: t.sortKey,
+    nextTaskId: t.nextTaskId,
+    nextTaskAssigneeUserId: t.nextTaskAssigneeUserId,
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+    completedAt: t.completedAt?.toISOString() || null,
+    blockedReason: t.blockedReason || null,
+  };
+}
+
+function serializeTaskEvent(e: swarm.SwarmTaskEvent) {
+  return {
+    id: e.id,
+    taskId: e.taskId,
+    actorUserId: e.actorUserId,
+    kind: e.kind,
+    beforeState: e.beforeState,
+    afterState: e.afterState,
+    createdAt: e.createdAt.toISOString(),
+  };
+}
+
+// Projects
+async function handleSwarmListProjects(auth: AuthContext): Promise<Response> {
+  const includeArchived = false; // Could be a query param
+  const projects = await swarm.listProjects({ includeArchived });
+  return json({ projects: projects.map(serializeProject) });
+}
+
+async function handleSwarmCreateProject(auth: AuthContext, request: Request): Promise<Response> {
+  try {
+    const body = await request.json() as swarm.CreateProjectInput;
+    
+    if (!body.title || !body.color || !body.projectLeadUserId || !body.developerLeadUserId) {
+      return error("title, color, projectLeadUserId, and developerLeadUserId are required", 400);
+    }
+    
+    // Validate color format
+    if (!/^#[0-9A-Fa-f]{6}$/.test(body.color)) {
+      return error("color must be a valid hex color (e.g., #FF5500)", 400);
+    }
+    
+    const project = await swarm.createProject(body);
+    
+    // Emit Buzz event
+    await emitSwarmBuzz("swarm.project.created", {
+      projectId: project.id,
+      title: project.title,
+      actor: auth.identity,
+    });
+    
+    return json({ project: serializeProject(project) }, 201);
+  } catch (err) {
+    console.error("[swarm] Create project error:", err);
+    return error("Failed to create project", 500);
+  }
+}
+
+async function handleSwarmGetProject(auth: AuthContext, id: string): Promise<Response> {
+  const project = await swarm.getProject(id);
+  if (!project) {
+    return error("Project not found", 404);
+  }
+  return json({ project: serializeProject(project) });
+}
+
+async function handleSwarmUpdateProject(auth: AuthContext, id: string, request: Request): Promise<Response> {
+  try {
+    const body = await request.json() as swarm.UpdateProjectInput;
+    
+    if (body.color && !/^#[0-9A-Fa-f]{6}$/.test(body.color)) {
+      return error("color must be a valid hex color (e.g., #FF5500)", 400);
+    }
+    
+    const project = await swarm.updateProject(id, body);
+    if (!project) {
+      return error("Project not found", 404);
+    }
+    
+    await emitSwarmBuzz("swarm.project.updated", {
+      projectId: project.id,
+      title: project.title,
+      actor: auth.identity,
+    });
+    
+    return json({ project: serializeProject(project) });
+  } catch (err) {
+    console.error("[swarm] Update project error:", err);
+    return error("Failed to update project", 500);
+  }
+}
+
+async function handleSwarmArchiveProject(auth: AuthContext, id: string): Promise<Response> {
+  const project = await swarm.archiveProject(id);
+  if (!project) {
+    return error("Project not found", 404);
+  }
+  
+  await emitSwarmBuzz("swarm.project.archived", {
+    projectId: project.id,
+    title: project.title,
+    actor: auth.identity,
+  });
+  
+  return json({ project: serializeProject(project) });
+}
+
+async function handleSwarmUnarchiveProject(auth: AuthContext, id: string): Promise<Response> {
+  const project = await swarm.unarchiveProject(id);
+  if (!project) {
+    return error("Project not found", 404);
+  }
+  
+  await emitSwarmBuzz("swarm.project.unarchived", {
+    projectId: project.id,
+    title: project.title,
+    actor: auth.identity,
+  });
+  
+  return json({ project: serializeProject(project) });
+}
+
+// Tasks
+async function handleSwarmListTasks(auth: AuthContext, request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  
+  const opts: swarm.ListTasksOptions = {
+    statuses: url.searchParams.getAll("status") as swarm.TaskStatus[],
+    assignees: url.searchParams.getAll("assignee"),
+    includeUnassigned: url.searchParams.get("unassigned") === "true",
+    projects: url.searchParams.getAll("project"),
+    includeNoProject: url.searchParams.get("noProject") === "true",
+    creatorUserId: url.searchParams.get("creator") || undefined,
+    query: url.searchParams.get("q") || undefined,
+    includeFuture: url.searchParams.get("includeFuture") === "true",
+    includeCompleted: url.searchParams.get("includeCompleted") === "true",
+    sort: (url.searchParams.get("sort") as "planned" | "createdAt" | "updatedAt") || "planned",
+    sortDir: (url.searchParams.get("dir") as "asc" | "desc") || "asc",
+    limit: parseInt(url.searchParams.get("limit") || "100"),
+  };
+  
+  // Clean empty arrays
+  if (opts.statuses?.length === 0) delete opts.statuses;
+  if (opts.assignees?.length === 0) delete opts.assignees;
+  if (opts.projects?.length === 0) delete opts.projects;
+  
+  let tasks = await swarm.listTasks(opts);
+  tasks = await swarm.enrichTasksWithBlocked(tasks);
+  
+  return json({ tasks: tasks.map(serializeTask) });
+}
+
+async function handleSwarmCreateTask(auth: AuthContext, request: Request): Promise<Response> {
+  try {
+    const body = await request.json() as Omit<swarm.CreateTaskInput, "creatorUserId">;
+    
+    if (!body.title) {
+      return error("title is required", 400);
+    }
+    
+    const task = await swarm.createTask({
+      ...body,
+      creatorUserId: auth.identity,
+      onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt as unknown as string) : undefined,
+    });
+    
+    // Record event
+    await swarm.createTaskEvent({
+      taskId: task.id,
+      actorUserId: auth.identity,
+      kind: "created",
+      afterState: serializeTask(task),
+    });
+    
+    // Emit Buzz
+    await emitSwarmBuzz("swarm.task.created", {
+      taskId: task.id,
+      title: task.title,
+      projectId: task.projectId,
+      actor: auth.identity,
+      assignee: task.assigneeUserId,
+      status: task.status,
+    });
+    
+    return json({ task: serializeTask(task) }, 201);
+  } catch (err) {
+    console.error("[swarm] Create task error:", err);
+    return error("Failed to create task", 500);
+  }
+}
+
+async function handleSwarmGetTask(auth: AuthContext, id: string): Promise<Response> {
+  const task = await swarm.getTask(id);
+  if (!task) {
+    return error("Task not found", 404);
+  }
+  await swarm.enrichTaskWithBlocked(task);
+  return json({ task: serializeTask(task) });
+}
+
+async function handleSwarmUpdateTask(auth: AuthContext, id: string, request: Request): Promise<Response> {
+  try {
+    const body = await request.json() as swarm.UpdateTaskInput;
+    
+    const before = await swarm.getTask(id);
+    if (!before) {
+      return error("Task not found", 404);
+    }
+    
+    // Handle date conversion
+    if (body.onOrAfterAt) {
+      body.onOrAfterAt = new Date(body.onOrAfterAt as unknown as string);
+    }
+    
+    const task = await swarm.updateTask(id, body);
+    if (!task) {
+      return error("Task not found", 404);
+    }
+    
+    await swarm.createTaskEvent({
+      taskId: id,
+      actorUserId: auth.identity,
+      kind: "updated",
+      beforeState: serializeTask(before),
+      afterState: serializeTask(task),
+    });
+    
+    await emitSwarmBuzz("swarm.task.updated", {
+      taskId: task.id,
+      title: task.title,
+      projectId: task.projectId,
+      actor: auth.identity,
+      assignee: task.assigneeUserId,
+      status: task.status,
+    });
+    
+    await swarm.enrichTaskWithBlocked(task);
+    return json({ task: serializeTask(task) });
+  } catch (err) {
+    console.error("[swarm] Update task error:", err);
+    return error("Failed to update task", 500);
+  }
+}
+
+async function handleSwarmClaimTask(auth: AuthContext, id: string): Promise<Response> {
+  const task = await swarm.claimTask(id, auth.identity);
+  if (!task) {
+    return error("Task not found", 404);
+  }
+  
+  await emitSwarmBuzz("swarm.task.assigned", {
+    taskId: task.id,
+    title: task.title,
+    projectId: task.projectId,
+    actor: auth.identity,
+    assignee: auth.identity,
+    status: task.status,
+  });
+  
+  await swarm.enrichTaskWithBlocked(task);
+  return json({ task: serializeTask(task) });
+}
+
+async function handleSwarmUpdateTaskStatus(auth: AuthContext, id: string, request: Request): Promise<Response> {
+  try {
+    const body = await request.json() as { status: swarm.TaskStatus };
+    
+    if (!body.status) {
+      return error("status is required", 400);
+    }
+    
+    const validStatuses: swarm.TaskStatus[] = ["queued", "ready", "in_progress", "holding", "review", "complete"];
+    if (!validStatuses.includes(body.status)) {
+      return error(`status must be one of: ${validStatuses.join(", ")}`, 400);
+    }
+    
+    // Check if task is blocked
+    const current = await swarm.getTask(id);
+    if (!current) {
+      return error("Task not found", 404);
+    }
+    
+    await swarm.enrichTaskWithBlocked(current);
+    
+    // Prevent transitioning blocked tasks to active states
+    if (current.blockedReason && ["in_progress", "review", "complete"].includes(body.status)) {
+      return error(`Cannot transition to ${body.status}: task is blocked by ${current.blockedReason}`, 400);
+    }
+    
+    const task = await swarm.updateTaskStatus(id, body.status, auth.identity);
+    if (!task) {
+      return error("Task not found", 404);
+    }
+    
+    const eventKind = body.status === "complete" ? "swarm.task.completed" : "swarm.task.status_changed";
+    await emitSwarmBuzz(eventKind, {
+      taskId: task.id,
+      title: task.title,
+      projectId: task.projectId,
+      actor: auth.identity,
+      assignee: task.assigneeUserId,
+      status: task.status,
+      previousStatus: current.status,
+    });
+    
+    await swarm.enrichTaskWithBlocked(task);
+    return json({ task: serializeTask(task) });
+  } catch (err) {
+    console.error("[swarm] Update task status error:", err);
+    return error("Failed to update task status", 500);
+  }
+}
+
+async function handleSwarmGetTaskEvents(auth: AuthContext, id: string): Promise<Response> {
+  const task = await swarm.getTask(id);
+  if (!task) {
+    return error("Task not found", 404);
+  }
+  
+  const events = await swarm.getTaskEvents(id);
+  return json({ events: events.map(serializeTaskEvent) });
+}
+
+// Helper to emit Swarm events to Buzz
+async function emitSwarmBuzz(type: string, payload: Record<string, unknown>): Promise<void> {
+  try {
+    // Find or create a swarm webhook for buzz integration
+    // For now, we'll just log - we can add proper Buzz integration later
+    console.log(`[swarm] Buzz event: ${type}`, payload);
+    
+    // TODO: Emit to actual Buzz when ready
+    // This would require a broadcast webhook for swarm events
+  } catch (err) {
+    console.error("[swarm] Failed to emit Buzz event:", err);
+  }
+}
 
 // Skill endpoint - returns SKILL.md content
 async function handleSkill(): Promise<Response> {

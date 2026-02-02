@@ -74,6 +74,17 @@ export async function getWebhookById(id: number): Promise<Webhook | null> {
   return row ? mapWebhook(row) : null;
 }
 
+// Get webhook by app name (first match)
+export async function getWebhookByAppName(appName: string): Promise<Webhook | null> {
+  const [row] = await sql`
+    SELECT * FROM public.broadcast_webhooks 
+    WHERE app_name = ${appName}
+    ORDER BY created_at ASC
+    LIMIT 1
+  `;
+  return row ? mapWebhook(row) : null;
+}
+
 // Enable/disable webhook
 export async function setWebhookEnabled(id: number, enabled: boolean): Promise<Webhook | null> {
   const [row] = await sql`

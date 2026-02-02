@@ -96,3 +96,110 @@ CREATE INDEX IF NOT EXISTS idx_broadcast_events_app
 
 COMMENT ON TABLE public.broadcast_webhooks IS 'Webhook configurations for broadcast channel';
 COMMENT ON TABLE public.broadcast_events IS 'Received webhook events for broadcast channel';
+
+-- ============================================================
+-- SWARM: Task Management System
+-- ============================================================
+
+-- Status enum for tasks
+DO $$ BEGIN
+    CREATE TYPE swarm_task_status AS ENUM (
+        'queued',
+        'ready', 
+        'in_progress',
+        'holding',
+        'review',
+        'complete'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Projects table
+CREATE TABLE IF NOT EXISTS public.swarm_projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    description TEXT,
+    onedev_url TEXT,
+    dokploy_deploy_url TEXT,
+    color CHAR(7) NOT NULL CHECK (color ~ '^#[0-9A-Fa-f]{6}$'),
+    project_lead_user_id VARCHAR(50) NOT NULL,
+    developer_lead_user_id VARCHAR(50) NOT NULL,
+    archived_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT valid_project_lead CHECK (project_lead_user_id ~ '^[a-z][a-z0-9_-]*$'),
+    CONSTRAINT valid_developer_lead CHECK (developer_lead_user_id ~ '^[a-z][a-z0-9_-]*$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_swarm_projects_archived 
+    ON public.swarm_projects (archived_at);
+
+-- Tasks table
+CREATE TABLE IF NOT EXISTS public.swarm_tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID REFERENCES public.swarm_projects(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    detail TEXT,
+    creator_user_id VARCHAR(50) NOT NULL,
+    assignee_user_id VARCHAR(50),
+    status swarm_task_status NOT NULL DEFAULT 'queued',
+    on_or_after_at TIMESTAMPTZ,
+    must_be_done_after_task_id UUID REFERENCES public.swarm_tasks(id) ON DELETE SET NULL,
+    sort_key BIGINT,
+    next_task_id UUID REFERENCES public.swarm_tasks(id) ON DELETE SET NULL,
+    next_task_assignee_user_id VARCHAR(50),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    
+    -- Phase 2: Recurring task support (reserved fields)
+    recurring_template_id UUID,
+    recurring_instance_at TIMESTAMPTZ,
+    
+    CONSTRAINT valid_creator CHECK (creator_user_id ~ '^[a-z][a-z0-9_-]*$'),
+    CONSTRAINT valid_assignee CHECK (assignee_user_id IS NULL OR assignee_user_id ~ '^[a-z][a-z0-9_-]*$'),
+    CONSTRAINT valid_next_assignee CHECK (next_task_assignee_user_id IS NULL OR next_task_assignee_user_id ~ '^[a-z][a-z0-9_-]*$'),
+    CONSTRAINT no_self_dependency CHECK (must_be_done_after_task_id != id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_swarm_tasks_status 
+    ON public.swarm_tasks (status);
+
+CREATE INDEX IF NOT EXISTS idx_swarm_tasks_assignee 
+    ON public.swarm_tasks (assignee_user_id);
+
+CREATE INDEX IF NOT EXISTS idx_swarm_tasks_project 
+    ON public.swarm_tasks (project_id);
+
+CREATE INDEX IF NOT EXISTS idx_swarm_tasks_on_or_after 
+    ON public.swarm_tasks (on_or_after_at);
+
+CREATE INDEX IF NOT EXISTS idx_swarm_tasks_sort_key 
+    ON public.swarm_tasks (sort_key);
+
+-- Unique index for recurring instances (Phase 2)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_swarm_tasks_recurring_instance 
+    ON public.swarm_tasks (recurring_template_id, recurring_instance_at)
+    WHERE recurring_template_id IS NOT NULL;
+
+-- Task events (audit trail)
+CREATE TABLE IF NOT EXISTS public.swarm_task_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id UUID NOT NULL REFERENCES public.swarm_tasks(id) ON DELETE CASCADE,
+    actor_user_id VARCHAR(50) NOT NULL,
+    kind TEXT NOT NULL,
+    before_state JSONB,
+    after_state JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT valid_actor CHECK (actor_user_id ~ '^[a-z][a-z0-9_-]*$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_swarm_task_events_task 
+    ON public.swarm_task_events (task_id, created_at DESC);
+
+COMMENT ON TABLE public.swarm_projects IS 'Swarm projects for organizing tasks';
+COMMENT ON TABLE public.swarm_tasks IS 'Swarm tasks with dependencies and scheduling';
+COMMENT ON TABLE public.swarm_task_events IS 'Audit trail for task changes';
