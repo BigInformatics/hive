@@ -144,10 +144,11 @@ export async function listMessages(
   return { messages, nextCursor };
 }
 
-export async function getMessage(recipient: string, id: bigint): Promise<Message | null> {
+export async function getMessage(identity: string, id: bigint): Promise<Message | null> {
+  // Allow fetching messages where user is sender OR recipient (for auditability)
   const [row] = await sql`
     SELECT * FROM public.mailbox_messages 
-    WHERE recipient = ${recipient} AND id = ${id}
+    WHERE id = ${id} AND (recipient = ${identity} OR sender = ${identity})
   `;
   return row ? rowToMessage(row) : null;
 }
