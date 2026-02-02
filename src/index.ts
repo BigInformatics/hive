@@ -2344,6 +2344,39 @@ async function handleUISwarmClaimTask(key: string, taskId: string): Promise<Resp
   }
 }
 
+// UI-keyed Swarm task update
+async function handleUISwarmUpdateTask(key: string, taskId: string, request: Request): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null };
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  try {
+    const task = await swarm.updateTask(taskId, {
+      title: body.title,
+      projectId: body.projectId,
+      assigneeUserId: body.assigneeUserId,
+      detail: body.detail,
+    });
+    
+    if (!task) {
+      return error("Task not found", 404);
+    }
+    
+    return json({ task });
+  } catch (err) {
+    console.error("[ui-swarm] Error updating task:", err);
+    return error("Failed to update task", 500);
+  }
+}
+
 // UI-keyed Swarm task status change
 async function handleUISwarmTaskStatus(key: string, taskId: string, request: Request): Promise<Response> {
   const config = uiMailboxKeys[key];
@@ -2507,6 +2540,7 @@ async function handleRequest(request: Request): Promise<Response> {
     // UI-keyed Swarm endpoints
     const uiKeySwarmProjectsMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/projects$/);
     const uiKeySwarmTasksMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks$/);
+    const uiKeySwarmTaskMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)$/);
     const uiKeySwarmTaskClaimMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/claim$/);
     const uiKeySwarmTaskStatusMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/status$/);
     
@@ -2515,6 +2549,9 @@ async function handleRequest(request: Request): Promise<Response> {
     }
     if (method === "POST" && uiKeySwarmTasksMatch) {
       return handleUISwarmCreateTask(uiKeySwarmTasksMatch[1], request);
+    }
+    if (method === "PATCH" && uiKeySwarmTaskMatch) {
+      return handleUISwarmUpdateTask(uiKeySwarmTaskMatch[1], uiKeySwarmTaskMatch[2], request);
     }
     if (method === "POST" && uiKeySwarmTaskClaimMatch) {
       return handleUISwarmClaimTask(uiKeySwarmTaskClaimMatch[1], uiKeySwarmTaskClaimMatch[2]);
@@ -3888,8 +3925,13 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[]): str
   const createdAt = new Date(t.createdAt).toLocaleString();
   const updatedAt = new Date(t.updatedAt).toLocaleString();
   
-  // Detail section
-  const detailBody = t.detail ? '<div class="task-detail-body">' + escapeHtml(t.detail) + '</div>' : '<div class="task-detail-body" style="color:var(--muted-foreground);font-style:italic;">No description</div>';
+  // Project options for dropdown
+  const projectOptions = '<option value="">No Project</option>' + 
+    projects.map(p => '<option value="' + p.id + '"' + (p.id === t.projectId ? ' selected' : '') + '>' + escapeHtml(p.title) + '</option>').join('');
+  
+  // Assignee options
+  const assigneeOptions = '<option value="">Unassigned</option>' +
+    ['chris', 'clio', 'domingo', 'zumie'].map(a => '<option value="' + a + '"' + (a === t.assigneeUserId ? ' selected' : '') + '>' + a + '</option>').join('');
   
   return '<div class="task-card" data-id="' + t.id + '" data-status="' + t.status + '" data-assignee="' + (t.assigneeUserId || '') + '" data-project="' + (t.projectId || '') + '" onclick="toggleTaskExpand(this)">' +
     '<div class="task-accent" style="background:' + accentColor + '"></div>' +
@@ -3901,13 +3943,18 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[]): str
         '</div>' +
         '<div class="task-badges">' + blockedBadge + '<span class="badge badge-' + t.status + '">' + t.status.replace('_', ' ') + '</span></div>' +
       '</div>' +
-      '<div class="task-detail">' +
+      '<div class="task-detail" onclick="event.stopPropagation()">' +
+        '<div class="task-detail-row"><span class="task-detail-label">Title:</span><input type="text" class="task-edit-input" id="edit-title-' + t.id + '" value="' + escapeHtml(t.title).replace(/"/g, '&quot;') + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
+        '<div class="task-detail-row"><span class="task-detail-label">Project:</span><select id="edit-project-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + projectOptions + '</select></div>' +
+        '<div class="task-detail-row"><span class="task-detail-label">Assignee:</span><select id="edit-assignee-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + assigneeOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Created:</span><span class="task-detail-value">' + createdAt + '</span></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Updated:</span><span class="task-detail-value">' + updatedAt + '</span></div>' +
-        '<div class="task-detail-row"><span class="task-detail-label">Created by:</span><span class="task-detail-value">' + (t.creatorUserId || 'Unknown') + '</span></div>' +
         (t.blockedReason ? '<div class="task-detail-row"><span class="task-detail-label">Blocked:</span><span class="task-detail-value" style="color:#ef4444;">' + escapeHtml(t.blockedReason) + '</span></div>' : '') +
-        detailBody +
-        '<div class="task-detail-actions">' + claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + '</div>' +
+        '<div style="margin-top:8px;"><span class="task-detail-label" style="display:block;margin-bottom:4px;">Description:</span><textarea id="edit-detail-' + t.id + '" style="width:100%;min-height:80px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;resize:vertical;">' + (t.detail ? escapeHtml(t.detail) : '') + '</textarea></div>' +
+        '<div class="task-detail-actions" style="margin-top:12px;">' +
+          '<button class="action-btn primary" onclick="saveTask(\'' + t.id + '\')">Save Changes</button>' +
+          claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn +
+        '</div>' +
       '</div>' +
       '<div class="task-actions">' + claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + '</div>' +
     '</div>' +
@@ -4467,6 +4514,30 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         
         card.style.display = (statusMatch && assigneeMatch && projectMatch) ? 'flex' : 'none';
       });
+    }
+    
+    // Save task edits
+    async function saveTask(id) {
+      const title = document.getElementById('edit-title-' + id).value.trim();
+      const projectId = document.getElementById('edit-project-' + id).value || null;
+      const assigneeUserId = document.getElementById('edit-assignee-' + id).value || null;
+      const detail = document.getElementById('edit-detail-' + id).value.trim() || null;
+      
+      if (!title) return alert('Title is required');
+      
+      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + id : '/api/swarm/tasks/' + id;
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail })
+      });
+      
+      if (res.ok) {
+        location.reload();
+      } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Failed to save'));
+      }
     }
     
     // Task actions - use UI-keyed endpoints when we have a key
