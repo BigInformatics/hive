@@ -79,6 +79,23 @@ Pick one canonical timezone for scheduling evaluation:
 - Default: **America/Chicago** (matches org policy used elsewhere)
 - Store on the template: `timezone` (string, default `America/Chicago`)
 
+### 3.4 Evaluation rules (timezone, DST, between-hours)
+
+To avoid inconsistent instance generation, recurrence evaluation MUST be deterministic:
+
+- **Template timezone:** all schedule evaluation happens in the template's `timezone` (IANA string). Convert to UTC only for storage/queries.
+- **Between-hours window:** interpreted in template local wall-clock time.
+  - `betweenHoursStart` is inclusive; `betweenHoursEnd` is exclusive.
+  - If `start < end`: allowed hours are `[start, end)`.
+  - If `start > end`: overnight window, allowed hours are `[start, 24) ∪ [0, end)`.
+  - If `start == end`: treat as **no restriction (24h allowed)** to avoid footguns.
+- **Week parity:** compute ISO week number in template timezone for the candidate local date.
+- **DST handling:**
+  - If a candidate local time is **missing** (spring-forward gap), **skip** that occurrence and move to the next valid occurrence.
+  - If a candidate local time is **ambiguous** (fall-back repeated hour), choose the **earlier** occurrence to avoid duplicates.
+
+Add tests for DST boundaries and week parity in `America/Chicago`.
+
 ---
 
 ## 4) Data model changes (DB)
@@ -93,7 +110,7 @@ Add table: `swarm_recurring_templates`
 Ownership + routing:
 - `primaryAgent` text NULL (agent id/name)
 - `fallbackAgent` text NULL
-- `ownerUserId` uuid NULL FK users
+- `ownerUserId` uuid NOT NULL FK users  -- required for accountability; if omitted at create time, default to project lead
 - `mute` boolean NOT NULL default false
 - `muteInterval` text NULL  -- optional, e.g. "6h", "1d"; throttles notifications/buzz for this template
 
@@ -112,7 +129,7 @@ Schedule definition:
 Operational state:
 - `enabled` boolean NOT NULL default true
 - `lastRunAt` timestamptz NULL
-- `nextRunAt` timestamptz NULL  -- computed & cached for quick list
+- `nextRunAt` timestamptz NULL  -- computed & cached for quick list; if `enabled=false`, set `nextRunAt=NULL`
 - `createdAt` timestamptz NOT NULL
 - `updatedAt` timestamptz NOT NULL
 
@@ -149,6 +166,13 @@ We need a generator that creates new instances “just in time” and avoids flo
   - an SSE presence/worker process is connected
 
 ### 5.2 Recommended generator loop
+
+**Safety guardrails (required):**
+- Per-template caps: generate at most **MAX_INSTANCES_PER_TEMPLATE_PER_RUN** (e.g., 50).
+- Horizon caps: generate up to **min(HORIZON_DAYS, N_FUTURE_INSTANCES)** (e.g., 14 days or 10 instances).
+- Concurrency: acquire a **template-level lock** (Postgres advisory lock keyed by templateId, or `SELECT ... FOR UPDATE` on the template row) before generating instances.
+- Idempotency: insert instances using the unique `(recurringTemplateId, recurringInstanceAt)` constraint with `ON CONFLICT DO NOTHING`.
+
 For each enabled template:
 1. Determine the next candidate datetime(s) based on the rule.
 2. Apply constraints:
@@ -286,7 +310,7 @@ Add fields (optional):
 ## 10) Open questions / decisions
 1. Should templates support “business days only” (Mon–Fri) later?
 2. For monthly recurrence, do we need “day-of-month” rules (e.g., 15th) vs “nth weekday” rules? (Probably later.)
-3. What should `intervalString` support? Recommended: `Xm|Xh|Xd|Xw|Xmo` (avoid ambiguous `m` for month vs minute in shorthand; use `mo` for month).
+3. What should `intervalString` support? Recommended: `Xm|Xh|Xd|Xw|Xmo` (avoid ambiguous `m`; use `mo` for month). Reject ambiguous inputs.
 4. Should the generator run as:
    - a Hive server cron internally, OR
    - an OpenClaw agent cron hitting `/api/swarm/recurring/run`?
