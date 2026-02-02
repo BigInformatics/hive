@@ -554,7 +554,7 @@ function serializeMessage(msg: {
 // Extracted from logged-out /ui (the gold standard)
 
 type HeaderConfig = {
-  activeTab: 'messages' | 'buzz';
+  activeTab: 'messages' | 'buzz' | 'swarm';
   loggedIn: boolean;
 };
 
@@ -562,6 +562,7 @@ type HeaderConfig = {
 const ICONS = {
   mail: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
   buzz: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>',
+  swarm: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 14l2 2 4-4"/><path d="M9 8h6"/></svg>',
   key: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>',
   bell: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
 };
@@ -569,14 +570,15 @@ const ICONS = {
 function renderHeader(config: HeaderConfig): string {
   const { activeTab, loggedIn } = config;
   
-  const titleIcon = activeTab === 'messages' ? ICONS.mail : ICONS.buzz;
-  const titleText = activeTab === 'messages' ? 'Messages' : 'Buzz';
+  const titleIcon = activeTab === 'messages' ? ICONS.mail : (activeTab === 'buzz' ? ICONS.buzz : ICONS.swarm);
+  const titleText = activeTab === 'messages' ? 'Messages' : (activeTab === 'buzz' ? 'Buzz' : 'Swarm');
   
   // Build nav - matches logged-out /ui structure exactly
   let nav = `
       <div class="nav">
         <a href="/ui"${activeTab === 'messages' ? ' class="active"' : ''}>Messages</a>
-        <a href="/ui/buzz"${activeTab === 'buzz' ? ' class="active"' : ''}>Buzz</a>`;
+        <a href="/ui/buzz"${activeTab === 'buzz' ? ' class="active"' : ''}>Buzz</a>
+        <a href="/ui/swarm"${activeTab === 'swarm' ? ' class="active"' : ''}>Swarm</a>`;
   
   if (loggedIn) {
     // Logged in: Logout | bell | theme
@@ -2328,6 +2330,10 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui/buzz") return handleBroadcastUI();
     if (path === "/ui/buzz/stream") return handleBroadcastUIStream(request);
     
+    // Swarm UI tab (must be before keyed UI routes)
+    if (path === "/ui/swarm") return handleSwarmUI();
+    if (path === "/ui/swarm/stream") return handleSwarmUIStream(request);
+    
     // Keyed UI with compose
     const uiKeyMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)$/);
     const uiKeySendMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/send$/);
@@ -3317,6 +3323,427 @@ function handleBroadcastUIStream(request: Request): Response {
         clearInterval(pingInterval);
         broadcastListeners.delete(listenerEntry);
       };
+    },
+  });
+  
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+}
+
+// ============================================================
+// SWARM UI - Task Management Interface
+// ============================================================
+
+async function handleSwarmUI(): Promise<Response> {
+  const projects = await swarm.listProjects({ includeArchived: false });
+  const tasks = await swarm.listTasks({ 
+    includeCompleted: false,
+    includeFuture: true,
+    sort: 'planned',
+    limit: 100
+  });
+  const enrichedTasks = await swarm.enrichTasksWithBlocked(tasks);
+  
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hive - Swarm</title>
+  <style>
+    :root {
+      --background: #0a0a0a;
+      --foreground: #fafafa;
+      --card: #18181b;
+      --card-foreground: #fafafa;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #27272a;
+      --secondary-foreground: #fafafa;
+      --muted: #27272a;
+      --muted-foreground: #a1a1aa;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --border: #27272a;
+      --input: #27272a;
+      --radius: 8px;
+    }
+    body.light {
+      --background: #fafafa;
+      --foreground: #18181b;
+      --card: #ffffff;
+      --card-foreground: #18181b;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #f4f4f5;
+      --secondary-foreground: #18181b;
+      --muted: #f4f4f5;
+      --muted-foreground: #71717a;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --border: #e4e4e7;
+      --input: #e4e4e7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: system-ui, -apple-system, sans-serif; 
+      background: var(--background); 
+      color: var(--foreground);
+      min-height: 100vh;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { 
+      width: 240px; 
+      border-right: 1px solid var(--border); 
+      padding: 20px;
+      flex-shrink: 0;
+    }
+    .main { flex: 1; display: flex; flex-direction: column; }
+    .header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .nav { display: flex; gap: 8px; align-items: center; }
+    .nav a { 
+      color: var(--muted-foreground); 
+      text-decoration: none; 
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+    }
+    .nav a:hover { background: var(--secondary); color: var(--foreground); }
+    .nav a.active { background: var(--primary); color: var(--primary-foreground); }
+    .theme-toggle {
+      width: 36px; height: 36px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--secondary); border: none; border-radius: var(--radius);
+      cursor: pointer; color: var(--foreground);
+    }
+    .content { flex: 1; padding: 24px; overflow-y: auto; }
+    
+    /* Filter sidebar */
+    .filter-section { margin-bottom: 24px; }
+    .filter-section h3 { 
+      font-size: 0.75rem; 
+      text-transform: uppercase; 
+      color: var(--muted-foreground); 
+      margin-bottom: 8px;
+      letter-spacing: 0.05em;
+    }
+    .filter-option { 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+      padding: 6px 8px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .filter-option:hover { background: var(--secondary); }
+    .filter-option input { cursor: pointer; accent-color: var(--primary); }
+    .filter-option.checked { background: var(--secondary); }
+    
+    /* Task list */
+    .task-list { display: flex; flex-direction: column; gap: 8px; }
+    .task-card { 
+      background: var(--card); 
+      border: 1px solid var(--border); 
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      gap: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .task-card:hover { border-color: var(--primary); }
+    .task-card.selected { border-color: var(--primary); background: rgba(14, 165, 233, 0.05); }
+    .task-accent { width: 4px; border-radius: 2px; flex-shrink: 0; }
+    .task-content { flex: 1; min-width: 0; }
+    .task-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .task-title { font-weight: 500; margin-bottom: 4px; }
+    .task-meta { font-size: 0.8125rem; color: var(--muted-foreground); display: flex; gap: 12px; flex-wrap: wrap; }
+    .task-badges { display: flex; gap: 6px; flex-shrink: 0; }
+    .badge { 
+      font-size: 0.6875rem; 
+      padding: 2px 8px; 
+      border-radius: 999px; 
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    .badge-queued { background: var(--secondary); color: var(--muted-foreground); }
+    .badge-ready { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+    .badge-in_progress { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; }
+    .badge-holding { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .badge-review { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+    .badge-complete { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+    .badge-blocked { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+    
+    /* Quick actions */
+    .task-actions { 
+      display: none; 
+      gap: 4px; 
+      margin-top: 8px;
+    }
+    .task-card:hover .task-actions { display: flex; }
+    .action-btn { 
+      font-size: 0.75rem; 
+      padding: 4px 8px; 
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--background);
+      color: var(--foreground);
+      cursor: pointer;
+    }
+    .action-btn:hover { background: var(--secondary); }
+    .action-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+    
+    /* Empty state */
+    .empty-state { 
+      text-align: center; 
+      padding: 60px 20px; 
+      color: var(--muted-foreground);
+    }
+    .empty-state h3 { font-size: 1rem; margin-bottom: 8px; color: var(--foreground); }
+    
+    /* Create task form */
+    .create-form { 
+      background: var(--card); 
+      border: 1px solid var(--border); 
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .create-form input, .create-form select, .create-form textarea { 
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--background);
+      color: var(--foreground);
+      font-size: 0.875rem;
+      margin-bottom: 12px;
+    }
+    .create-form textarea { min-height: 80px; resize: vertical; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row > * { flex: 1; }
+    .create-btn { 
+      background: var(--primary); 
+      color: white; 
+      border: none; 
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .create-btn:hover { opacity: 0.9; }
+    
+    /* Status colors */
+    body.light .badge-queued { background: #f4f4f5; color: #71717a; }
+    body.light .badge-ready { background: rgba(34, 197, 94, 0.1); color: #16a34a; }
+    body.light .badge-in_progress { background: rgba(14, 165, 233, 0.1); color: #0284c7; }
+    body.light .badge-holding { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+    body.light .badge-review { background: rgba(168, 85, 247, 0.1); color: #9333ea; }
+    body.light .badge-blocked { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="filter-section">
+        <h3>Status</h3>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="queued"> Queued</label>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="ready"> Ready</label>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="in_progress"> In Progress</label>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="holding"> Holding</label>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="review"> Review</label>
+        <label class="filter-option"><input type="checkbox" data-filter="status" value="complete"> Complete</label>
+      </div>
+      <div class="filter-section">
+        <h3>Assignee</h3>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="unassigned"> Unassigned</label>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="chris"> Chris</label>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="clio"> Clio</label>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="domingo"> Domingo</label>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="zumie"> Zumie</label>
+      </div>
+      <div class="filter-section">
+        <h3>Project</h3>
+        <label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="none"> No Project</label>
+        ${projects.map(p => '<label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="' + p.id + '"> <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + ';margin-right:4px;"></span>' + p.title + '</label>').join('')}
+      </div>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <h1>${ICONS.swarm} Swarm</h1>
+        <nav class="nav">
+          <a href="/ui">Messages</a>
+          <a href="/ui/buzz">Buzz</a>
+          <a href="/ui/swarm" class="active">Swarm</a>
+          <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          </button>
+        </nav>
+      </header>
+      <div class="content">
+        <div class="create-form" id="createForm" style="display:none;">
+          <input type="text" id="newTaskTitle" placeholder="Task title..." />
+          <div class="form-row">
+            <select id="newTaskProject">
+              <option value="">No project</option>
+              ${projects.map(p => '<option value="' + p.id + '">' + p.title + '</option>').join('')}
+            </select>
+            <select id="newTaskAssignee">
+              <option value="">Unassigned</option>
+              <option value="chris">Chris</option>
+              <option value="clio">Clio</option>
+              <option value="domingo">Domingo</option>
+              <option value="zumie">Zumie</option>
+            </select>
+          </div>
+          <textarea id="newTaskDetail" placeholder="Details (optional)..."></textarea>
+          <button class="create-btn" onclick="createTask()">Create Task</button>
+        </div>
+        <button class="action-btn" onclick="toggleCreateForm()" style="margin-bottom:16px;">+ New Task</button>
+        <div class="task-list" id="taskList">
+          ${enrichedTasks.length === 0 ? '<div class="empty-state"><h3>No tasks yet</h3><p>Create your first task to get started</p></div>' : 
+            enrichedTasks.map(t => renderTaskCard(t, projects)).join('')}
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>
+    // Theme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') document.body.classList.add('light');
+    function toggleTheme() {
+      document.body.classList.toggle('light');
+      localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+    }
+    
+    // Create form toggle
+    function toggleCreateForm() {
+      const form = document.getElementById('createForm');
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    // Filter handling
+    document.querySelectorAll('[data-filter]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        cb.closest('.filter-option').classList.toggle('checked', cb.checked);
+        applyFilters();
+      });
+    });
+    
+    function applyFilters() {
+      const statuses = [...document.querySelectorAll('[data-filter="status"]:checked')].map(cb => cb.value);
+      const assignees = [...document.querySelectorAll('[data-filter="assignee"]:checked')].map(cb => cb.value);
+      const projects = [...document.querySelectorAll('[data-filter="project"]:checked')].map(cb => cb.value);
+      
+      document.querySelectorAll('.task-card').forEach(card => {
+        const status = card.dataset.status;
+        const assignee = card.dataset.assignee || 'unassigned';
+        const project = card.dataset.project || 'none';
+        
+        const statusMatch = statuses.includes(status);
+        const assigneeMatch = assignees.includes(assignee);
+        const projectMatch = projects.includes(project);
+        
+        card.style.display = (statusMatch && assigneeMatch && projectMatch) ? 'flex' : 'none';
+      });
+    }
+    
+    // Task actions
+    async function claimTask(id) {
+      await fetch('/api/swarm/tasks/' + id + '/claim', { method: 'POST' });
+      location.reload();
+    }
+    
+    async function updateStatus(id, status) {
+      await fetch('/api/swarm/tasks/' + id + '/status', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      location.reload();
+    }
+    
+    async function createTask() {
+      const title = document.getElementById('newTaskTitle').value.trim();
+      if (!title) return alert('Title is required');
+      
+      const projectId = document.getElementById('newTaskProject').value || null;
+      const assigneeUserId = document.getElementById('newTaskAssignee').value || null;
+      const detail = document.getElementById('newTaskDetail').value.trim() || null;
+      
+      await fetch('/api/swarm/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail })
+      });
+      location.reload();
+    }
+  </script>
+</body>
+</html>`;
+
+  return new Response(html, { headers: { "Content-Type": "text/html" } });
+}
+
+function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[]): string {
+  const project = projects.find(p => p.id === t.projectId);
+  const accentColor = project?.color || '#71717a';
+  
+  const projectSpan = project ? '<span>' + project.title + '</span>' : '';
+  const assigneeSpan = t.assigneeUserId ? '<span>@' + t.assigneeUserId + '</span>' : '<span>Unassigned</span>';
+  const afterSpan = t.onOrAfterAt ? '<span>After ' + new Date(t.onOrAfterAt).toLocaleDateString() + '</span>' : '';
+  const blockedBadge = t.blockedReason ? '<span class="badge badge-blocked">Blocked</span>' : '';
+  
+  const claimBtn = !t.assigneeUserId ? '<button class="action-btn" onclick="claimTask(\'' + t.id + '\')">Claim</button>' : '';
+  const readyBtn = t.status === 'queued' ? '<button class="action-btn" onclick="updateStatus(\'' + t.id + '\', \'ready\')">Ready</button>' : '';
+  const startBtn = t.status === 'ready' && !t.blockedReason ? '<button class="action-btn primary" onclick="updateStatus(\'' + t.id + '\', \'in_progress\')">Start</button>' : '';
+  const reviewBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="updateStatus(\'' + t.id + '\', \'review\')">Review</button>' : '';
+  const holdBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="updateStatus(\'' + t.id + '\', \'holding\')">Hold</button>' : '';
+  const completeBtn = t.status === 'review' ? '<button class="action-btn primary" onclick="updateStatus(\'' + t.id + '\', \'complete\')">Complete</button>' : '';
+  
+  return '<div class="task-card" data-id="' + t.id + '" data-status="' + t.status + '" data-assignee="' + (t.assigneeUserId || '') + '" data-project="' + (t.projectId || '') + '">' +
+    '<div class="task-accent" style="background:' + accentColor + '"></div>' +
+    '<div class="task-content">' +
+      '<div class="task-header">' +
+        '<div>' +
+          '<div class="task-title">' + t.title + '</div>' +
+          '<div class="task-meta">' + projectSpan + assigneeSpan + afterSpan + '</div>' +
+        '</div>' +
+        '<div class="task-badges">' + blockedBadge + '<span class="badge badge-' + t.status + '">' + t.status.replace('_', ' ') + '</span></div>' +
+      '</div>' +
+      '<div class="task-actions">' + claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function handleSwarmUIStream(request: Request): Response {
+  // For now, just a placeholder - can add real-time updates later
+  const stream = new ReadableStream({
+    start(controller) {
+      const encoder = new TextEncoder();
+      controller.enqueue(encoder.encode(': connected\n\n'));
+      
+      const pingInterval = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(': ping\n\n'));
+        } catch {
+          clearInterval(pingInterval);
+        }
+      }, 30000);
     },
   });
   
