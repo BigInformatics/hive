@@ -556,6 +556,7 @@ function serializeMessage(msg: {
 type HeaderConfig = {
   activeTab: 'messages' | 'buzz' | 'swarm';
   loggedIn: boolean;
+  key?: string;  // UI key for nav links
 };
 
 // Icons
@@ -568,17 +569,18 @@ const ICONS = {
 };
 
 function renderHeader(config: HeaderConfig): string {
-  const { activeTab, loggedIn } = config;
+  const { activeTab, loggedIn, key } = config;
+  const keyPath = key ? '/' + key : '';
   
   const titleIcon = activeTab === 'messages' ? ICONS.mail : (activeTab === 'buzz' ? ICONS.buzz : ICONS.swarm);
   const titleText = activeTab === 'messages' ? 'Messages' : (activeTab === 'buzz' ? 'Buzz' : 'Swarm');
   
-  // Build nav - matches logged-out /ui structure exactly
+  // Build nav - uses key path when logged in
   let nav = `
       <div class="nav">
-        <a href="/ui"${activeTab === 'messages' ? ' class="active"' : ''}>Messages</a>
-        <a href="/ui/buzz"${activeTab === 'buzz' ? ' class="active"' : ''}>Buzz</a>
-        <a href="/ui/swarm"${activeTab === 'swarm' ? ' class="active"' : ''}>Swarm</a>`;
+        <a href="/ui${keyPath}"${activeTab === 'messages' ? ' class="active"' : ''}>Messages</a>
+        <a href="/ui${keyPath}/buzz"${activeTab === 'buzz' ? ' class="active"' : ''}>Buzz</a>
+        <a href="/ui${keyPath}/swarm"${activeTab === 'swarm' ? ' class="active"' : ''}>Swarm</a>`;
   
   if (loggedIn) {
     // Logged in: Logout | bell | theme
@@ -1599,7 +1601,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
   </style>
 </head>
 <body>
-${renderHeader({ activeTab: 'messages', loggedIn: true })}
+${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
   
   <div id="composePanel" class="compose collapsed">
     <div class="compose-header" onclick="toggleCompose()">
