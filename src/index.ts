@@ -2237,6 +2237,109 @@ async function handleUIAck(key: string, msgId: string): Promise<Response> {
   }
 }
 
+// UI-keyed Swarm task creation
+async function handleUISwarmCreateTask(key: string, request: Request): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const identity = config.sender;
+  
+  let body: { title?: string; projectId?: string; assigneeUserId?: string; detail?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  if (!body.title) {
+    return error("title is required", 400);
+  }
+  
+  try {
+    const task = await swarm.createTask({
+      title: body.title,
+      projectId: body.projectId || undefined,
+      assigneeUserId: body.assigneeUserId || undefined,
+      detail: body.detail || undefined,
+      creatorUserId: identity,
+      status: "queued",
+    });
+    
+    // Record creation event
+    await swarm.createTaskEvent({
+      taskId: task.id,
+      actorUserId: identity,
+      kind: "created",
+      afterState: { title: task.title, status: task.status },
+    });
+    
+    return json({ task }, 201);
+  } catch (err) {
+    console.error("[ui-swarm] Error creating task:", err);
+    return error("Failed to create task", 500);
+  }
+}
+
+// UI-keyed Swarm task claim
+async function handleUISwarmClaimTask(key: string, taskId: string): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const identity = config.sender;
+  
+  try {
+    const task = await swarm.claimTask(taskId, identity);
+    if (!task) {
+      return error("Task not found", 404);
+    }
+    return json({ task });
+  } catch (err) {
+    console.error("[ui-swarm] Error claiming task:", err);
+    return error("Failed to claim task", 500);
+  }
+}
+
+// UI-keyed Swarm task status change
+async function handleUISwarmTaskStatus(key: string, taskId: string, request: Request): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const identity = config.sender;
+  
+  let body: { status?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  if (!body.status) {
+    return error("status is required", 400);
+  }
+  
+  const validStatuses: swarm.TaskStatus[] = ["queued", "ready", "in_progress", "holding", "review", "complete"];
+  if (!validStatuses.includes(body.status as swarm.TaskStatus)) {
+    return error(`status must be one of: ${validStatuses.join(", ")}`, 400);
+  }
+  
+  try {
+    const task = await swarm.updateTaskStatus(taskId, body.status as swarm.TaskStatus, identity);
+    if (!task) {
+      return error("Task not found", 404);
+    }
+    return json({ task });
+  } catch (err) {
+    console.error("[ui-swarm] Error updating task status:", err);
+    return error("Failed to update task status", 500);
+  }
+}
+
 // Serve avatar files
 async function handleAvatar(name: string, ext: string): Promise<Response> {
   const validNames = ["chris", "clio", "domingo", "zumie"];
@@ -2358,6 +2461,21 @@ async function handleRequest(request: Request): Promise<Response> {
     }
     if (method === "POST" && uiKeyAckMatch) {
       return handleUIAck(uiKeyAckMatch[1], uiKeyAckMatch[2]);
+    }
+    
+    // UI-keyed Swarm task endpoints
+    const uiKeySwarmTasksMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks$/);
+    const uiKeySwarmTaskClaimMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/claim$/);
+    const uiKeySwarmTaskStatusMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/status$/);
+    
+    if (method === "POST" && uiKeySwarmTasksMatch) {
+      return handleUISwarmCreateTask(uiKeySwarmTasksMatch[1], request);
+    }
+    if (method === "POST" && uiKeySwarmTaskClaimMatch) {
+      return handleUISwarmClaimTask(uiKeySwarmTaskClaimMatch[1], uiKeySwarmTaskClaimMatch[2]);
+    }
+    if (method === "POST" && uiKeySwarmTaskStatusMatch) {
+      return handleUISwarmTaskStatus(uiKeySwarmTaskStatusMatch[1], uiKeySwarmTaskStatusMatch[2], request);
     }
 
     const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
@@ -4205,16 +4323,18 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       });
     }
     
-    // Task actions with auth
+    // Task actions - use UI-keyed endpoints when we have a key
     async function claimTask(id) {
-      await fetch('/api/swarm/tasks/' + id + '/claim', { method: 'POST'${authHeader} });
+      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + id + '/claim' : '/api/swarm/tasks/' + id + '/claim';
+      await fetch(url, { method: 'POST' });
       location.reload();
     }
     
     async function updateStatus(id, status) {
-      await fetch('/api/swarm/tasks/' + id + '/status', { 
+      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + id + '/status' : '/api/swarm/tasks/' + id + '/status';
+      await fetch(url, { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json'${key ? ", 'Authorization': 'Bearer ' + getToken()" : ''} },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       });
       location.reload();
@@ -4228,9 +4348,10 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const assigneeUserId = document.getElementById('newTaskAssignee').value || null;
       const detail = document.getElementById('newTaskDetail').value.trim() || null;
       
-      await fetch('/api/swarm/tasks', {
+      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks' : '/api/swarm/tasks';
+      await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json'${key ? ", 'Authorization': 'Bearer ' + getToken()" : ''} },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, projectId, assigneeUserId, detail })
       });
       location.reload();
