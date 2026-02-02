@@ -224,7 +224,7 @@ Namespace: `/api/swarm`
 
 - `GET /swarm/tasks/:id`
 - `PATCH /swarm/tasks/:id`
-  - partial update of any editable field
+  - partial update of editable fields **except `status`** (status changes must go through `/status` so the server can enforce the state machine + blocking rules)
 
 - `POST /swarm/tasks/:id/claim`
   - sets `assigneeUserId = currentUser`
@@ -233,13 +233,16 @@ Namespace: `/api/swarm`
   - body: `{ status }` (optional note)
 
 - `POST /swarm/tasks/:id/reorder`
-  - body: `{ sortKey }` OR `{ beforeTaskId }` (choose one approach)
+  - body: `{ beforeTaskId }` (canonical)
+  - server computes a new `sortKey` (clients should not write raw sort keys)
 
 ---
 
 ## 5) Business rules / validation
 
 ### Dependencies
+- Reject `mustBeDoneAfterTaskId == id` (self-reference).
+- Reject simple cycles when setting `mustBeDoneAfterTaskId` (walk the chain up to a small max depth).
 - If `mustBeDoneAfterTaskId` is set and referenced task is not complete:
   - task is **blocked**
   - server should prevent transition into `in_progress`, `review`, `complete` (unless admin override)
