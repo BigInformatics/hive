@@ -2237,6 +2237,47 @@ async function handleUIAck(key: string, msgId: string): Promise<Response> {
   }
 }
 
+// UI-keyed Swarm project creation
+async function handleUISwarmCreateProject(key: string, request: Request): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const identity = config.sender;
+  
+  let body: { title?: string; color?: string; projectLeadUserId?: string; developerLeadUserId?: string; description?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  if (!body.title || !body.color || !body.projectLeadUserId || !body.developerLeadUserId) {
+    return error("title, color, projectLeadUserId, and developerLeadUserId are required", 400);
+  }
+  
+  // Validate color format
+  if (!/^#[0-9A-Fa-f]{6}$/.test(body.color)) {
+    return error("color must be a valid hex color (e.g., #FF5500)", 400);
+  }
+  
+  try {
+    const project = await swarm.createProject({
+      title: body.title,
+      color: body.color,
+      projectLeadUserId: body.projectLeadUserId,
+      developerLeadUserId: body.developerLeadUserId,
+      description: body.description,
+    });
+    
+    return json({ project }, 201);
+  } catch (err) {
+    console.error("[ui-swarm] Error creating project:", err);
+    return error("Failed to create project", 500);
+  }
+}
+
 // UI-keyed Swarm task creation
 async function handleUISwarmCreateTask(key: string, request: Request): Promise<Response> {
   const config = uiMailboxKeys[key];
@@ -2463,11 +2504,15 @@ async function handleRequest(request: Request): Promise<Response> {
       return handleUIAck(uiKeyAckMatch[1], uiKeyAckMatch[2]);
     }
     
-    // UI-keyed Swarm task endpoints
+    // UI-keyed Swarm endpoints
+    const uiKeySwarmProjectsMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/projects$/);
     const uiKeySwarmTasksMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks$/);
     const uiKeySwarmTaskClaimMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/claim$/);
     const uiKeySwarmTaskStatusMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/status$/);
     
+    if (method === "POST" && uiKeySwarmProjectsMatch) {
+      return handleUISwarmCreateProject(uiKeySwarmProjectsMatch[1], request);
+    }
     if (method === "POST" && uiKeySwarmTasksMatch) {
       return handleUISwarmCreateTask(uiKeySwarmTasksMatch[1], request);
     }
@@ -4253,6 +4298,30 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="none"> No Project</label>
         ${projects.map(p => '<label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="' + p.id + '"> <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + ';margin-right:4px;"></span>' + p.title + '</label>').join('')}
       </div>
+      <div class="filter-section" style="border-top:1px solid var(--border);padding-top:16px;margin-top:auto;">
+        <button class="action-btn" onclick="toggleProjectForm()" style="width:100%;">+ New Project</button>
+        <div id="projectForm" style="display:none;margin-top:12px;">
+          <input type="text" id="newProjectTitle" placeholder="Project name..." style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <input type="color" id="newProjectColor" value="#3B82F6" style="width:40px;height:32px;padding:2px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;">
+            <select id="newProjectLead" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
+              <option value="">Project Lead</option>
+              <option value="chris">Chris</option>
+              <option value="clio">Clio</option>
+              <option value="domingo">Domingo</option>
+              <option value="zumie">Zumie</option>
+            </select>
+          </div>
+          <select id="newProjectDevLead" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
+            <option value="">Dev Lead</option>
+            <option value="chris">Chris</option>
+            <option value="clio">Clio</option>
+            <option value="domingo">Domingo</option>
+            <option value="zumie">Zumie</option>
+          </select>
+          <button class="create-btn" onclick="createProject()" style="width:100%;">Create Project</button>
+        </div>
+      </div>
     </aside>
     <main class="main">
       <header class="header">
@@ -4316,6 +4385,38 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       });
       // Toggle this card
       card.classList.toggle('expanded');
+    }
+    
+    // Toggle project form
+    function toggleProjectForm() {
+      const form = document.getElementById('projectForm');
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    // Create project
+    async function createProject() {
+      const title = document.getElementById('newProjectTitle').value.trim();
+      const color = document.getElementById('newProjectColor').value;
+      const projectLeadUserId = document.getElementById('newProjectLead').value;
+      const developerLeadUserId = document.getElementById('newProjectDevLead').value;
+      
+      if (!title) return alert('Project name is required');
+      if (!projectLeadUserId) return alert('Project Lead is required');
+      if (!developerLeadUserId) return alert('Dev Lead is required');
+      
+      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/projects' : '/api/swarm/projects';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, color, projectLeadUserId, developerLeadUserId })
+      });
+      
+      if (res.ok) {
+        location.reload();
+      } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Failed to create project'));
+      }
     }
     
     // Toggle all filters in a section
