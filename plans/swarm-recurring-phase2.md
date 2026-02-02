@@ -94,6 +94,7 @@ Ownership + routing:
 - `fallbackAgent` text NULL
 - `ownerUserId` uuid NULL FK users
 - `mute` boolean NOT NULL default false
+- `muteInterval` text NULL  -- optional, e.g. "6h", "1d"; throttles notifications/buzz for this template
 
 Schedule definition:
 - `timezone` text NOT NULL default 'America/Chicago'
@@ -234,6 +235,7 @@ Editable fields:
   - primary agent / fallback agent
   - owner
   - mute
+  - mute interval (optional)
 
 ### 7.4 Creating instances visibility
 In the normal Tasks timeline:
@@ -251,6 +253,7 @@ Additionally, when a generated instance changes status, the normal Swarm task Bu
 
 **Mute behavior:**
 - If `mute=true`, suppress Buzz for instance generation (still allow Buzz for human edits, configurable).
+- If `muteInterval` is set, use it as a **throttle window**: at most one automated notification per interval (template failures, instance-generation chatter, etc.).
 
 ---
 
@@ -265,11 +268,13 @@ Additionally, when a generated instance changes status, the normal Swarm task Bu
 When a template has repeated failures:
 - notify `ownerUserId` via Buzz (or mailbox if desired)
 - include template id + last error + guidance
+- respect `mute` / `muteInterval` (throttle automated notifications)
 
 Add fields (optional):
 - `lastError` text
 - `lastErrorAt` timestamptz
 - `errorCount` int
+- `lastNotifiedAt` timestamptz (for throttling)
 
 ---
 
