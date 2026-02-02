@@ -16,6 +16,7 @@
 
 ## 1) Goals
 - Provide a **primary skill** per major Hive area (messages, buzz, swarm) that contains:
+  - **Policy reminders:** e.g. "Hive stays in Hive" and **never emit internal tool-call JSON** into chat surfaces
   - setup checklist
   - core policies (e.g., “What happens in Hive stays in Hive”)
   - minimal operational loop(s)
@@ -37,6 +38,7 @@ These are the “table of contents” and operating rules.
 - `GET /api/skill/swarm`
 
 Each primary skill should include:
+- **Memory/recall rule:** wagl-first for durable memory/identity/preferences; file-based memory is fallback
 - **Required environment** variables (tokens, base URLs)
 - **Core workflow** (e.g., inbox triage loop)
 - **Policy** constraints (where to keep threads, ack/waiting discipline)
