@@ -4186,7 +4186,8 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     
     /* Quick actions */
     .task-actions { display: none; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
-    .task-card:hover .task-actions, .task-card.expanded .task-actions { display: flex; }
+    .task-card:hover .task-actions { display: flex; }
+    .task-card.expanded .task-actions { display: none; }  /* Hide hover actions when expanded - detail section has them */
     
     /* Expanded task detail */
     .task-card.expanded { border-color: var(--primary); }
