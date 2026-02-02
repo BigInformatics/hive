@@ -308,6 +308,8 @@ Baseline rules (adjust as needed):
 
 ## 8) Implementation steps (phased)
 
+> **Schema heads-up (Phase 2):** Before finalizing Phase 1 migrations, review `plans/swarm-recurring-phase2.md` to avoid schema churn. In particular, consider reserving/adding the recurrence linkage fields (`recurringTemplateId`, `recurringInstanceAt`) and related indexes early if we want Phase 2 (recurring templates + instance generation) to land without a disruptive migration.
+
 ### Phase 0 — Schema + API skeleton
 - Add migrations for `swarm_projects`, `swarm_tasks`, `swarm_task_events`
 - Implement CRUD endpoints (projects + tasks)
