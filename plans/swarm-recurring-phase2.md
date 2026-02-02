@@ -39,6 +39,7 @@ Recurring criteria fields:
 - Every N [minutes/hours/days/weeks/months]
 - Days of week
 - Odd/Even weeks (“every other week”) — recommend approach
+- **Between the hours of** (optional; supports overnight windows)
 - Primary agent
 - Fallback agent
 - Owner (notified when problems)
@@ -105,6 +106,8 @@ Schedule definition:
 - `everyUnit` text NOT NULL  -- minute|hour|day|week|month
 - `daysOfWeek` text[] NULL  -- e.g. {mon,tue}
 - `weekParity` text NOT NULL default 'any'  -- any|odd|even
+- `betweenHoursStart` int NULL  -- 0-23 local hour (inclusive)
+- `betweenHoursEnd` int NULL    -- 0-23 local hour (exclusive); supports overnight windows when end < start
 
 Operational state:
 - `enabled` boolean NOT NULL default true
@@ -154,6 +157,7 @@ For each enabled template:
    - <= count (if set) by checking how many instances already exist
    - match `daysOfWeek` (if set)
    - match `weekParity` (if set)
+   - match `betweenHoursStart`/`betweenHoursEnd` (if set), evaluated in `timezone`
 3. Insert the instance task if not present (via unique constraint).
 4. Update template `nextRunAt`.
 
@@ -230,6 +234,7 @@ Editable fields:
   - every interval + unit
   - days of week checkboxes
   - week parity selector (Any / Odd / Even)
+  - between hours of (start/end, optional)
   - timezone (default Chicago)
 - routing:
   - primary agent / fallback agent
