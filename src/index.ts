@@ -2327,7 +2327,8 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui/presence") return handlePresence(request);
     
     // Buzz UI tab (must be before keyed UI routes)
-    if (path === "/ui/buzz") return handleBroadcastUI();
+    // Public Buzz requires login - redirect
+    if (path === "/ui/buzz") return Response.redirect("/ui", 302);
     if (path === "/ui/buzz/stream") return handleBroadcastUIStream(request);
     
     // Swarm UI tab (must be before keyed UI routes)
