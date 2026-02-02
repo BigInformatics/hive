@@ -3842,13 +3842,15 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       --input: #e4e4e7;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
+    html, body { 
       font-family: system-ui, -apple-system, sans-serif; 
       background: var(--background); 
       color: var(--foreground);
       min-height: 100vh;
+      max-width: 100vw;
+      overflow-x: hidden;
     }
-    .layout { display: flex; min-height: 100vh; }
+    .layout { display: flex; min-height: 100vh; max-width: 100vw; }
     .sidebar { 
       width: 240px; 
       border-right: 1px solid var(--border); 
@@ -3856,6 +3858,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       flex-shrink: 0;
       background: var(--background);
       transition: transform 0.25s ease;
+      overflow-y: auto;
     }
     .sidebar-overlay {
       display: none;
@@ -3917,18 +3920,35 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       background: var(--secondary); border: none; border-radius: var(--radius);
       cursor: pointer; color: var(--foreground);
     }
-    .content { flex: 1; padding: 24px; overflow-y: auto; }
+    .content { flex: 1; padding: 24px; overflow-y: auto; max-width: 100%; }
     .user-badge { font-size: 0.75rem; background: var(--primary); color: white; padding: 2px 8px; border-radius: 999px; margin-left: 8px; }
     
     /* Filter sidebar */
     .filter-section { margin-bottom: 24px; }
+    .filter-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 8px;
+    }
     .filter-section h3 { 
       font-size: 0.75rem; 
       text-transform: uppercase; 
       color: var(--muted-foreground); 
-      margin-bottom: 8px;
       letter-spacing: 0.05em;
+      margin: 0;
     }
+    .filter-toggles { display: flex; gap: 4px; }
+    .filter-toggles button {
+      font-size: 0.625rem;
+      padding: 2px 6px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted-foreground);
+      cursor: pointer;
+    }
+    .filter-toggles button:hover { background: var(--secondary); color: var(--foreground); }
     .filter-option { 
       display: flex; 
       align-items: center; 
@@ -3957,11 +3977,11 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     .task-card:hover { border-color: var(--primary); }
     .task-card.selected { border-color: var(--primary); background: rgba(14, 165, 233, 0.05); }
     .task-accent { width: 4px; border-radius: 2px; flex-shrink: 0; }
-    .task-content { flex: 1; min-width: 0; }
-    .task-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-    .task-title { font-weight: 500; margin-bottom: 4px; }
-    .task-meta { font-size: 0.8125rem; color: var(--muted-foreground); display: flex; gap: 12px; flex-wrap: wrap; }
-    .task-badges { display: flex; gap: 6px; flex-shrink: 0; }
+    .task-content { flex: 1; min-width: 0; overflow: hidden; }
+    .task-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .task-title { font-weight: 500; margin-bottom: 4px; word-break: break-word; }
+    .task-meta { font-size: 0.8125rem; color: var(--muted-foreground); display: flex; gap: 8px; flex-wrap: wrap; }
+    .task-badges { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
     .badge { 
       font-size: 0.6875rem; 
       padding: 2px 8px; 
@@ -3978,7 +3998,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     .badge-blocked { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
     
     /* Quick actions */
-    .task-actions { display: none; gap: 4px; margin-top: 8px; }
+    .task-actions { display: none; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
     .task-card:hover .task-actions { display: flex; }
     .action-btn { 
       font-size: 0.75rem; 
@@ -4042,7 +4062,13 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
   <div class="layout">
     <aside class="sidebar" id="sidebar">
       <div class="filter-section">
-        <h3>Status</h3>
+        <div class="filter-header">
+          <h3>Status</h3>
+          <div class="filter-toggles">
+            <button onclick="toggleAllFilters('status', true)">All</button>
+            <button onclick="toggleAllFilters('status', false)">None</button>
+          </div>
+        </div>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="queued"> Queued</label>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="ready"> Ready</label>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="status" value="in_progress"> In Progress</label>
@@ -4051,7 +4077,13 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <label class="filter-option"><input type="checkbox" data-filter="status" value="complete"> Complete</label>
       </div>
       <div class="filter-section">
-        <h3>Assignee</h3>
+        <div class="filter-header">
+          <h3>Assignee</h3>
+          <div class="filter-toggles">
+            <button onclick="toggleAllFilters('assignee', true)">All</button>
+            <button onclick="toggleAllFilters('assignee', false)">None</button>
+          </div>
+        </div>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="unassigned"> Unassigned</label>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="chris"> Chris</label>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="clio"> Clio</label>
@@ -4059,7 +4091,13 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <label class="filter-option checked"><input type="checkbox" checked data-filter="assignee" value="zumie"> Zumie</label>
       </div>
       <div class="filter-section">
-        <h3>Project</h3>
+        <div class="filter-header">
+          <h3>Project</h3>
+          <div class="filter-toggles">
+            <button onclick="toggleAllFilters('project', true)">All</button>
+            <button onclick="toggleAllFilters('project', false)">None</button>
+          </div>
+        </div>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="none"> No Project</label>
         ${projects.map(p => '<label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="' + p.id + '"> <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + ';margin-right:4px;"></span>' + p.title + '</label>').join('')}
       </div>
@@ -4116,6 +4154,15 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open');
       document.getElementById('sidebarOverlay').classList.toggle('open');
+    }
+    
+    // Toggle all filters in a section
+    function toggleAllFilters(filterType, checked) {
+      document.querySelectorAll('[data-filter="' + filterType + '"]').forEach(cb => {
+        cb.checked = checked;
+        cb.closest('.filter-option').classList.toggle('checked', checked);
+      });
+      applyFilters();
     }
     
     // Theme
