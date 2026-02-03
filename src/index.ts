@@ -3024,7 +3024,14 @@ async function handleRequest(request: Request): Promise<Response> {
     
     // Recurring templates routes
     if (method === "GET" && path === "/swarm/recurring/templates") {
-      return requireAuth(request, (auth) => handleListTemplates(auth, request));
+      return requireAuth(request, async (auth) => {
+        try {
+          return await handleListTemplates(auth, request);
+        } catch (err) {
+          console.error("[api] Exception in handleListTemplates:", err);
+          return error("List templates failed: " + String(err), 500);
+        }
+      });
     }
     if (method === "POST" && path === "/swarm/recurring/templates") {
       return requireAuth(request, (auth) => handleCreateTemplate(auth, request));
