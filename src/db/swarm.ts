@@ -856,27 +856,25 @@ export interface ListTemplatesOptions {
 }
 
 export async function listTemplates(opts: ListTemplatesOptions = {}): Promise<RecurringTemplate[]> {
-  let query = 'SELECT * FROM public.swarm_recurring_templates WHERE 1=1';
-  const params: unknown[] = [];
-  let idx = 1;
+  // Simple version - fetch all then filter in JS for now
+  const rows = await sql`
+    SELECT * FROM public.swarm_recurring_templates
+    ORDER BY created_at DESC
+  `;
+  
+  let result = rows.map(rowToTemplate);
   
   if (opts.projectId !== undefined) {
-    query += ` AND project_id = $${idx++}`;
-    params.push(opts.projectId);
+    result = result.filter(t => t.projectId === opts.projectId);
   }
   if (opts.enabled !== undefined) {
-    query += ` AND enabled = $${idx++}`;
-    params.push(opts.enabled);
+    result = result.filter(t => t.enabled === opts.enabled);
   }
   if (opts.ownerUserId !== undefined) {
-    query += ` AND owner_user_id = $${idx++}`;
-    params.push(opts.ownerUserId);
+    result = result.filter(t => t.ownerUserId === opts.ownerUserId);
   }
   
-  query += ' ORDER BY created_at DESC';
-  
-  const rows = await sql.unsafe(query, params);
-  return rows.map(rowToTemplate);
+  return result;
 }
 
 export interface UpdateTemplateInput {
