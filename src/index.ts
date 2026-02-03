@@ -5114,7 +5114,8 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <nav class="nav">
           <a href="/ui${keyPath}">Messages</a>
           <a href="/ui${keyPath}/buzz">Buzz</a>
-          <a href="/ui${keyPath}/swarm" class="active">Swarm</a>
+          <a href="/ui${keyPath}/swarm" class="active">Tasks</a>
+          <a href="/ui${keyPath}/swarm/recurring">Recurring</a>
           ${key ? '<button onclick="logout()" style="color:var(--muted-foreground);padding:6px 12px;border-radius:var(--radius);font-size:0.875rem;background:transparent;border:1px solid var(--border);cursor:pointer;">Logout</button>' : ''}
           <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
