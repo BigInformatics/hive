@@ -3024,14 +3024,7 @@ async function handleRequest(request: Request): Promise<Response> {
     
     // Recurring templates routes
     if (method === "GET" && path === "/swarm/recurring/templates") {
-      return requireAuth(request, async (auth) => {
-        try {
-          return await handleListTemplates(auth, request);
-        } catch (err) {
-          console.error("[api] Exception in handleListTemplates:", err);
-          return error("List templates failed: " + String(err), 500);
-        }
-      });
+      return requireAuth(request, (auth) => handleListTemplates(auth, request));
     }
     if (method === "POST" && path === "/swarm/recurring/templates") {
       return requireAuth(request, (auth) => handleCreateTemplate(auth, request));
@@ -6053,11 +6046,21 @@ async function handleSwarmReorderTask(auth: AuthContext, id: string, request: Re
 
 async function handleListTemplates(auth: AuthContext, request: Request): Promise<Response> {
   try {
-    // DEBUG: Just return static JSON to verify endpoint works
-    return json({ debug: "endpoint works", timestamp: Date.now() });
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get("projectId") || undefined;
+    const enabled = url.searchParams.get("enabled");
+    const ownerUserId = url.searchParams.get("ownerUserId") || undefined;
+    
+    const templates = await swarm.listTemplates({
+      projectId,
+      enabled: enabled !== null ? enabled === "true" : undefined,
+      ownerUserId,
+    });
+    
+    return json({ templates });
   } catch (err) {
     console.error("[api] Error listing templates:", err);
-    return error("Failed to list templates: " + String(err), 500);
+    return error("Failed to list templates", 500);
   }
 }
 

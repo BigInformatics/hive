@@ -863,48 +863,24 @@ export interface ListTemplatesOptions {
 }
 
 export async function listTemplates(opts: ListTemplatesOptions = {}): Promise<RecurringTemplate[]> {
-  // Simple version - fetch all then filter in JS for now
-  console.log("[swarm] listTemplates called with opts:", JSON.stringify(opts));
+  const rows = await sql`
+    SELECT * FROM public.swarm_recurring_templates
+    ORDER BY created_at DESC
+  `;
   
-  let rows;
-  try {
-    rows = await sql`
-      SELECT * FROM public.swarm_recurring_templates
-      ORDER BY created_at DESC
-    `;
-  } catch (err) {
-    console.error("[swarm] listTemplates query error:", err);
-    throw err;
-  }
+  let result = rows.map(rowToTemplate);
   
-  console.log("[swarm] listTemplates query returned", rows.length, "rows");
-  if (rows.length > 0) {
-    console.log("[swarm] First row keys:", Object.keys(rows[0]));
-  }
-  
-  const result: RecurringTemplate[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    try {
-      result.push(rowToTemplate(rows[i]));
-    } catch (err) {
-      console.error("[swarm] rowToTemplate error at index", i, ":", err);
-      console.error("[swarm] Row data:", JSON.stringify(rows[i]));
-      throw err;
-    }
-  }
-  
-  let filtered = result;
   if (opts.projectId !== undefined) {
-    filtered = filtered.filter(t => t.projectId === opts.projectId);
+    result = result.filter(t => t.projectId === opts.projectId);
   }
   if (opts.enabled !== undefined) {
-    filtered = filtered.filter(t => t.enabled === opts.enabled);
+    result = result.filter(t => t.enabled === opts.enabled);
   }
   if (opts.ownerUserId !== undefined) {
-    filtered = filtered.filter(t => t.ownerUserId === opts.ownerUserId);
+    result = result.filter(t => t.ownerUserId === opts.ownerUserId);
   }
   
-  return filtered;
+  return result;
 }
 
 export interface UpdateTemplateInput {
