@@ -2491,7 +2491,7 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
   
   const identity = config.sender;
   
-  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null; mustBeDoneAfterTaskId?: string | null };
+  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null; mustBeDoneAfterTaskId?: string | null; onOrAfterAt?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -2508,6 +2508,7 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
       assigneeUserId: body.assigneeUserId,
       detail: body.detail,
       mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
+      onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : (body.onOrAfterAt === null ? null : undefined),
     });
     
     if (!task) {
@@ -4288,6 +4289,7 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
         '<div class="task-detail-row"><span class="task-detail-label">Project:</span><select id="edit-project-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + projectOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Assignee:</span><select id="edit-assignee-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + assigneeOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Must be done after:</span><select id="edit-dependency-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + dependencyOptions + '</select></div>' +
+        '<div class="task-detail-row"><span class="task-detail-label">Start after:</span><input type="datetime-local" id="edit-onOrAfter-' + t.id + '" value="' + (t.onOrAfterAt ? new Date(t.onOrAfterAt).toISOString().slice(0, 16) : '') + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Created:</span><span class="task-detail-value">' + createdAt + '</span></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Updated:</span><span class="task-detail-value">' + updatedAt + '</span></div>' +
         (t.blockedReason ? '<div class="task-detail-row"><span class="task-detail-label">Blocked:</span><span class="task-detail-value" style="color:#ef4444;">' + escapeHtml(t.blockedReason) + '</span></div>' : '') +
@@ -4745,6 +4747,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
           <a href="/ui${keyPath}">Messages</a>
           <a href="/ui${keyPath}/buzz">Buzz</a>
           <a href="/ui${keyPath}/swarm" class="active">Swarm</a>
+          ${key ? '<button onclick="logout()" style="color:var(--muted-foreground);padding:6px 12px;border-radius:var(--radius);font-size:0.875rem;background:transparent;border:1px solid var(--border);cursor:pointer;">Logout</button>' : ''}
           <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
           </button>
@@ -4855,6 +4858,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
     }
     
+    // Logout
+    function logout() {
+      localStorage.removeItem('mailboxKey');
+      window.location.href = '/ui/swarm';
+    }
+    
     // Create form toggle
     function toggleCreateForm() {
       const form = document.getElementById('createForm');
@@ -4926,6 +4935,8 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const assigneeUserId = document.getElementById('edit-assignee-' + id).value || null;
       const detail = document.getElementById('edit-detail-' + id).value.trim() || null;
       const mustBeDoneAfterTaskId = document.getElementById('edit-dependency-' + id).value || null;
+      const onOrAfterInput = document.getElementById('edit-onOrAfter-' + id).value;
+      const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
       
       if (!title) return alert('Title is required');
       
@@ -4933,7 +4944,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, projectId, assigneeUserId, detail, mustBeDoneAfterTaskId })
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail, mustBeDoneAfterTaskId, onOrAfterAt })
       });
       
       if (res.ok) {
