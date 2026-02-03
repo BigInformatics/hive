@@ -23,9 +23,9 @@ import { CSS } from '@dnd-kit/utilities';
 
 // Drag handle icon
 const GripIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
-    <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <circle cx="9" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="18" r="2"/>
+    <circle cx="15" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="18" r="2"/>
   </svg>
 );
 
