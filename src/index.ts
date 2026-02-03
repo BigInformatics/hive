@@ -5688,28 +5688,47 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     
     // Initialize drag-and-drop with dnd-kit React island
     function initTaskListIsland() {
+      console.log('[DnD] initTaskListIsland called');
       const taskList = document.getElementById('taskList');
-      if (!taskList || !window.mountTaskListIsland) return;
+      console.log('[DnD] taskList element:', taskList);
+      console.log('[DnD] mountTaskListIsland:', typeof window.mountTaskListIsland);
+      if (!taskList || !window.mountTaskListIsland) {
+        console.log('[DnD] Early return - missing element or function');
+        return;
+      }
       
       // Collect task card data
       const taskCards = taskList.querySelectorAll('.task-card');
+      console.log('[DnD] Found task cards:', taskCards.length);
       const tasks = Array.from(taskCards).map(card => ({
         id: card.dataset.id,
         html: card.outerHTML
       }));
       
-      if (tasks.length === 0) return;
+      if (tasks.length === 0) {
+        console.log('[DnD] No tasks to mount');
+        return;
+      }
       
       // Clear the original list and mount React island
+      console.log('[DnD] Mounting React island with', tasks.length, 'tasks');
       taskList.innerHTML = '';
       window.mountTaskListIsland('taskList', tasks, UI_KEY);
+      console.log('[DnD] Mount complete');
     }
     
     // Load dnd-kit React bundle and initialize
     const dndScript = document.createElement('script');
     dndScript.src = '/ui/task-list-island.js';
-    dndScript.onload = initTaskListIsland;
+    dndScript.onload = function() {
+      console.log('[DnD] Script loaded, mountTaskListIsland:', typeof window.mountTaskListIsland);
+      initTaskListIsland();
+    };
+    dndScript.onerror = function(e) {
+      console.error('[DnD] Failed to load script:', e);
+    };
     document.head.appendChild(dndScript);
+    console.log('[DnD] Loading script...');
     
     async function createTask() {
       const title = document.getElementById('newTaskTitle').value.trim();
