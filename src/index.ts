@@ -3881,9 +3881,21 @@ function _legacySwarmHTML(): string {
       padding: 6px 12px;
       border-radius: var(--radius);
       font-size: 0.875rem;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
     }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
+    .nav .icon-btn { 
+      width: 36px; height: 36px; 
+      display: inline-flex; align-items: center; justify-content: center; 
+      padding: 0; line-height: 0; 
+      background: transparent; border: none; 
+      cursor: pointer; color: var(--foreground); opacity: 0.7; 
+    }
+    .nav .icon-btn:hover { opacity: 1; }
+    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
     .theme-toggle {
       width: 36px; height: 36px;
       display: inline-flex; align-items: center; justify-content: center;
@@ -4492,9 +4504,21 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       padding: 6px 12px;
       border-radius: var(--radius);
       font-size: 0.875rem;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
     }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
+    .nav .icon-btn { 
+      width: 36px; height: 36px; 
+      display: inline-flex; align-items: center; justify-content: center; 
+      padding: 0; line-height: 0; 
+      background: transparent; border: none; 
+      cursor: pointer; color: var(--foreground); opacity: 0.7; 
+    }
+    .nav .icon-btn:hover { opacity: 1; }
+    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
     .theme-toggle {
       width: 36px; height: 36px;
       display: inline-flex; align-items: center; justify-content: center;
