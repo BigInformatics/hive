@@ -864,33 +864,47 @@ export interface ListTemplatesOptions {
 
 export async function listTemplates(opts: ListTemplatesOptions = {}): Promise<RecurringTemplate[]> {
   // Simple version - fetch all then filter in JS for now
-  console.log("[swarm] listTemplates called with opts:", opts);
-  const rows = await sql`
-    SELECT * FROM public.swarm_recurring_templates
-    ORDER BY created_at DESC
-  `;
-  console.log("[swarm] listTemplates query returned", rows.length, "rows");
+  console.log("[swarm] listTemplates called with opts:", JSON.stringify(opts));
   
-  let result = rows.map(row => {
+  let rows;
+  try {
+    rows = await sql`
+      SELECT * FROM public.swarm_recurring_templates
+      ORDER BY created_at DESC
+    `;
+  } catch (err) {
+    console.error("[swarm] listTemplates query error:", err);
+    throw err;
+  }
+  
+  console.log("[swarm] listTemplates query returned", rows.length, "rows");
+  if (rows.length > 0) {
+    console.log("[swarm] First row keys:", Object.keys(rows[0]));
+  }
+  
+  const result: RecurringTemplate[] = [];
+  for (let i = 0; i < rows.length; i++) {
     try {
-      return rowToTemplate(row);
+      result.push(rowToTemplate(rows[i]));
     } catch (err) {
-      console.error("[swarm] rowToTemplate error:", err, "row:", row);
+      console.error("[swarm] rowToTemplate error at index", i, ":", err);
+      console.error("[swarm] Row data:", JSON.stringify(rows[i]));
       throw err;
     }
-  });
+  }
   
+  let filtered = result;
   if (opts.projectId !== undefined) {
-    result = result.filter(t => t.projectId === opts.projectId);
+    filtered = filtered.filter(t => t.projectId === opts.projectId);
   }
   if (opts.enabled !== undefined) {
-    result = result.filter(t => t.enabled === opts.enabled);
+    filtered = filtered.filter(t => t.enabled === opts.enabled);
   }
   if (opts.ownerUserId !== undefined) {
-    result = result.filter(t => t.ownerUserId === opts.ownerUserId);
+    filtered = filtered.filter(t => t.ownerUserId === opts.ownerUserId);
   }
   
-  return result;
+  return filtered;
 }
 
 export interface UpdateTemplateInput {
