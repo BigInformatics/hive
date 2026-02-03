@@ -91,9 +91,8 @@ To avoid inconsistent instance generation, recurrence evaluation MUST be determi
   - If `start == end`: treat as **no restriction (24h allowed)** to avoid footguns.
 - **Week parity:** compute ISO week number in template timezone for the candidate local date.
 - **DST handling:**
-  - If a candidate local time is **missing** (spring-forward gap), **roll forward** to the next valid time (e.g., 2:30 AM → 3:30 AM). This ensures daily tasks aren't silently skipped.
+  - If a candidate local time is **missing** (spring-forward gap), **skip** that occurrence and move to the next valid occurrence.
   - If a candidate local time is **ambiguous** (fall-back repeated hour), choose the **earlier** occurrence to avoid duplicates.
-  - *Decision (2026-02-03):* Roll-forward chosen over skip because missing a daily task entirely feels worse than shifting it 1 hour. Implementation uses Luxon's default behavior which is deterministic and tested.
 
 Add tests for DST boundaries and week parity in `America/Chicago`.
 
