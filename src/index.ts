@@ -3017,6 +3017,36 @@ async function handleRequest(request: Request): Promise<Response> {
     if (method === "POST" && swarmTaskReorderMatch) {
       return requireAuth(request, (auth) => handleSwarmReorderTask(auth, swarmTaskReorderMatch[1], request));
     }
+    
+    // Recurring templates routes
+    if (method === "GET" && path === "/swarm/recurring/templates") {
+      return requireAuth(request, (auth) => handleListTemplates(auth, request));
+    }
+    if (method === "POST" && path === "/swarm/recurring/templates") {
+      return requireAuth(request, (auth) => handleCreateTemplate(auth, request));
+    }
+    const templateMatch = path.match(/^\/swarm\/recurring\/templates\/([0-9a-f-]{36})$/);
+    if (method === "GET" && templateMatch) {
+      return requireAuth(request, () => handleGetTemplate(templateMatch[1]));
+    }
+    if (method === "PATCH" && templateMatch) {
+      return requireAuth(request, (auth) => handleUpdateTemplate(auth, templateMatch[1], request));
+    }
+    if (method === "DELETE" && templateMatch) {
+      return requireAuth(request, () => handleDeleteTemplate(templateMatch[1]));
+    }
+    const templateEnableMatch = path.match(/^\/swarm\/recurring\/templates\/([0-9a-f-]{36})\/enable$/);
+    if (method === "POST" && templateEnableMatch) {
+      return requireAuth(request, () => handleEnableTemplate(templateEnableMatch[1]));
+    }
+    const templateDisableMatch = path.match(/^\/swarm\/recurring\/templates\/([0-9a-f-]{36})\/disable$/);
+    if (method === "POST" && templateDisableMatch) {
+      return requireAuth(request, () => handleDisableTemplate(templateDisableMatch[1]));
+    }
+    // Generator endpoint
+    if (method === "POST" && path === "/swarm/recurring/run") {
+      return requireAuth(request, (auth) => handleRunGenerator(auth, request));
+    }
 
     return error("Not found", 404);
   } catch (err) {
@@ -5790,6 +5820,267 @@ async function handleSwarmReorderTask(auth: AuthContext, id: string, request: Re
     console.error("[api] Error reordering task:", err);
     const message = err instanceof Error ? err.message : "Failed to reorder task";
     return error(message, 500);
+  }
+}
+
+// ============================================================
+// RECURRING TEMPLATES HANDLERS
+// ============================================================
+
+async function handleListTemplates(auth: AuthContext, request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const projectId = url.searchParams.get("projectId") || undefined;
+  const enabled = url.searchParams.get("enabled");
+  const ownerUserId = url.searchParams.get("ownerUserId") || undefined;
+  
+  const templates = await swarm.listTemplates({
+    projectId,
+    enabled: enabled !== null ? enabled === "true" : undefined,
+    ownerUserId,
+  });
+  
+  return json({ templates });
+}
+
+async function handleCreateTemplate(auth: AuthContext, request: Request): Promise<Response> {
+  try {
+    const body = await request.json() as Omit<swarm.CreateTemplateInput, "ownerUserId"> & { ownerUserId?: string };
+    
+    if (!body.title) return error("title is required", 400);
+    if (!body.startAt) return error("startAt is required", 400);
+    if (!body.everyInterval) return error("everyInterval is required", 400);
+    if (!body.everyUnit) return error("everyUnit is required", 400);
+    
+    const template = await swarm.createTemplate({
+      ...body,
+      ownerUserId: body.ownerUserId || auth.identity,
+      startAt: new Date(body.startAt as unknown as string),
+      endAt: body.endAt ? new Date(body.endAt as unknown as string) : undefined,
+    });
+    
+    return json({ template }, 201);
+  } catch (err) {
+    console.error("[api] Error creating template:", err);
+    return error("Failed to create template", 500);
+  }
+}
+
+async function handleGetTemplate(id: string): Promise<Response> {
+  const template = await swarm.getTemplate(id);
+  if (!template) return error("Template not found", 404);
+  return json({ template });
+}
+
+async function handleUpdateTemplate(auth: AuthContext, id: string, request: Request): Promise<Response> {
+  try {
+    const body = await request.json() as swarm.UpdateTemplateInput;
+    
+    if (body.startAt) body.startAt = new Date(body.startAt as unknown as string);
+    if (body.endAt) body.endAt = new Date(body.endAt as unknown as string);
+    
+    const template = await swarm.updateTemplate(id, body);
+    if (!template) return error("Template not found", 404);
+    
+    return json({ template });
+  } catch (err) {
+    console.error("[api] Error updating template:", err);
+    return error("Failed to update template", 500);
+  }
+}
+
+async function handleDeleteTemplate(id: string): Promise<Response> {
+  const deleted = await swarm.deleteTemplate(id);
+  if (!deleted) return error("Template not found", 404);
+  return json({ success: true });
+}
+
+async function handleEnableTemplate(id: string): Promise<Response> {
+  const template = await swarm.enableTemplate(id);
+  if (!template) return error("Template not found", 404);
+  return json({ template });
+}
+
+async function handleDisableTemplate(id: string): Promise<Response> {
+  const template = await swarm.disableTemplate(id);
+  if (!template) return error("Template not found", 404);
+  return json({ template });
+}
+
+async function handleRunGenerator(auth: AuthContext, request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const templateId = url.searchParams.get("templateId") || undefined;
+    
+    const result = await runRecurringGenerator(templateId);
+    return json(result);
+  } catch (err) {
+    console.error("[api] Error running generator:", err);
+    return error("Failed to run generator", 500);
+  }
+}
+
+// Simple generator implementation
+async function runRecurringGenerator(templateId?: string): Promise<{ generated: number; errors: string[] }> {
+  const templates = templateId 
+    ? [await swarm.getTemplate(templateId)].filter(Boolean) as swarm.RecurringTemplate[]
+    : await swarm.listTemplates({ enabled: true });
+  
+  let generated = 0;
+  const errors: string[] = [];
+  const now = new Date();
+  const horizonDays = 14;
+  const maxInstancesPerTemplate = 10;
+  const horizon = new Date(now.getTime() + horizonDays * 24 * 60 * 60 * 1000);
+  
+  for (const template of templates) {
+    try {
+      // Skip if template hasn't started yet
+      if (template.startAt > now) continue;
+      
+      // Skip if template has ended
+      if (template.endAt && template.endAt < now) continue;
+      
+      // Find next occurrence(s) to generate
+      let cursor = template.lastRunAt || template.startAt;
+      let instancesGenerated = 0;
+      
+      while (instancesGenerated < maxInstancesPerTemplate) {
+        const next = computeNextOccurrence(template, cursor);
+        if (!next || next > horizon) break;
+        if (template.endAt && next > template.endAt) break;
+        
+        // Check repeat count
+        if (template.repeatCount) {
+          const existingCount = await countTemplateInstances(template.id);
+          if (existingCount >= template.repeatCount) break;
+        }
+        
+        // Try to create instance (idempotent via unique constraint)
+        const created = await createRecurringInstance(template, next);
+        if (created) {
+          generated++;
+          instancesGenerated++;
+        }
+        
+        cursor = next;
+      }
+      
+      // Update lastRunAt
+      if (instancesGenerated > 0) {
+        await swarm.updateTemplate(template.id, { lastRunAt: now });
+      }
+    } catch (err) {
+      const msg = `Template ${template.id}: ${err instanceof Error ? err.message : String(err)}`;
+      errors.push(msg);
+      console.error("[generator]", msg);
+    }
+  }
+  
+  return { generated, errors };
+}
+
+function computeNextOccurrence(template: swarm.RecurringTemplate, after: Date): Date | null {
+  // Simple implementation - add interval to cursor
+  const { everyInterval, everyUnit, daysOfWeek, weekParity, betweenHoursStart, betweenHoursEnd } = template;
+  
+  let next = new Date(after);
+  
+  // Add interval
+  switch (everyUnit) {
+    case 'minute': next.setMinutes(next.getMinutes() + everyInterval); break;
+    case 'hour': next.setHours(next.getHours() + everyInterval); break;
+    case 'day': next.setDate(next.getDate() + everyInterval); break;
+    case 'week': next.setDate(next.getDate() + everyInterval * 7); break;
+    case 'month': next.setMonth(next.getMonth() + everyInterval); break;
+  }
+  
+  // Apply day-of-week constraint (simple: advance to next matching day)
+  if (daysOfWeek && daysOfWeek.length > 0) {
+    const dayMap: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+    const allowedDays = daysOfWeek.map(d => dayMap[d.toLowerCase()]).filter(n => n !== undefined);
+    
+    let attempts = 0;
+    while (!allowedDays.includes(next.getDay()) && attempts < 7) {
+      next.setDate(next.getDate() + 1);
+      attempts++;
+    }
+  }
+  
+  // Apply week parity constraint
+  if (weekParity !== 'any') {
+    const weekNum = getISOWeekNumber(next);
+    const isOdd = weekNum % 2 === 1;
+    const wantOdd = weekParity === 'odd';
+    
+    if (isOdd !== wantOdd) {
+      // Move to next week
+      next.setDate(next.getDate() + 7);
+    }
+  }
+  
+  // Apply between-hours constraint (simple: set to start hour if outside window)
+  if (betweenHoursStart !== null && betweenHoursEnd !== null) {
+    const hour = next.getHours();
+    const inWindow = betweenHoursStart <= betweenHoursEnd
+      ? (hour >= betweenHoursStart && hour < betweenHoursEnd)
+      : (hour >= betweenHoursStart || hour < betweenHoursEnd);
+    
+    if (!inWindow) {
+      next.setHours(betweenHoursStart, 0, 0, 0);
+      if (next <= after) {
+        next.setDate(next.getDate() + 1);
+      }
+    }
+  }
+  
+  return next;
+}
+
+function getISOWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+async function countTemplateInstances(templateId: string): Promise<number> {
+  const result = await import("./db/client").then(m => m.sql`
+    SELECT COUNT(*) as count FROM public.swarm_tasks 
+    WHERE recurring_template_id = ${templateId}
+  `);
+  return Number(result[0]?.count || 0);
+}
+
+async function createRecurringInstance(template: swarm.RecurringTemplate, scheduledAt: Date): Promise<boolean> {
+  try {
+    const { sql } = await import("./db/client");
+    
+    // Use ON CONFLICT DO NOTHING for idempotency
+    const result = await sql`
+      INSERT INTO public.swarm_tasks (
+        recurring_template_id, recurring_instance_at,
+        project_id, title, detail, creator_user_id, assignee_user_id, status
+      ) VALUES (
+        ${template.id},
+        ${scheduledAt},
+        ${template.projectId},
+        ${template.title},
+        ${template.detail},
+        ${template.ownerUserId},
+        ${template.primaryAgent},
+        'queued'
+      )
+      ON CONFLICT (recurring_template_id, recurring_instance_at) 
+      WHERE recurring_template_id IS NOT NULL
+      DO NOTHING
+      RETURNING id
+    `;
+    
+    return result.length > 0;
+  } catch (err) {
+    console.error("[generator] Failed to create instance:", err);
+    return false;
   }
 }
 
