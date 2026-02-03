@@ -2419,6 +2419,82 @@ async function handleUISwarmCreateProject(key: string, request: Request): Promis
   }
 }
 
+// UI-keyed Swarm project update
+async function handleUISwarmUpdateProject(key: string, projectId: string, request: Request): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const identity = config.sender;
+  
+  let body: swarm.UpdateProjectInput;
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  try {
+    const project = await swarm.updateProject(projectId, body);
+    if (!project) {
+      return error("Project not found", 404);
+    }
+    
+    // Emit Buzz event
+    emitSwarmBuzz({
+      eventType: 'swarm.project.updated',
+      projectId: project.id,
+      title: project.title,
+      actor: identity,
+      deepLink: getSwarmDeepLink(),
+    });
+    
+    return json({ project });
+  } catch (err) {
+    console.error("[ui-swarm] Error updating project:", err);
+    return error("Failed to update project", 500);
+  }
+}
+
+// UI-keyed Swarm project update
+async function handleUISwarmUpdateProject(key: string, projectId: string, request: Request): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const identity = config.sender;
+  
+  let body: swarm.UpdateProjectInput;
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  try {
+    const project = await swarm.updateProject(projectId, body);
+    if (!project) {
+      return error("Project not found", 404);
+    }
+    
+    // Emit Buzz event
+    emitSwarmBuzz({
+      eventType: 'swarm.project.updated',
+      projectId: project.id,
+      title: project.title,
+      actor: identity,
+      deepLink: getSwarmDeepLink(),
+    });
+    
+    return json({ project });
+  } catch (err) {
+    console.error("[ui-swarm] Error updating project:", err);
+    return error("Failed to update project", 500);
+  }
+}
+
 // UI-keyed Swarm task creation
 async function handleUISwarmCreateTask(key: string, request: Request): Promise<Response> {
   const config = uiMailboxKeys[key];
@@ -2821,6 +2897,7 @@ async function handleRequest(request: Request): Promise<Response> {
     
     // UI-keyed Swarm endpoints
     const uiKeySwarmProjectsMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/projects$/);
+    const uiKeySwarmProjectMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/projects\/([a-f0-9-]+)$/);
     const uiKeySwarmTasksMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks$/);
     const uiKeySwarmTaskMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)$/);
     const uiKeySwarmTaskClaimMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/claim$/);
@@ -2829,6 +2906,9 @@ async function handleRequest(request: Request): Promise<Response> {
     
     if (method === "POST" && uiKeySwarmProjectsMatch) {
       return handleUISwarmCreateProject(uiKeySwarmProjectsMatch[1], request);
+    }
+    if (method === "PATCH" && uiKeySwarmProjectMatch) {
+      return handleUISwarmUpdateProject(uiKeySwarmProjectMatch[1], uiKeySwarmProjectMatch[2], request);
     }
     if (method === "POST" && uiKeySwarmTasksMatch) {
       return handleUISwarmCreateTask(uiKeySwarmTasksMatch[1], request);
