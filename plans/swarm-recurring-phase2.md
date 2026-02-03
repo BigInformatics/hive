@@ -91,10 +91,11 @@ To avoid inconsistent instance generation, recurrence evaluation MUST be determi
   - If `start == end`: treat as **no restriction (24h allowed)** to avoid footguns.
 - **Week parity:** compute ISO week number in template timezone for the candidate local date.
 - **DST handling:**
-  - If a candidate local time is **missing** (spring-forward gap), **skip** that occurrence and move to the next valid occurrence.
-  - If a candidate local time is **ambiguous** (fall-back repeated hour), choose the **earlier** occurrence to avoid duplicates.
+  - If a candidate local time is **missing** (spring-forward gap), **roll forward** to the next valid time — ensure nothing is missed.
+  - If a candidate local time is **ambiguous** (fall-back repeated hour), choose the **earlier** occurrence and rely on unique constraint to prevent duplicates.
+  - Store all times in **UTC** internally; display in local time on interfaces.
 
-> **Open decision (2026-02-03):** Implementation currently **rolls forward** (2:30→3:30) for spring-forward gaps instead of skipping. Rationale: missing a daily task entirely feels worse than shifting it 1 hour. Pending Chris approval — if not approved, will implement skip and adjust tests.
+> **Decision (2026-02-03, Chris):** Roll-forward for spring-forward (don't skip); unique constraint prevents fall-back duplicates.
 
 Add tests for DST boundaries and week parity in `America/Chicago`.
 
