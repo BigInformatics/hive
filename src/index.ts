@@ -6162,8 +6162,11 @@ async function runRecurringGenerator(templateId?: string): Promise<{ generated: 
       // Skip if template has ended
       if (template.endAt && template.endAt < now) continue;
       
-      // Find next occurrence(s) to generate
-      let cursor = template.lastRunAt || template.startAt;
+      // Get the last generated instance time from DB (for determinism)
+      const lastInstance = await getLastInstanceTime(template.id);
+      
+      // Start from the last instance or template startAt (deterministic!)
+      let cursor = lastInstance || template.startAt;
       let instancesGenerated = 0;
       
       while (instancesGenerated < maxInstancesPerTemplate) {
@@ -6187,10 +6190,8 @@ async function runRecurringGenerator(templateId?: string): Promise<{ generated: 
         cursor = next;
       }
       
-      // Update lastRunAt
-      if (instancesGenerated > 0) {
-        await swarm.updateTemplate(template.id, { lastRunAt: now });
-      }
+      // Update lastRunAt to track when generator last processed this template
+      await swarm.updateTemplate(template.id, { lastRunAt: now });
     } catch (err) {
       const msg = `Template ${template.id}: ${err instanceof Error ? err.message : String(err)}`;
       errors.push(msg);
@@ -6199,6 +6200,17 @@ async function runRecurringGenerator(templateId?: string): Promise<{ generated: 
   }
   
   return { generated, errors };
+}
+
+async function getLastInstanceTime(templateId: string): Promise<Date | null> {
+  const { sql } = await import("./db/client");
+  const result = await sql`
+    SELECT MAX(recurring_instance_at) as last_instance
+    FROM public.swarm_tasks 
+    WHERE recurring_template_id = ${templateId}
+  `;
+  const last = result[0]?.last_instance;
+  return last ? (last instanceof Date ? last : new Date(last)) : null;
 }
 
 function computeNextOccurrence(template: swarm.RecurringTemplate, after: Date): Date | null {
