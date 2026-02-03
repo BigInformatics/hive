@@ -4395,8 +4395,7 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
         '</div>' +
       '</div>' +
       '<div class="task-actions">' + 
-        '<button class="action-btn" onclick="event.stopPropagation();moveTask(\'' + t.id + '\', \'up\')" title="Move up">↑</button>' +
-        '<button class="action-btn" onclick="event.stopPropagation();moveTask(\'' + t.id + '\', \'down\')" title="Move down">↓</button>' +
+        '<span class="drag-handle" title="Drag to reorder" style="cursor:grab;padding:4px 8px;color:var(--muted-foreground);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg></span>' +
         claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + 
       '</div>' +
     '</div>' +
@@ -4876,6 +4875,9 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     }
     .task-card:hover { border-color: var(--primary); }
     .task-card.selected { border-color: var(--primary); background: rgba(14, 165, 233, 0.05); }
+    .task-card.sortable-ghost { opacity: 0.4; background: var(--primary); }
+    .task-card.sortable-chosen { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .drag-handle:hover { color: var(--foreground); }
     .task-accent { width: 4px; border-radius: 2px; flex-shrink: 0; }
     .task-content { flex: 1; min-width: 0; overflow: hidden; }
     .task-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
@@ -5227,6 +5229,29 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <button onclick="const v=document.getElementById('editProjectDeploy').value;if(v)copyUrl(v,this)" style="background:none;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--muted-foreground);padding:8px;display:inline-flex;align-items:center;" title="Copy URL"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         <a id="editProjectDeployLink" href="#" target="_blank" rel="noopener" style="display:none;background:none;border:1px solid var(--border);border-radius:var(--radius);color:var(--muted-foreground);padding:8px;text-decoration:none;" title="Open URL"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
       </div>
+      <label>Working Hours</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <select id="editProjectWorkStart" style="flex:1;">
+          <option value="">No limit</option>
+          ${[...Array(24)].map((_, i) => `<option value="${i}">${i.toString().padStart(2, '0')}:00</option>`).join('')}
+        </select>
+        <span>to</span>
+        <select id="editProjectWorkEnd" style="flex:1;">
+          <option value="">No limit</option>
+          ${[...Array(24)].map((_, i) => `<option value="${i}">${i.toString().padStart(2, '0')}:00</option>`).join('')}
+        </select>
+      </div>
+      <select id="editProjectWorkTz" style="width:100%;margin-bottom:16px;">
+        <option value="America/Chicago">America/Chicago</option>
+        <option value="America/New_York">America/New_York</option>
+        <option value="America/Los_Angeles">America/Los_Angeles</option>
+        <option value="UTC">UTC</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;">
+        <input type="checkbox" id="editProjectBlocking">
+        <span>Blocking Mode</span>
+        <span style="font-size:0.75rem;color:var(--muted-foreground);">(critical questions cause hold)</span>
+      </label>
     </div>
     <div class="project-drawer-footer">
       <button class="cancel-btn" onclick="closeProjectDrawer()">Cancel</button>
@@ -5247,7 +5272,11 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       projectLeadUserId: p.projectLeadUserId || '',
       developerLeadUserId: p.developerLeadUserId || '',
       onedevUrl: p.onedevUrl || '',
-      dokployDeployUrl: p.dokployDeployUrl || ''
+      dokployDeployUrl: p.dokployDeployUrl || '',
+      workHoursStart: p.workHoursStart,
+      workHoursEnd: p.workHoursEnd,
+      workHoursTimezone: p.workHoursTimezone || 'America/Chicago',
+      blockingMode: p.blockingMode || false
     })))};
     
     // Project drawer functions
@@ -5263,6 +5292,10 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       document.getElementById('editProjectDevLead').value = project.developerLeadUserId;
       document.getElementById('editProjectRepo').value = project.onedevUrl;
       document.getElementById('editProjectDeploy').value = project.dokployDeployUrl;
+      document.getElementById('editProjectWorkStart').value = project.workHoursStart !== null ? project.workHoursStart : '';
+      document.getElementById('editProjectWorkEnd').value = project.workHoursEnd !== null ? project.workHoursEnd : '';
+      document.getElementById('editProjectWorkTz').value = project.workHoursTimezone;
+      document.getElementById('editProjectBlocking').checked = project.blockingMode;
       
       // Show/hide external link buttons
       const repoLink = document.getElementById('editProjectRepoLink');
@@ -5288,6 +5321,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const developerLeadUserId = document.getElementById('editProjectDevLead').value || null;
       const onedevUrl = document.getElementById('editProjectRepo').value.trim() || null;
       const dokployDeployUrl = document.getElementById('editProjectDeploy').value.trim() || null;
+      const workStartVal = document.getElementById('editProjectWorkStart').value;
+      const workEndVal = document.getElementById('editProjectWorkEnd').value;
+      const workHoursStart = workStartVal !== '' ? parseInt(workStartVal) : null;
+      const workHoursEnd = workEndVal !== '' ? parseInt(workEndVal) : null;
+      const workHoursTimezone = document.getElementById('editProjectWorkTz').value;
+      const blockingMode = document.getElementById('editProjectBlocking').checked;
       
       if (!title) return alert('Project name is required');
       
@@ -5295,7 +5334,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, color, projectLeadUserId, developerLeadUserId, onedevUrl, dokployDeployUrl })
+        body: JSON.stringify({ title, description, color, projectLeadUserId, developerLeadUserId, onedevUrl, dokployDeployUrl, workHoursStart, workHoursEnd, workHoursTimezone, blockingMode })
       });
       
       if (res.ok) {
@@ -5546,28 +5585,39 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       location.reload();
     }
     
-    async function moveTask(id, direction) {
-      const cards = [...document.querySelectorAll('.task-card')].filter(c => c.style.display !== 'none');
-      const idx = cards.findIndex(c => c.dataset.id === id);
-      if (idx === -1) return;
-      
-      let beforeTaskId = null;
-      if (direction === 'up' && idx > 0) {
-        beforeTaskId = cards[idx - 1].dataset.id;
-      } else if (direction === 'down' && idx < cards.length - 1) {
-        beforeTaskId = idx + 2 < cards.length ? cards[idx + 2].dataset.id : null;
-      } else {
-        return;
-      }
-      
-      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + id + '/reorder' : '/api/swarm/tasks/' + id + '/reorder';
+    async function reorderTask(taskId, beforeTaskId) {
+      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + taskId + '/reorder' : '/api/swarm/tasks/' + taskId + '/reorder';
       await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ beforeTaskId })
       });
-      location.reload();
     }
+    
+    // Initialize drag-and-drop for task reordering
+    function initSortable() {
+      const taskList = document.getElementById('taskList');
+      if (!taskList || !window.Sortable) return;
+      
+      new Sortable(taskList, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: async function(evt) {
+          const taskId = evt.item.dataset.id;
+          const visibleCards = [...taskList.querySelectorAll('.task-card')].filter(c => c.style.display !== 'none');
+          const newIdx = visibleCards.findIndex(c => c.dataset.id === taskId);
+          const beforeTaskId = newIdx + 1 < visibleCards.length ? visibleCards[newIdx + 1].dataset.id : null;
+          await reorderTask(taskId, beforeTaskId);
+        }
+      });
+    }
+    
+    // Load SortableJS and initialize
+    const sortableScript = document.createElement('script');
+    sortableScript.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js';
+    sortableScript.onload = initSortable;
+    document.head.appendChild(sortableScript);
     
     async function createTask() {
       const title = document.getElementById('newTaskTitle').value.trim();

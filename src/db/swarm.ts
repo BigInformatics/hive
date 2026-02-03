@@ -17,6 +17,10 @@ export interface SwarmProject {
   color: string;
   projectLeadUserId: string;
   developerLeadUserId: string;
+  workHoursStart: number | null;
+  workHoursEnd: number | null;
+  workHoursTimezone: string;
+  blockingMode: boolean;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -71,6 +75,10 @@ function rowToProject(row: Record<string, unknown>): SwarmProject {
     color: row.color as string,
     projectLeadUserId: row.project_lead_user_id as string,
     developerLeadUserId: row.developer_lead_user_id as string,
+    workHoursStart: row.work_hours_start as number | null,
+    workHoursEnd: row.work_hours_end as number | null,
+    workHoursTimezone: (row.work_hours_timezone as string) || 'America/Chicago',
+    blockingMode: row.blocking_mode as boolean || false,
     archivedAt: row.archived_at ? new Date(row.archived_at as string) : null,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
@@ -124,13 +132,18 @@ export interface CreateProjectInput {
   color: string;
   projectLeadUserId: string;
   developerLeadUserId: string;
+  workHoursStart?: number;
+  workHoursEnd?: number;
+  workHoursTimezone?: string;
+  blockingMode?: boolean;
 }
 
 export async function createProject(input: CreateProjectInput): Promise<SwarmProject> {
   const [row] = await sql`
     INSERT INTO public.swarm_projects (
       title, description, onedev_url, dokploy_deploy_url, color,
-      project_lead_user_id, developer_lead_user_id
+      project_lead_user_id, developer_lead_user_id,
+      work_hours_start, work_hours_end, work_hours_timezone, blocking_mode
     ) VALUES (
       ${input.title},
       ${input.description || null},
@@ -138,7 +151,11 @@ export async function createProject(input: CreateProjectInput): Promise<SwarmPro
       ${input.dokployDeployUrl || null},
       ${input.color},
       ${input.projectLeadUserId},
-      ${input.developerLeadUserId}
+      ${input.developerLeadUserId},
+      ${input.workHoursStart ?? null},
+      ${input.workHoursEnd ?? null},
+      ${input.workHoursTimezone || 'America/Chicago'},
+      ${input.blockingMode ?? false}
     )
     RETURNING *
   `;
@@ -171,6 +188,10 @@ export interface UpdateProjectInput {
   color?: string;
   projectLeadUserId?: string;
   developerLeadUserId?: string;
+  workHoursStart?: number | null;
+  workHoursEnd?: number | null;
+  workHoursTimezone?: string;
+  blockingMode?: boolean;
 }
 
 export async function updateProject(id: string, input: UpdateProjectInput): Promise<SwarmProject | null> {
@@ -184,6 +205,10 @@ export async function updateProject(id: string, input: UpdateProjectInput): Prom
   if (input.color !== undefined) { updates.push('color'); values.push(input.color); }
   if (input.projectLeadUserId !== undefined) { updates.push('project_lead_user_id'); values.push(input.projectLeadUserId); }
   if (input.developerLeadUserId !== undefined) { updates.push('developer_lead_user_id'); values.push(input.developerLeadUserId); }
+  if (input.workHoursStart !== undefined) { updates.push('work_hours_start'); values.push(input.workHoursStart); }
+  if (input.workHoursEnd !== undefined) { updates.push('work_hours_end'); values.push(input.workHoursEnd); }
+  if (input.workHoursTimezone !== undefined) { updates.push('work_hours_timezone'); values.push(input.workHoursTimezone); }
+  if (input.blockingMode !== undefined) { updates.push('blocking_mode'); values.push(input.blockingMode); }
   
   if (updates.length === 0) {
     return getProject(id);
@@ -220,6 +245,33 @@ export async function unarchiveProject(id: string): Promise<SwarmProject | null>
     RETURNING *
   `;
   return row ? rowToProject(row) : null;
+}
+
+// Check if work can be done on a project now (respecting working hours)
+export function isWithinWorkingHours(project: SwarmProject, now: Date = new Date()): boolean {
+  // If no work hours set, work is always allowed
+  if (project.workHoursStart === null || project.workHoursEnd === null) {
+    return true;
+  }
+  
+  // Get current hour in project's timezone
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    hour12: false,
+    timeZone: project.workHoursTimezone || 'America/Chicago'
+  });
+  const currentHour = parseInt(formatter.format(now), 10);
+  
+  const start = project.workHoursStart;
+  const end = project.workHoursEnd;
+  
+  // Handle normal window (e.g., 9-17)
+  if (start <= end) {
+    return currentHour >= start && currentHour < end;
+  }
+  
+  // Handle overnight window (e.g., 22-6)
+  return currentHour >= start || currentHour < end;
 }
 
 // ============================================================

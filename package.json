@@ -11,7 +11,11 @@
     "deploy": "git push onedev main && curl -s -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: repo:push' -d '{\"ref\": \"refs/heads/main\"}' https://cp.biginformatics.net/api/deploy/compose/y-GQ66-yJTFF6Pee1Vubk"
   },
   "dependencies": {
-    "luxon": "^3.7.2"
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "luxon": "^3.7.2",
+    "sortablejs": "^1.15.6"
   },
   "devDependencies": {
     "@types/bun": "latest",
