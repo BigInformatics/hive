@@ -4307,7 +4307,7 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
         '<div class="task-detail-row"><span class="task-detail-label">Must be done after:</span><select id="edit-dependency-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + dependencyOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Start after:</span><input type="datetime-local" id="edit-onOrAfter-' + t.id + '" value="' + (t.onOrAfterAt ? new Date(t.onOrAfterAt).toISOString().slice(0, 16) : '') + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Issue URL:</span><input type="url" id="edit-issueUrl-' + t.id + '" value="' + (t.issueUrl ? escapeHtml(t.issueUrl) : '') + '" placeholder="GitHub, OneDev, etc." style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
-        (t.issueUrl ? '<div class="task-detail-row"><span class="task-detail-label"></span><a href="' + escapeHtml(t.issueUrl) + '" target="_blank" rel="noopener" style="color:var(--primary);font-size:0.8rem;">Open issue →</a></div>' : '') +
+        (t.issueUrl ? '<div class="task-detail-row"><span class="task-detail-label"></span><span style="display:flex;align-items:center;gap:8px;"><a href="' + escapeHtml(t.issueUrl) + '" target="_blank" rel="noopener" style="color:var(--primary);font-size:0.8rem;">Open issue →</a><button onclick="event.preventDefault();copyUrl(\'' + escapeHtml(t.issueUrl).replace(/'/g, "\\'") + '\', this)" style="background:none;border:none;cursor:pointer;color:var(--muted-foreground);padding:4px;display:inline-flex;align-items:center;" title="Copy URL"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></span></div>' : '') +
         '<div class="task-detail-row"><span class="task-detail-label">Created:</span><span class="task-detail-value">' + createdAt + '</span></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Updated:</span><span class="task-detail-value">' + updatedAt + '</span></div>' +
         (t.blockedReason ? '<div class="task-detail-row"><span class="task-detail-label">Blocked:</span><span class="task-detail-value" style="color:#ef4444;">' + escapeHtml(t.blockedReason) + '</span></div>' : '') +
@@ -4906,9 +4906,17 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <option value="zumie">Zumie</option>
       </select>
       <label>Repo URL (OneDev)</label>
-      <input type="url" id="editProjectRepo" placeholder="https://dev.biginformatics.net/...">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
+        <input type="url" id="editProjectRepo" placeholder="https://dev.biginformatics.net/..." style="flex:1;margin-bottom:0;">
+        <button onclick="const v=document.getElementById('editProjectRepo').value;if(v)copyUrl(v,this)" style="background:none;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--muted-foreground);padding:8px;display:inline-flex;align-items:center;" title="Copy URL"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <a id="editProjectRepoLink" href="#" target="_blank" rel="noopener" style="display:none;background:none;border:1px solid var(--border);border-radius:var(--radius);color:var(--muted-foreground);padding:8px;text-decoration:none;" title="Open URL"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+      </div>
       <label>Deploy URL (Dokploy)</label>
-      <input type="url" id="editProjectDeploy" placeholder="https://cp.biginformatics.net/...">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
+        <input type="url" id="editProjectDeploy" placeholder="https://cp.biginformatics.net/..." style="flex:1;margin-bottom:0;">
+        <button onclick="const v=document.getElementById('editProjectDeploy').value;if(v)copyUrl(v,this)" style="background:none;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--muted-foreground);padding:8px;display:inline-flex;align-items:center;" title="Copy URL"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <a id="editProjectDeployLink" href="#" target="_blank" rel="noopener" style="display:none;background:none;border:1px solid var(--border);border-radius:var(--radius);color:var(--muted-foreground);padding:8px;text-decoration:none;" title="Open URL"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+      </div>
     </div>
     <div class="project-drawer-footer">
       <button class="cancel-btn" onclick="closeProjectDrawer()">Cancel</button>
@@ -4946,6 +4954,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       document.getElementById('editProjectRepo').value = project.onedevUrl;
       document.getElementById('editProjectDeploy').value = project.dokployDeployUrl;
       
+      // Show/hide external link buttons
+      const repoLink = document.getElementById('editProjectRepoLink');
+      const deployLink = document.getElementById('editProjectDeployLink');
+      if (project.onedevUrl) { repoLink.href = project.onedevUrl; repoLink.style.display = 'inline-flex'; } else { repoLink.style.display = 'none'; }
+      if (project.dokployDeployUrl) { deployLink.href = project.dokployDeployUrl; deployLink.style.display = 'inline-flex'; } else { deployLink.style.display = 'none'; }
+      
       document.getElementById('projectDrawerOverlay').classList.add('open');
       document.getElementById('projectDrawer').classList.add('open');
     }
@@ -4980,6 +4994,27 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       } else {
         const err = await res.json();
         alert('Error: ' + (err.error || 'Failed to update project'));
+      }
+    }
+    
+    // Copy URL to clipboard
+    async function copyUrl(url, btn) {
+      let success = false;
+      if (navigator?.clipboard?.writeText) {
+        try { await navigator.clipboard.writeText(url); success = true; } catch {}
+      }
+      if (!success) {
+        const ta = document.createElement('textarea');
+        ta.value = url; ta.style.cssText = 'position:fixed;left:-9999px';
+        document.body.appendChild(ta); ta.select();
+        try { success = document.execCommand('copy'); } catch {}
+        document.body.removeChild(ta);
+      }
+      if (success && btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.style.color = '#22c55e';
+        setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
       }
     }
     
