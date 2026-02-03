@@ -2491,7 +2491,7 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
   
   const identity = config.sender;
   
-  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null };
+  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null; mustBeDoneAfterTaskId?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -2507,6 +2507,7 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
       projectId: body.projectId,
       assigneeUserId: body.assigneeUserId,
       detail: body.detail,
+      mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
     });
     
     if (!task) {
@@ -4041,6 +4042,20 @@ function _legacySwarmHTML(): string {
         <label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="none"> No Project</label>
         ${projects.map(p => '<label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="' + p.id + '"> <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + ';margin-right:4px;"></span>' + p.title + '</label>').join('')}
       </div>
+      <div class="filter-section">
+        <h3>Sort</h3>
+        <select id="sortSelect" onchange="applyFilters()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
+          <option value="planned">Planned (default)</option>
+          <option value="createdAt-desc">Created (newest)</option>
+          <option value="createdAt-asc">Created (oldest)</option>
+          <option value="updatedAt-desc">Updated (newest)</option>
+          <option value="updatedAt-asc">Updated (oldest)</option>
+        </select>
+      </div>
+      <div class="filter-section">
+        <h3>Options</h3>
+        <label class="filter-option"><input type="checkbox" id="showFuture" onchange="applyFilters()"> Show future tasks</label>
+      </div>
     </aside>
     <main class="main">
       <header class="header">
@@ -4082,7 +4097,7 @@ function _legacySwarmHTML(): string {
         <button class="action-btn" onclick="toggleCreateForm()" style="margin-bottom:16px;">+ New Task</button>
         <div class="task-list" id="taskList">
           ${enrichedTasks.length === 0 ? '<div class="empty-state"><h3>No tasks yet</h3><p>Create your first task to get started</p></div>' : 
-            enrichedTasks.map(t => renderTaskCard(t, projects)).join('')}
+            enrichedTasks.map(t => renderTaskCard(t, projects, enrichedTasks)).join('')}
         </div>
       </div>
     </main>
@@ -4114,18 +4129,50 @@ function _legacySwarmHTML(): string {
       const statuses = [...document.querySelectorAll('[data-filter="status"]:checked')].map(cb => cb.value);
       const assignees = [...document.querySelectorAll('[data-filter="assignee"]:checked')].map(cb => cb.value);
       const projects = [...document.querySelectorAll('[data-filter="project"]:checked')].map(cb => cb.value);
+      const showFuture = document.getElementById('showFuture')?.checked || false;
+      const sortValue = document.getElementById('sortSelect')?.value || 'planned';
       
+      // Filter cards
       document.querySelectorAll('.task-card').forEach(card => {
         const status = card.dataset.status;
         const assignee = card.dataset.assignee || 'unassigned';
         const project = card.dataset.project || 'none';
+        const isFuture = card.dataset.future === 'true';
         
         const statusMatch = statuses.includes(status);
         const assigneeMatch = assignees.includes(assignee);
         const projectMatch = projects.includes(project);
+        const futureMatch = showFuture || !isFuture;
         
-        card.style.display = (statusMatch && assigneeMatch && projectMatch) ? 'flex' : 'none';
+        card.style.display = (statusMatch && assigneeMatch && projectMatch && futureMatch) ? 'flex' : 'none';
       });
+      
+      // Sort cards
+      const taskList = document.getElementById('taskList');
+      const cards = [...taskList.querySelectorAll('.task-card')];
+      const statusOrder = { in_progress: 1, review: 2, ready: 3, queued: 4, holding: 5, complete: 6 };
+      
+      cards.sort((a, b) => {
+        if (sortValue === 'planned') {
+          const statusA = statusOrder[a.dataset.status] || 99;
+          const statusB = statusOrder[b.dataset.status] || 99;
+          if (statusA !== statusB) return statusA - statusB;
+          const sortKeyA = parseInt(a.dataset.sortKey) || 0;
+          const sortKeyB = parseInt(b.dataset.sortKey) || 0;
+          if (sortKeyA !== sortKeyB) return sortKeyA - sortKeyB;
+          return parseInt(a.dataset.created) - parseInt(b.dataset.created);
+        } else if (sortValue === 'createdAt-desc') {
+          return parseInt(b.dataset.created) - parseInt(a.dataset.created);
+        } else if (sortValue === 'createdAt-asc') {
+          return parseInt(a.dataset.created) - parseInt(b.dataset.created);
+        } else if (sortValue === 'updatedAt-desc') {
+          return parseInt(b.dataset.updated) - parseInt(a.dataset.updated);
+        } else if (sortValue === 'updatedAt-asc') {
+          return parseInt(a.dataset.updated) - parseInt(b.dataset.updated);
+        }
+        return 0;
+      });
+      cards.forEach(card => taskList.appendChild(card));
     }
     
     // Task actions
@@ -4139,6 +4186,30 @@ function _legacySwarmHTML(): string {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
+      });
+      location.reload();
+    }
+    
+    async function moveTask(id, direction) {
+      const cards = [...document.querySelectorAll('.task-card')].filter(c => c.style.display !== 'none');
+      const idx = cards.findIndex(c => c.dataset.id === id);
+      if (idx === -1) return;
+      
+      let beforeTaskId = null;
+      if (direction === 'up' && idx > 0) {
+        // Move before the previous visible card
+        beforeTaskId = cards[idx - 1].dataset.id;
+      } else if (direction === 'down' && idx < cards.length - 1) {
+        // Move before the card after the next one (or null if moving to end)
+        beforeTaskId = idx + 2 < cards.length ? cards[idx + 2].dataset.id : null;
+      } else {
+        return; // Can't move further
+      }
+      
+      await fetch('/api/swarm/tasks/' + id + '/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ beforeTaskId })
       });
       location.reload();
     }
@@ -4165,7 +4236,7 @@ function _legacySwarmHTML(): string {
 </html>`;
 }
 
-function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[]): string {
+function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allTasks: swarm.SwarmTask[]): string {
   const project = projects.find(p => p.id === t.projectId);
   const accentColor = project?.color || '#71717a';
   
@@ -4193,7 +4264,16 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[]): str
   const assigneeOptions = '<option value="">Unassigned</option>' +
     ['chris', 'clio', 'domingo', 'zumie'].map(a => '<option value="' + a + '"' + (a === t.assigneeUserId ? ' selected' : '') + '>' + a + '</option>').join('');
   
-  return '<div class="task-card" data-id="' + t.id + '" data-status="' + t.status + '" data-assignee="' + (t.assigneeUserId || '') + '" data-project="' + (t.projectId || '') + '" onclick="toggleTaskExpand(this)">' +
+  // Dependency options (other tasks, excluding self and complete tasks)
+  const dependencyOptions = '<option value="">None</option>' +
+    allTasks
+      .filter(other => other.id !== t.id && other.status !== 'complete')
+      .map(other => '<option value="' + other.id + '"' + (other.id === t.mustBeDoneAfterTaskId ? ' selected' : '') + '>' + escapeHtml(other.title).substring(0, 40) + (other.title.length > 40 ? '...' : '') + '</option>')
+      .join('');
+  
+  const isFuture = t.onOrAfterAt && new Date(t.onOrAfterAt) > new Date();
+  
+  return '<div class="task-card" data-id="' + t.id + '" data-status="' + t.status + '" data-assignee="' + (t.assigneeUserId || '') + '" data-project="' + (t.projectId || '') + '" data-future="' + (isFuture ? 'true' : 'false') + '" data-created="' + new Date(t.createdAt).getTime() + '" data-updated="' + new Date(t.updatedAt).getTime() + '" data-sort-key="' + (t.sortKey || 0) + '" onclick="toggleTaskExpand(this)">' +
     '<div class="task-accent" style="background:' + accentColor + '"></div>' +
     '<div class="task-content">' +
       '<div class="task-header">' +
@@ -4207,6 +4287,7 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[]): str
         '<div class="task-detail-row"><span class="task-detail-label">Title:</span><input type="text" class="task-edit-input" id="edit-title-' + t.id + '" value="' + escapeHtml(t.title).replace(/"/g, '&quot;') + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Project:</span><select id="edit-project-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + projectOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Assignee:</span><select id="edit-assignee-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + assigneeOptions + '</select></div>' +
+        '<div class="task-detail-row"><span class="task-detail-label">Must be done after:</span><select id="edit-dependency-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + dependencyOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Created:</span><span class="task-detail-value">' + createdAt + '</span></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Updated:</span><span class="task-detail-value">' + updatedAt + '</span></div>' +
         (t.blockedReason ? '<div class="task-detail-row"><span class="task-detail-label">Blocked:</span><span class="task-detail-value" style="color:#ef4444;">' + escapeHtml(t.blockedReason) + '</span></div>' : '') +
@@ -4216,7 +4297,11 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[]): str
           claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn +
         '</div>' +
       '</div>' +
-      '<div class="task-actions">' + claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + '</div>' +
+      '<div class="task-actions">' + 
+        '<button class="action-btn" onclick="event.stopPropagation();moveTask(\'' + t.id + '\', \'up\')" title="Move up">↑</button>' +
+        '<button class="action-btn" onclick="event.stopPropagation();moveTask(\'' + t.id + '\', \'down\')" title="Move down">↓</button>' +
+        claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + 
+      '</div>' +
     '</div>' +
   '</div>';
 }
@@ -4606,6 +4691,20 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="none"> No Project</label>
         ${projects.map(p => '<label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="' + p.id + '"> <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + ';margin-right:4px;"></span>' + p.title + '</label>').join('')}
       </div>
+      <div class="filter-section">
+        <h3>Sort</h3>
+        <select id="sortSelect" onchange="applyFilters()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
+          <option value="planned">Planned (default)</option>
+          <option value="createdAt-desc">Created (newest)</option>
+          <option value="createdAt-asc">Created (oldest)</option>
+          <option value="updatedAt-desc">Updated (newest)</option>
+          <option value="updatedAt-asc">Updated (oldest)</option>
+        </select>
+      </div>
+      <div class="filter-section">
+        <h3>Options</h3>
+        <label class="filter-option"><input type="checkbox" id="showFuture" onchange="applyFilters()"> Show future tasks</label>
+      </div>
       <div class="filter-section" style="border-top:1px solid var(--border);padding-top:16px;margin-top:auto;">
         <button class="action-btn" onclick="toggleProjectForm()" style="width:100%;">+ New Project</button>
         <div id="projectForm" style="display:none;margin-top:12px;">
@@ -4679,7 +4778,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <button class="action-btn" onclick="toggleCreateForm()" style="margin-bottom:16px;">+ New Task</button>
         <div class="task-list" id="taskList">
           ${tasks.length === 0 ? '<div class="empty-state"><h3>No tasks yet</h3><p>Create your first task to get started</p></div>' : 
-            tasks.map(t => renderTaskCard(t, projects)).join('')}
+            tasks.map(t => renderTaskCard(t, projects, tasks)).join('')}
         </div>
       </div>
     </main>
@@ -4774,18 +4873,50 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const statuses = [...document.querySelectorAll('[data-filter="status"]:checked')].map(cb => cb.value);
       const assignees = [...document.querySelectorAll('[data-filter="assignee"]:checked')].map(cb => cb.value);
       const projects = [...document.querySelectorAll('[data-filter="project"]:checked')].map(cb => cb.value);
+      const showFuture = document.getElementById('showFuture')?.checked || false;
+      const sortValue = document.getElementById('sortSelect')?.value || 'planned';
       
+      // Filter cards
       document.querySelectorAll('.task-card').forEach(card => {
         const status = card.dataset.status;
         const assignee = card.dataset.assignee || 'unassigned';
         const project = card.dataset.project || 'none';
+        const isFuture = card.dataset.future === 'true';
         
         const statusMatch = statuses.includes(status);
         const assigneeMatch = assignees.includes(assignee);
         const projectMatch = projects.includes(project);
+        const futureMatch = showFuture || !isFuture;
         
-        card.style.display = (statusMatch && assigneeMatch && projectMatch) ? 'flex' : 'none';
+        card.style.display = (statusMatch && assigneeMatch && projectMatch && futureMatch) ? 'flex' : 'none';
       });
+      
+      // Sort cards
+      const taskList = document.getElementById('taskList');
+      const cards = [...taskList.querySelectorAll('.task-card')];
+      const statusOrder = { in_progress: 1, review: 2, ready: 3, queued: 4, holding: 5, complete: 6 };
+      
+      cards.sort((a, b) => {
+        if (sortValue === 'planned') {
+          const statusA = statusOrder[a.dataset.status] || 99;
+          const statusB = statusOrder[b.dataset.status] || 99;
+          if (statusA !== statusB) return statusA - statusB;
+          const sortKeyA = parseInt(a.dataset.sortKey) || 0;
+          const sortKeyB = parseInt(b.dataset.sortKey) || 0;
+          if (sortKeyA !== sortKeyB) return sortKeyA - sortKeyB;
+          return parseInt(a.dataset.created) - parseInt(b.dataset.created);
+        } else if (sortValue === 'createdAt-desc') {
+          return parseInt(b.dataset.created) - parseInt(a.dataset.created);
+        } else if (sortValue === 'createdAt-asc') {
+          return parseInt(a.dataset.created) - parseInt(b.dataset.created);
+        } else if (sortValue === 'updatedAt-desc') {
+          return parseInt(b.dataset.updated) - parseInt(a.dataset.updated);
+        } else if (sortValue === 'updatedAt-asc') {
+          return parseInt(a.dataset.updated) - parseInt(b.dataset.updated);
+        }
+        return 0;
+      });
+      cards.forEach(card => taskList.appendChild(card));
     }
     
     // Save task edits
@@ -4794,6 +4925,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const projectId = document.getElementById('edit-project-' + id).value || null;
       const assigneeUserId = document.getElementById('edit-assignee-' + id).value || null;
       const detail = document.getElementById('edit-detail-' + id).value.trim() || null;
+      const mustBeDoneAfterTaskId = document.getElementById('edit-dependency-' + id).value || null;
       
       if (!title) return alert('Title is required');
       
@@ -4801,7 +4933,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, projectId, assigneeUserId, detail })
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail, mustBeDoneAfterTaskId })
       });
       
       if (res.ok) {
@@ -4825,6 +4957,29 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
+      });
+      location.reload();
+    }
+    
+    async function moveTask(id, direction) {
+      const cards = [...document.querySelectorAll('.task-card')].filter(c => c.style.display !== 'none');
+      const idx = cards.findIndex(c => c.dataset.id === id);
+      if (idx === -1) return;
+      
+      let beforeTaskId = null;
+      if (direction === 'up' && idx > 0) {
+        beforeTaskId = cards[idx - 1].dataset.id;
+      } else if (direction === 'down' && idx < cards.length - 1) {
+        beforeTaskId = idx + 2 < cards.length ? cards[idx + 2].dataset.id : null;
+      } else {
+        return;
+      }
+      
+      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + id + '/reorder' : '/api/swarm/tasks/' + id + '/reorder';
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ beforeTaskId })
       });
       location.reload();
     }
