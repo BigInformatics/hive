@@ -761,6 +761,13 @@ export interface RecurringTemplate {
 }
 
 function rowToTemplate(row: Record<string, unknown>): RecurringTemplate {
+  // Postgres returns Date objects directly, not strings
+  const toDate = (val: unknown): Date => {
+    if (val instanceof Date) return val;
+    if (typeof val === 'string') return new Date(val);
+    return new Date(String(val));
+  };
+  
   return {
     id: row.id as string,
     projectId: row.project_id as string | null,
@@ -772,8 +779,8 @@ function rowToTemplate(row: Record<string, unknown>): RecurringTemplate {
     mute: row.mute as boolean,
     muteInterval: row.mute_interval as string | null,
     timezone: row.timezone as string,
-    startAt: new Date(row.start_at as string),
-    endAt: row.end_at ? new Date(row.end_at as string) : null,
+    startAt: toDate(row.start_at),
+    endAt: row.end_at ? toDate(row.end_at) : null,
     repeatCount: row.repeat_count as number | null,
     everyInterval: row.every_interval as number,
     everyUnit: row.every_unit as EveryUnit,
@@ -782,10 +789,10 @@ function rowToTemplate(row: Record<string, unknown>): RecurringTemplate {
     betweenHoursStart: row.between_hours_start as number | null,
     betweenHoursEnd: row.between_hours_end as number | null,
     enabled: row.enabled as boolean,
-    lastRunAt: row.last_run_at ? new Date(row.last_run_at as string) : null,
-    nextRunAt: row.next_run_at ? new Date(row.next_run_at as string) : null,
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    lastRunAt: row.last_run_at ? toDate(row.last_run_at) : null,
+    nextRunAt: row.next_run_at ? toDate(row.next_run_at) : null,
+    createdAt: toDate(row.created_at),
+    updatedAt: toDate(row.updated_at),
   };
 }
 
