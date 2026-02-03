@@ -2796,8 +2796,12 @@ async function handleRequest(request: Request): Promise<Response> {
     const uiKeySendMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/send$/);
     const uiKeyAckMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/ack\/(\d+)$/);
     const uiKeySwarmMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm$/);
+    const uiKeySwarmRecurringMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/recurring$/);
     const uiKeyBuzzMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/buzz$/);
     
+    if (method === "GET" && uiKeySwarmRecurringMatch) {
+      return handleRecurringUIWithKey(uiKeySwarmRecurringMatch[1]);
+    }
     if (method === "GET" && uiKeySwarmMatch) {
       return handleSwarmUIWithKey(uiKeySwarmMatch[1]);
     }
@@ -4431,6 +4435,192 @@ function handleSwarmUIStream(request: Request): Response {
       "Connection": "keep-alive",
     },
   });
+}
+
+// Keyed Recurring Templates UI
+async function handleRecurringUIWithKey(key: string): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const identity = config.sender;
+  const templates = await swarm.listTemplates({});
+  const projects = await swarm.listProjects({ includeArchived: false });
+  
+  const keyPath = '/' + key;
+  
+  const formatSchedule = (t: swarm.RecurringTemplate): string => {
+    let s = 'Every ' + t.everyInterval + ' ' + t.everyUnit + (t.everyInterval > 1 ? 's' : '');
+    if (t.daysOfWeek && t.daysOfWeek.length > 0) {
+      s += ' on ' + t.daysOfWeek.join(', ');
+    }
+    if (t.weekParity !== 'any') {
+      s += ' (' + t.weekParity + ' weeks)';
+    }
+    return s;
+  };
+  
+  const projectOptions = '<option value="">No Project</option>' + 
+    projects.map(p => '<option value="' + p.id + '">' + escapeHtml(p.title) + '</option>').join('');
+  
+  const templateCards = templates.length === 0 
+    ? '<div class="empty-state"><h3>No recurring templates</h3><p>Create your first recurring task template</p></div>'
+    : templates.map(t => 
+        '<div class="template-card" onclick="openDrawer(\'' + t.id + '\')">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+            '<div>' +
+              '<div class="template-title">' + escapeHtml(t.title) + '</div>' +
+              '<div class="template-schedule">' + formatSchedule(t) + '</div>' +
+            '</div>' +
+            '<span class="badge ' + (t.enabled ? 'badge-enabled' : 'badge-disabled') + '">' + (t.enabled ? 'Enabled' : 'Disabled') + '</span>' +
+          '</div>' +
+          '<div class="template-meta">' +
+            '<span>Starts: ' + new Date(t.startAt).toLocaleDateString() + '</span>' +
+            (t.endAt ? '<span>Ends: ' + new Date(t.endAt).toLocaleDateString() + '</span>' : '') +
+            '<span>Owner: ' + t.ownerUserId + '</span>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+  
+  const html = '<!DOCTYPE html>' +
+    '<html lang="en"><head>' +
+    '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<title>Recurring Templates - Swarm</title>' +
+    '<style>' +
+    ':root { --background: #0a0a0a; --foreground: #fafafa; --card: #18181b; --border: #27272a; --muted-foreground: #a1a1aa; --primary: #0ea5e9; --secondary: #27272a; --radius: 6px; }' +
+    'body.light { --background: #ffffff; --foreground: #0a0a0a; --card: #f4f4f5; --border: #e4e4e7; --muted-foreground: #71717a; --secondary: #f4f4f5; }' +
+    '* { box-sizing: border-box; margin: 0; padding: 0; }' +
+    'body { font-family: system-ui, sans-serif; background: var(--background); color: var(--foreground); min-height: 100vh; }' +
+    '.container { max-width: 1000px; margin: 0 auto; padding: 24px; }' +
+    '.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }' +
+    '.header h1 { font-size: 1.5rem; }' +
+    '.nav { display: flex; gap: 8px; }' +
+    '.nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }' +
+    '.nav a:hover { background: var(--secondary); color: var(--foreground); }' +
+    '.nav a.active { background: var(--primary); color: white; }' +
+    '.template-list { display: flex; flex-direction: column; gap: 12px; }' +
+    '.template-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; }' +
+    '.template-card:hover { border-color: var(--primary); }' +
+    '.template-title { font-weight: 600; margin-bottom: 4px; }' +
+    '.template-schedule { font-size: 0.875rem; color: var(--muted-foreground); }' +
+    '.template-meta { display: flex; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--muted-foreground); }' +
+    '.badge { padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; }' +
+    '.badge-enabled { background: rgba(34, 197, 94, 0.1); color: #22c55e; }' +
+    '.badge-disabled { background: rgba(239, 68, 68, 0.1); color: #ef4444; }' +
+    '.btn { padding: 8px 16px; border-radius: var(--radius); cursor: pointer; font-size: 0.875rem; border: 1px solid var(--border); background: var(--background); color: var(--foreground); }' +
+    '.btn:hover { background: var(--secondary); }' +
+    '.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }' +
+    '.empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }' +
+    '.drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }' +
+    '.drawer-overlay.open { display: block; }' +
+    '.drawer { position: fixed; top: 0; right: -450px; width: 450px; max-width: 95vw; height: 100vh; background: var(--card); border-left: 1px solid var(--border); z-index: 1001; transition: right 0.2s; display: flex; flex-direction: column; }' +
+    '.drawer.open { right: 0; }' +
+    '.drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }' +
+    '.drawer-body { flex: 1; padding: 20px; overflow-y: auto; }' +
+    '.drawer-body label { display: block; font-size: 0.75rem; color: var(--muted-foreground); margin-bottom: 4px; text-transform: uppercase; }' +
+    '.drawer-body input, .drawer-body select, .drawer-body textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--foreground); font-size: 0.875rem; margin-bottom: 16px; }' +
+    '.drawer-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; }' +
+    '.drawer-footer button { flex: 1; }' +
+    '.form-row { display: flex; gap: 12px; }' +
+    '.form-row > * { flex: 1; }' +
+    '</style></head><body>' +
+    '<div class="container">' +
+      '<div class="header">' +
+        '<h1>🔄 Recurring Templates</h1>' +
+        '<nav class="nav">' +
+          '<a href="/ui' + keyPath + '">Messages</a>' +
+          '<a href="/ui' + keyPath + '/buzz">Buzz</a>' +
+          '<a href="/ui' + keyPath + '/swarm">Tasks</a>' +
+          '<a href="/ui' + keyPath + '/swarm/recurring" class="active">Recurring</a>' +
+        '</nav>' +
+      '</div>' +
+      '<button class="btn btn-primary" onclick="openDrawer()" style="margin-bottom:16px;">+ New Template</button>' +
+      '<div class="template-list">' + templateCards + '</div>' +
+    '</div>' +
+    '<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>' +
+    '<div class="drawer" id="drawer">' +
+      '<div class="drawer-header"><h2 id="drawerTitle">New Template</h2><button onclick="closeDrawer()" style="background:none;border:none;cursor:pointer;color:var(--muted-foreground);font-size:1.25rem;">×</button></div>' +
+      '<div class="drawer-body">' +
+        '<input type="hidden" id="templateId">' +
+        '<label>Title *</label><input type="text" id="templateTitle" placeholder="Template title...">' +
+        '<label>Project</label><select id="templateProject">' + projectOptions + '</select>' +
+        '<label>Description</label><textarea id="templateDetail" placeholder="Details..." style="min-height:60px;resize:vertical;"></textarea>' +
+        '<div class="form-row"><div><label>Every *</label><input type="number" id="everyInterval" value="1" min="1"></div><div><label>Unit *</label><select id="everyUnit"><option value="minute">Minutes</option><option value="hour">Hours</option><option value="day" selected>Days</option><option value="week">Weeks</option><option value="month">Months</option></select></div></div>' +
+        '<label>Start Date *</label><input type="datetime-local" id="startAt">' +
+        '<label>End Date (optional)</label><input type="datetime-local" id="endAt">' +
+        '<label>Days of Week (optional)</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="mon" class="dow"> Mon</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="tue" class="dow"> Tue</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="wed" class="dow"> Wed</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="thu" class="dow"> Thu</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="fri" class="dow"> Fri</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="sat" class="dow"> Sat</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="sun" class="dow"> Sun</label></div>' +
+        '<label>Week Parity</label><select id="weekParity"><option value="any">Any week</option><option value="odd">Odd weeks only</option><option value="even">Even weeks only</option></select>' +
+        '<label>Primary Agent</label><select id="primaryAgent"><option value="">None</option><option value="chris">Chris</option><option value="clio">Clio</option><option value="domingo">Domingo</option><option value="zumie">Zumie</option></select>' +
+      '</div>' +
+      '<div class="drawer-footer"><button class="btn" onclick="closeDrawer()">Cancel</button><button class="btn btn-primary" onclick="saveTemplate()">Save</button></div>' +
+    '</div>' +
+    '<script>' +
+      'const UI_KEY = "' + key + '";' +
+      'const TEMPLATES = ' + JSON.stringify(templates) + ';' +
+      'function openDrawer(id) {' +
+        'document.getElementById("drawerOverlay").classList.add("open");' +
+        'document.getElementById("drawer").classList.add("open");' +
+        'if (id) {' +
+          'const t = TEMPLATES.find(x => x.id === id);' +
+          'if (!t) return;' +
+          'document.getElementById("drawerTitle").textContent = "Edit Template";' +
+          'document.getElementById("templateId").value = t.id;' +
+          'document.getElementById("templateTitle").value = t.title;' +
+          'document.getElementById("templateProject").value = t.projectId || "";' +
+          'document.getElementById("templateDetail").value = t.detail || "";' +
+          'document.getElementById("everyInterval").value = t.everyInterval;' +
+          'document.getElementById("everyUnit").value = t.everyUnit;' +
+          'document.getElementById("startAt").value = t.startAt ? new Date(t.startAt).toISOString().slice(0,16) : "";' +
+          'document.getElementById("endAt").value = t.endAt ? new Date(t.endAt).toISOString().slice(0,16) : "";' +
+          'document.getElementById("weekParity").value = t.weekParity;' +
+          'document.getElementById("primaryAgent").value = t.primaryAgent || "";' +
+          'document.querySelectorAll(".dow").forEach(cb => { cb.checked = t.daysOfWeek && t.daysOfWeek.includes(cb.value); });' +
+        '} else {' +
+          'document.getElementById("drawerTitle").textContent = "New Template";' +
+          'document.getElementById("templateId").value = "";' +
+          'document.getElementById("templateTitle").value = "";' +
+          'document.getElementById("templateProject").value = "";' +
+          'document.getElementById("templateDetail").value = "";' +
+          'document.getElementById("everyInterval").value = "1";' +
+          'document.getElementById("everyUnit").value = "day";' +
+          'document.getElementById("startAt").value = "";' +
+          'document.getElementById("endAt").value = "";' +
+          'document.getElementById("weekParity").value = "any";' +
+          'document.getElementById("primaryAgent").value = "";' +
+          'document.querySelectorAll(".dow").forEach(cb => cb.checked = false);' +
+        '}' +
+      '}' +
+      'function closeDrawer() {' +
+        'document.getElementById("drawerOverlay").classList.remove("open");' +
+        'document.getElementById("drawer").classList.remove("open");' +
+      '}' +
+      'async function saveTemplate() {' +
+        'const id = document.getElementById("templateId").value;' +
+        'const title = document.getElementById("templateTitle").value.trim();' +
+        'const projectId = document.getElementById("templateProject").value || null;' +
+        'const detail = document.getElementById("templateDetail").value.trim() || null;' +
+        'const everyInterval = parseInt(document.getElementById("everyInterval").value);' +
+        'const everyUnit = document.getElementById("everyUnit").value;' +
+        'const startAt = document.getElementById("startAt").value;' +
+        'const endAt = document.getElementById("endAt").value || null;' +
+        'const weekParity = document.getElementById("weekParity").value;' +
+        'const primaryAgent = document.getElementById("primaryAgent").value || null;' +
+        'const daysOfWeek = [...document.querySelectorAll(".dow:checked")].map(cb => cb.value);' +
+        'if (!title) return alert("Title is required");' +
+        'if (!startAt) return alert("Start date is required");' +
+        'if (!everyInterval || everyInterval < 1) return alert("Interval must be at least 1");' +
+        'const body = { title, projectId, detail, everyInterval, everyUnit, startAt: new Date(startAt).toISOString(), endAt: endAt ? new Date(endAt).toISOString() : null, weekParity, primaryAgent, daysOfWeek: daysOfWeek.length > 0 ? daysOfWeek : null };' +
+        'const url = id ? "/api/swarm/recurring/templates/" + id : "/api/swarm/recurring/templates";' +
+        'const method = id ? "PATCH" : "POST";' +
+        'const res = await fetch(url, { method, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + UI_KEY }, body: JSON.stringify(body) });' +
+        'if (res.ok) { location.reload(); } else { const err = await res.json(); alert("Error: " + (err.error || "Failed to save")); }' +
+      '}' +
+      'const savedTheme = localStorage.getItem("theme"); if (savedTheme === "light") document.body.classList.add("light");' +
+    '</script>' +
+    '</body></html>';
+  
+  return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
 // Keyed Swarm UI - validates key and renders with auth context
