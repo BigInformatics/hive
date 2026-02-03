@@ -2862,6 +2862,19 @@ async function handleRequest(request: Request): Promise<Response> {
       return handleAvatar(assetMatch[1], assetMatch[2]);
     }
     
+    // Serve React island bundle
+    if (method === "GET" && path === "/ui/task-list-island.js") {
+      try {
+        const file = Bun.file("./public/task-list-island.js");
+        if (await file.exists()) {
+          return new Response(file, {
+            headers: { "Content-Type": "application/javascript", "Cache-Control": "public, max-age=3600" }
+          });
+        }
+      } catch { }
+      return error("Bundle not found", 404);
+    }
+    
     // UI endpoints (no auth, internal only)
     if (path === "/ui") return handleUI();
     if (path === "/ui/messages") return handleUIMessages(request);
@@ -5673,29 +5686,29 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       location.reload();
     }
     
-    async function reorderTask(taskId, beforeTaskId) {
-      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + taskId + '/reorder' : '/api/swarm/tasks/' + taskId + '/reorder';
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ beforeTaskId })
-      });
-    }
-    
-    // Initialize drag-and-drop with dnd-kit (React island)
-    function initDndKit() {
+    // Initialize drag-and-drop with dnd-kit React island
+    function initTaskListIsland() {
       const taskList = document.getElementById('taskList');
-      if (!taskList || !window.initDndKit) return;
+      if (!taskList || !window.mountTaskListIsland) return;
       
-      window.initDndKit(taskList, async function(taskId, beforeTaskId) {
-        await reorderTask(taskId, beforeTaskId);
-      });
+      // Collect task card data
+      const taskCards = taskList.querySelectorAll('.task-card');
+      const tasks = Array.from(taskCards).map(card => ({
+        id: card.dataset.id,
+        html: card.outerHTML
+      }));
+      
+      if (tasks.length === 0) return;
+      
+      // Clear the original list and mount React island
+      taskList.innerHTML = '';
+      window.mountTaskListIsland('taskList', tasks, UI_KEY);
     }
     
     // Load dnd-kit React bundle and initialize
     const dndScript = document.createElement('script');
-    dndScript.src = '/ui/bundle.js';
-    dndScript.onload = initDndKit;
+    dndScript.src = '/ui/task-list-island.js';
+    dndScript.onload = initTaskListIsland;
     document.head.appendChild(dndScript);
     
     async function createTask() {
