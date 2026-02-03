@@ -436,10 +436,46 @@ export async function updateTask(id: string, input: UpdateTaskInput): Promise<Sw
   return row ? rowToTask(row) : null;
 }
 
+// Status transition validation - blocked tasks cannot move to certain states
+const BLOCKED_DISALLOWED_TRANSITIONS: TaskStatus[] = ['in_progress', 'review', 'complete'];
+
+export interface StatusTransitionResult {
+  success: boolean;
+  task?: SwarmTask;
+  error?: string;
+  blockedReason?: 'dependency' | 'on_or_after';
+}
+
 export async function updateTaskStatus(id: string, status: TaskStatus, actorUserId: string): Promise<SwarmTask | null> {
-  // Get current task to record before state
+  const result = await updateTaskStatusWithValidation(id, status, actorUserId);
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to update task status');
+  }
+  return result.task || null;
+}
+
+export async function updateTaskStatusWithValidation(
+  id: string, 
+  status: TaskStatus, 
+  actorUserId: string
+): Promise<StatusTransitionResult> {
+  // Get current task to record before state and check blocking
   const current = await getTask(id);
-  if (!current) return null;
+  if (!current) {
+    return { success: false, error: 'Task not found' };
+  }
+  
+  // Check if task is blocked and the transition is disallowed
+  if (BLOCKED_DISALLOWED_TRANSITIONS.includes(status)) {
+    const blockedReason = await computeBlockedReason(current);
+    if (blockedReason) {
+      return { 
+        success: false, 
+        error: `Cannot transition to ${status}: task is blocked (${blockedReason})`,
+        blockedReason 
+      };
+    }
+  }
   
   // Set completedAt if transitioning to complete
   const completedAt = status === 'complete' ? new Date() : null;
@@ -464,7 +500,7 @@ export async function updateTaskStatus(id: string, status: TaskStatus, actorUser
     });
   }
   
-  return row ? rowToTask(row) : null;
+  return { success: true, task: row ? rowToTask(row) : undefined };
 }
 
 export async function claimTask(id: string, userId: string): Promise<SwarmTask | null> {
@@ -579,4 +615,107 @@ export async function enrichTasksWithBlocked(tasks: SwarmTask[]): Promise<SwarmT
     }
     return task;
   });
+}
+
+// ============================================================
+// Reorder
+// ============================================================
+
+const SORT_KEY_GAP = 65536; // Gap between sort keys for easy insertion
+
+/**
+ * Reorder a task to appear before another task.
+ * Server computes the sortKey - clients should not write raw sortKeys.
+ */
+export async function reorderTask(
+  taskId: string, 
+  beforeTaskId: string | null, 
+  actorUserId: string
+): Promise<SwarmTask | null> {
+  const task = await getTask(taskId);
+  if (!task) return null;
+  
+  const oldSortKey = task.sortKey;
+  let newSortKey: number;
+  
+  if (beforeTaskId === null) {
+    // Move to the end - find the max sortKey and add gap
+    const [maxRow] = await sql`
+      SELECT MAX(sort_key) as max_key FROM public.swarm_tasks 
+      WHERE status = ${task.status}::swarm_task_status
+    `;
+    const maxKey = maxRow?.max_key ? Number(maxRow.max_key) : 0;
+    newSortKey = maxKey + SORT_KEY_GAP;
+  } else {
+    // Get the beforeTask and the task before it
+    const beforeTask = await getTask(beforeTaskId);
+    if (!beforeTask) {
+      throw new Error('beforeTaskId not found');
+    }
+    
+    // Find the task that's currently before beforeTask (by sortKey in same status bucket)
+    const [prevRow] = await sql`
+      SELECT sort_key FROM public.swarm_tasks 
+      WHERE status = ${beforeTask.status}::swarm_task_status
+        AND sort_key < ${beforeTask.sortKey || 0}
+        AND id != ${taskId}
+      ORDER BY sort_key DESC
+      LIMIT 1
+    `;
+    
+    const beforeSortKey = beforeTask.sortKey || SORT_KEY_GAP;
+    const prevSortKey = prevRow?.sort_key ? Number(prevRow.sort_key) : 0;
+    
+    // Place our task between prevSortKey and beforeSortKey
+    newSortKey = Math.floor((prevSortKey + beforeSortKey) / 2);
+    
+    // If no room, rebalance the sort keys (rare case)
+    if (newSortKey === prevSortKey || newSortKey === beforeSortKey) {
+      await rebalanceSortKeys(task.status);
+      // Retry after rebalancing
+      return reorderTask(taskId, beforeTaskId, actorUserId);
+    }
+  }
+  
+  // Update the task's sortKey
+  const [row] = await sql`
+    UPDATE public.swarm_tasks 
+    SET sort_key = ${newSortKey}, updated_at = NOW()
+    WHERE id = ${taskId}
+    RETURNING *
+  `;
+  
+  if (row) {
+    await createTaskEvent({
+      taskId,
+      actorUserId,
+      kind: 'reordered',
+      beforeState: { sortKey: oldSortKey },
+      afterState: { sortKey: newSortKey },
+    });
+  }
+  
+  return row ? rowToTask(row) : null;
+}
+
+/**
+ * Rebalance sort keys for a given status bucket.
+ * Called when there's no room between two adjacent sort keys.
+ */
+async function rebalanceSortKeys(status: TaskStatus): Promise<void> {
+  const tasks = await sql`
+    SELECT id FROM public.swarm_tasks 
+    WHERE status = ${status}::swarm_task_status
+    ORDER BY sort_key ASC NULLS LAST, created_at ASC
+  `;
+  
+  for (let i = 0; i < tasks.length; i++) {
+    await sql`
+      UPDATE public.swarm_tasks 
+      SET sort_key = ${(i + 1) * SORT_KEY_GAP}
+      WHERE id = ${tasks[i].id}
+    `;
+  }
+  
+  console.log(`[swarm] Rebalanced ${tasks.length} tasks in status ${status}`);
 }

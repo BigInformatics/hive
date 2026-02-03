@@ -13,6 +13,107 @@ import { subscribe, emit, type MailboxEvent } from "./events";
 import * as broadcast from "./db/broadcast";
 import * as swarm from "./db/swarm";
 
+// ============================================================
+// SWARM BUZZ INTEGRATION
+// ============================================================
+
+type SwarmBuzzEventType = 
+  | 'swarm.task.created' 
+  | 'swarm.task.updated' 
+  | 'swarm.task.status_changed'
+  | 'swarm.task.assigned'
+  | 'swarm.task.reordered'
+  | 'swarm.task.completed'
+  | 'swarm.project.created'
+  | 'swarm.project.updated'
+  | 'swarm.project.archived';
+
+interface SwarmBuzzPayload {
+  eventType: SwarmBuzzEventType;
+  taskId?: string;
+  projectId?: string;
+  title: string;
+  actor: string;
+  assignee?: string | null;
+  status?: swarm.TaskStatus;
+  diffSummary?: string;
+  deepLink: string;
+}
+
+// Broadcast listeners for real-time Buzz updates
+let swarmBuzzListenerCallback: ((event: broadcast.BroadcastEvent) => void) | null = null;
+
+function setSwarmBuzzListener(callback: (event: broadcast.BroadcastEvent) => void): void {
+  swarmBuzzListenerCallback = callback;
+}
+
+/**
+ * Emit a Swarm event to the Buzz feed.
+ * Deep-links point to the keyed Swarm UI (using first available key for now).
+ */
+async function emitSwarmBuzz(payload: SwarmBuzzPayload): Promise<void> {
+  try {
+    const event = await broadcast.emitInternalEvent({
+      appName: 'swarm',
+      appTitle: 'Swarm Tasks',
+      title: formatSwarmBuzzTitle(payload),
+      body: {
+        eventType: payload.eventType,
+        taskId: payload.taskId,
+        projectId: payload.projectId,
+        title: payload.title,
+        actor: payload.actor,
+        assignee: payload.assignee,
+        status: payload.status,
+        diffSummary: payload.diffSummary,
+        deepLink: payload.deepLink,
+      },
+    });
+    
+    // Broadcast to SSE listeners
+    if (swarmBuzzListenerCallback) {
+      swarmBuzzListenerCallback(event);
+    }
+    
+    console.log(`[swarm-buzz] Emitted ${payload.eventType}: ${payload.title}`);
+  } catch (err) {
+    console.error('[swarm-buzz] Failed to emit event:', err);
+  }
+}
+
+function formatSwarmBuzzTitle(payload: SwarmBuzzPayload): string {
+  switch (payload.eventType) {
+    case 'swarm.task.created':
+      return `${payload.actor} created task: ${payload.title}`;
+    case 'swarm.task.updated':
+      return `${payload.actor} updated task: ${payload.title}`;
+    case 'swarm.task.status_changed':
+      return `${payload.actor} changed "${payload.title}" to ${payload.status}`;
+    case 'swarm.task.assigned':
+      return `${payload.actor} assigned "${payload.title}" to ${payload.assignee || 'unassigned'}`;
+    case 'swarm.task.reordered':
+      return `${payload.actor} reordered "${payload.title}"`;
+    case 'swarm.task.completed':
+      return `${payload.actor} completed: ${payload.title}`;
+    case 'swarm.project.created':
+      return `${payload.actor} created project: ${payload.title}`;
+    case 'swarm.project.updated':
+      return `${payload.actor} updated project: ${payload.title}`;
+    case 'swarm.project.archived':
+      return `${payload.actor} archived project: ${payload.title}`;
+    default:
+      return `Swarm: ${payload.title}`;
+  }
+}
+
+function getSwarmDeepLink(taskId?: string): string {
+  // Use first available UI key for deep link, or fallback to public route
+  const keys = Object.keys(uiMailboxKeys);
+  const keyPath = keys.length > 0 ? `/${keys[0]}` : '';
+  const base = `https://messages.biginformatics.net/ui${keyPath}/swarm`;
+  return taskId ? `${base}?task=${taskId}` : base;
+}
+
 const PORT = parseInt(process.env.PORT || "3100");
 
 // Initialize auth tokens
@@ -2271,6 +2372,15 @@ async function handleUISwarmCreateProject(key: string, request: Request): Promis
       description: body.description,
     });
     
+    // Emit Buzz event
+    emitSwarmBuzz({
+      eventType: 'swarm.project.created',
+      projectId: project.id,
+      title: project.title,
+      actor: identity,
+      deepLink: getSwarmDeepLink(),
+    });
+    
     return json({ project }, 201);
   } catch (err) {
     console.error("[ui-swarm] Error creating project:", err);
@@ -2316,6 +2426,18 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
       afterState: { title: task.title, status: task.status },
     });
     
+    // Emit Buzz event
+    emitSwarmBuzz({
+      eventType: 'swarm.task.created',
+      taskId: task.id,
+      projectId: task.projectId || undefined,
+      title: task.title,
+      actor: identity,
+      assignee: task.assigneeUserId,
+      status: task.status,
+      deepLink: getSwarmDeepLink(task.id),
+    });
+    
     return json({ task }, 201);
   } catch (err) {
     console.error("[ui-swarm] Error creating task:", err);
@@ -2337,6 +2459,19 @@ async function handleUISwarmClaimTask(key: string, taskId: string): Promise<Resp
     if (!task) {
       return error("Task not found", 404);
     }
+    
+    // Emit Buzz event for assignment
+    emitSwarmBuzz({
+      eventType: 'swarm.task.assigned',
+      taskId: task.id,
+      projectId: task.projectId || undefined,
+      title: task.title,
+      actor: identity,
+      assignee: identity,
+      status: task.status,
+      deepLink: getSwarmDeepLink(task.id),
+    });
+    
     return json({ task });
   } catch (err) {
     console.error("[ui-swarm] Error claiming task:", err);
@@ -2351,6 +2486,8 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
     return error("Invalid key", 404);
   }
   
+  const identity = config.sender;
+  
   let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null };
   try {
     body = await request.json();
@@ -2359,6 +2496,9 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
   }
   
   try {
+    // Get current task to detect assignment changes
+    const oldTask = await swarm.getTask(taskId);
+    
     const task = await swarm.updateTask(taskId, {
       title: body.title,
       projectId: body.projectId,
@@ -2368,6 +2508,31 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
     
     if (!task) {
       return error("Task not found", 404);
+    }
+    
+    // Emit Buzz event - check if it was an assignment change
+    if (oldTask && body.assigneeUserId !== undefined && oldTask.assigneeUserId !== task.assigneeUserId) {
+      emitSwarmBuzz({
+        eventType: 'swarm.task.assigned',
+        taskId: task.id,
+        projectId: task.projectId || undefined,
+        title: task.title,
+        actor: identity,
+        assignee: task.assigneeUserId,
+        status: task.status,
+        deepLink: getSwarmDeepLink(task.id),
+      });
+    } else {
+      emitSwarmBuzz({
+        eventType: 'swarm.task.updated',
+        taskId: task.id,
+        projectId: task.projectId || undefined,
+        title: task.title,
+        actor: identity,
+        assignee: task.assigneeUserId,
+        status: task.status,
+        deepLink: getSwarmDeepLink(task.id),
+      });
     }
     
     return json({ task });
@@ -2403,14 +2568,90 @@ async function handleUISwarmTaskStatus(key: string, taskId: string, request: Req
   }
   
   try {
-    const task = await swarm.updateTaskStatus(taskId, body.status as swarm.TaskStatus, identity);
+    const result = await swarm.updateTaskStatusWithValidation(taskId, body.status as swarm.TaskStatus, identity);
+    
+    if (!result.success) {
+      // Return 400 for blocked transitions
+      return error(result.error || "Failed to update status", 400);
+    }
+    
+    const task = result.task;
     if (!task) {
       return error("Task not found", 404);
     }
+    
+    // Emit Buzz event - special event for completion
+    if (body.status === 'complete') {
+      emitSwarmBuzz({
+        eventType: 'swarm.task.completed',
+        taskId: task.id,
+        projectId: task.projectId || undefined,
+        title: task.title,
+        actor: identity,
+        assignee: task.assigneeUserId,
+        status: task.status,
+        deepLink: getSwarmDeepLink(task.id),
+      });
+    } else {
+      emitSwarmBuzz({
+        eventType: 'swarm.task.status_changed',
+        taskId: task.id,
+        projectId: task.projectId || undefined,
+        title: task.title,
+        actor: identity,
+        assignee: task.assigneeUserId,
+        status: task.status,
+        deepLink: getSwarmDeepLink(task.id),
+      });
+    }
+    
     return json({ task });
   } catch (err) {
     console.error("[ui-swarm] Error updating task status:", err);
     return error("Failed to update task status", 500);
+  }
+}
+
+// UI-keyed Swarm task reorder
+async function handleUISwarmReorderTask(key: string, taskId: string, request: Request): Promise<Response> {
+  const config = uiMailboxKeys[key];
+  if (!config) {
+    return error("Invalid key", 404);
+  }
+  
+  const identity = config.sender;
+  
+  let body: { beforeTaskId?: string | null };
+  try {
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  try {
+    const task = await swarm.reorderTask(taskId, body.beforeTaskId || null, identity);
+    
+    if (!task) {
+      return error("Task not found", 404);
+    }
+    
+    // Emit Buzz event
+    emitSwarmBuzz({
+      eventType: 'swarm.task.reordered',
+      taskId: task.id,
+      projectId: task.projectId || undefined,
+      title: task.title,
+      actor: identity,
+      assignee: task.assigneeUserId,
+      status: task.status,
+      deepLink: getSwarmDeepLink(task.id),
+    });
+    
+    return json({ task });
+  } catch (err) {
+    console.error("[ui-swarm] Error reordering task:", err);
+    const message = err instanceof Error ? err.message : "Failed to reorder task";
+    return error(message, 500);
   }
 }
 
@@ -2543,6 +2784,7 @@ async function handleRequest(request: Request): Promise<Response> {
     const uiKeySwarmTaskMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)$/);
     const uiKeySwarmTaskClaimMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/claim$/);
     const uiKeySwarmTaskStatusMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/status$/);
+    const uiKeySwarmTaskReorderMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/reorder$/);
     
     if (method === "POST" && uiKeySwarmProjectsMatch) {
       return handleUISwarmCreateProject(uiKeySwarmProjectsMatch[1], request);
@@ -2558,6 +2800,9 @@ async function handleRequest(request: Request): Promise<Response> {
     }
     if (method === "POST" && uiKeySwarmTaskStatusMatch) {
       return handleUISwarmTaskStatus(uiKeySwarmTaskStatusMatch[1], uiKeySwarmTaskStatusMatch[2], request);
+    }
+    if (method === "POST" && uiKeySwarmTaskReorderMatch) {
+      return handleUISwarmReorderTask(uiKeySwarmTaskReorderMatch[1], uiKeySwarmTaskReorderMatch[2], request);
     }
 
     const mailboxMatch = path.match(/^\/mailboxes\/([^/]+)\/messages\/?$/);
@@ -2731,6 +2976,10 @@ async function handleRequest(request: Request): Promise<Response> {
     const swarmTaskEventsMatch = path.match(/^\/swarm\/tasks\/([0-9a-f-]{36})\/events$/);
     if (method === "GET" && swarmTaskEventsMatch) {
       return requireAuth(request, (auth) => handleSwarmGetTaskEvents(auth, swarmTaskEventsMatch[1]));
+    }
+    const swarmTaskReorderMatch = path.match(/^\/swarm\/tasks\/([0-9a-f-]{36})\/reorder$/);
+    if (method === "POST" && swarmTaskReorderMatch) {
+      return requireAuth(request, (auth) => handleSwarmReorderTask(auth, swarmTaskReorderMatch[1], request));
     }
 
     return error("Not found", 404);
@@ -4583,6 +4832,11 @@ const server = Bun.serve({
   fetch: handleRequest,
 });
 
+// Connect Swarm Buzz events to broadcast listeners
+setSwarmBuzzListener((event) => {
+  broadcastToListeners(event);
+});
+
 console.log(`[hive] Listening on http://localhost:${PORT}`);
 
 process.on("SIGINT", async () => {
@@ -4802,13 +5056,15 @@ async function handleSwarmCreateTask(auth: AuthContext, request: Request): Promi
     });
     
     // Emit Buzz
-    await emitSwarmBuzz("swarm.task.created", {
+    emitSwarmBuzz({
+      eventType: 'swarm.task.created',
       taskId: task.id,
+      projectId: task.projectId || undefined,
       title: task.title,
-      projectId: task.projectId,
       actor: auth.identity,
       assignee: task.assigneeUserId,
       status: task.status,
+      deepLink: getSwarmDeepLink(task.id),
     });
     
     return json({ task: serializeTask(task) }, 201);
@@ -4854,13 +5110,15 @@ async function handleSwarmUpdateTask(auth: AuthContext, id: string, request: Req
       afterState: serializeTask(task),
     });
     
-    await emitSwarmBuzz("swarm.task.updated", {
+    emitSwarmBuzz({
+      eventType: 'swarm.task.updated',
       taskId: task.id,
+      projectId: task.projectId || undefined,
       title: task.title,
-      projectId: task.projectId,
       actor: auth.identity,
       assignee: task.assigneeUserId,
       status: task.status,
+      deepLink: getSwarmDeepLink(task.id),
     });
     
     await swarm.enrichTaskWithBlocked(task);
@@ -4877,13 +5135,15 @@ async function handleSwarmClaimTask(auth: AuthContext, id: string): Promise<Resp
     return error("Task not found", 404);
   }
   
-  await emitSwarmBuzz("swarm.task.assigned", {
+  emitSwarmBuzz({
+    eventType: 'swarm.task.assigned',
     taskId: task.id,
+    projectId: task.projectId || undefined,
     title: task.title,
-    projectId: task.projectId,
     actor: auth.identity,
     assignee: auth.identity,
     status: task.status,
+    deepLink: getSwarmDeepLink(task.id),
   });
   
   await swarm.enrichTaskWithBlocked(task);
@@ -4921,15 +5181,16 @@ async function handleSwarmUpdateTaskStatus(auth: AuthContext, id: string, reques
       return error("Task not found", 404);
     }
     
-    const eventKind = body.status === "complete" ? "swarm.task.completed" : "swarm.task.status_changed";
-    await emitSwarmBuzz(eventKind, {
+    const eventType = body.status === "complete" ? 'swarm.task.completed' : 'swarm.task.status_changed';
+    emitSwarmBuzz({
+      eventType: eventType as SwarmBuzzEventType,
       taskId: task.id,
+      projectId: task.projectId || undefined,
       title: task.title,
-      projectId: task.projectId,
       actor: auth.identity,
       assignee: task.assigneeUserId,
       status: task.status,
-      previousStatus: current.status,
+      deepLink: getSwarmDeepLink(task.id),
     });
     
     await swarm.enrichTaskWithBlocked(task);
@@ -4950,17 +5211,39 @@ async function handleSwarmGetTaskEvents(auth: AuthContext, id: string): Promise<
   return json({ events: events.map(serializeTaskEvent) });
 }
 
-// Helper to emit Swarm events to Buzz
-async function emitSwarmBuzz(type: string, payload: Record<string, unknown>): Promise<void> {
+// API handler for reordering tasks
+async function handleSwarmReorderTask(auth: AuthContext, id: string, request: Request): Promise<Response> {
+  let body: { beforeTaskId?: string | null };
   try {
-    // Find or create a swarm webhook for buzz integration
-    // For now, we'll just log - we can add proper Buzz integration later
-    console.log(`[swarm] Buzz event: ${type}`, payload);
+    body = await request.json();
+  } catch {
+    return error("Invalid JSON", 400);
+  }
+  
+  try {
+    const task = await swarm.reorderTask(id, body.beforeTaskId || null, auth.identity);
     
-    // TODO: Emit to actual Buzz when ready
-    // This would require a broadcast webhook for swarm events
+    if (!task) {
+      return error("Task not found", 404);
+    }
+    
+    // Emit Buzz event
+    emitSwarmBuzz({
+      eventType: 'swarm.task.reordered',
+      taskId: task.id,
+      projectId: task.projectId || undefined,
+      title: task.title,
+      actor: auth.identity,
+      assignee: task.assigneeUserId,
+      status: task.status,
+      deepLink: getSwarmDeepLink(task.id),
+    });
+    
+    return json({ task: serializeTask(task) });
   } catch (err) {
-    console.error("[swarm] Failed to emit Buzz event:", err);
+    console.error("[api] Error reordering task:", err);
+    const message = err instanceof Error ? err.message : "Failed to reorder task";
+    return error(message, 500);
   }
 }
 

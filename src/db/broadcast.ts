@@ -212,3 +212,58 @@ function mapEvent(row: any): BroadcastEvent {
     bodyJson: row.body_json,
   };
 }
+
+// ============================================================
+// Internal Event Emission (for Swarm, etc.)
+// ============================================================
+
+// Cache internal webhook IDs
+const internalWebhookCache = new Map<string, number>();
+
+/**
+ * Ensure an internal webhook exists for the given app, creating if necessary.
+ * Returns the webhook ID.
+ */
+export async function ensureInternalWebhook(appName: string, title: string, owner: string = "system"): Promise<number> {
+  // Check cache first
+  const cached = internalWebhookCache.get(appName);
+  if (cached) return cached;
+  
+  // Check DB
+  let webhook = await getWebhookByAppName(appName);
+  
+  if (!webhook) {
+    // Create the internal webhook
+    webhook = await createWebhook({ appName, title, owner });
+    console.log(`[broadcast] Created internal webhook for ${appName}: id=${webhook.id}`);
+  }
+  
+  internalWebhookCache.set(appName, webhook.id);
+  return webhook.id;
+}
+
+/**
+ * Emit an internal event (e.g., from Swarm) to the Buzz feed.
+ * Returns the created event.
+ */
+export async function emitInternalEvent(params: {
+  appName: string;
+  appTitle: string;
+  title: string;
+  body: unknown;
+  forUsers?: string;
+}): Promise<BroadcastEvent> {
+  const webhookId = await ensureInternalWebhook(params.appName, params.appTitle);
+  
+  const event = await recordEvent({
+    webhookId,
+    appName: params.appName,
+    title: params.title,
+    forUsers: params.forUsers || null,
+    contentType: "application/json",
+    bodyText: null,
+    bodyJson: params.body,
+  });
+  
+  return event;
+}
