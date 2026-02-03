@@ -2520,7 +2520,7 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
   
   const identity = config.sender;
   
-  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null; issueUrl?: string | null; mustBeDoneAfterTaskId?: string | null; onOrAfterAt?: string | null };
+  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null; issueUrl?: string | null; mustBeDoneAfterTaskId?: string | null; nextTaskId?: string | null; onOrAfterAt?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -2538,6 +2538,7 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
       detail: body.detail,
       issueUrl: body.issueUrl,
       mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
+      nextTaskId: body.nextTaskId,
       onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : (body.onOrAfterAt === null ? null : undefined),
     });
     
@@ -4316,6 +4317,17 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
       .map(other => '<option value="' + other.id + '"' + (other.id === t.mustBeDoneAfterTaskId ? ' selected' : '') + '>' + escapeHtml(other.title).substring(0, 40) + (other.title.length > 40 ? '...' : '') + '</option>')
       .join('');
   
+  // Next task options (other tasks, excluding self)
+  const nextTaskOptions = '<option value="">None</option>' +
+    allTasks
+      .filter(other => other.id !== t.id)
+      .map(other => '<option value="' + other.id + '"' + (other.id === t.nextTaskId ? ' selected' : '') + '>' + escapeHtml(other.title).substring(0, 40) + (other.title.length > 40 ? '...' : '') + '</option>')
+      .join('');
+  
+  // Find next task for display
+  const nextTask = t.nextTaskId ? allTasks.find(other => other.id === t.nextTaskId) : null;
+  const nextSpan = nextTask ? '<span style="color:var(--muted-foreground);font-size:0.75rem;">→ ' + escapeHtml(nextTask.title).substring(0, 20) + (nextTask.title.length > 20 ? '...' : '') + '</span>' : '';
+  
   const isFuture = t.onOrAfterAt && new Date(t.onOrAfterAt) > new Date();
   
   return '<div class="task-card" data-id="' + t.id + '" data-status="' + t.status + '" data-assignee="' + (t.assigneeUserId || '') + '" data-project="' + (t.projectId || '') + '" data-future="' + (isFuture ? 'true' : 'false') + '" data-created="' + new Date(t.createdAt).getTime() + '" data-updated="' + new Date(t.updatedAt).getTime() + '" data-sort-key="' + (t.sortKey || 0) + '" onclick="toggleTaskExpand(this)">' +
@@ -4324,7 +4336,7 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
       '<div class="task-header">' +
         '<div>' +
           '<div class="task-title">' + escapeHtml(t.title) + '</div>' +
-          '<div class="task-meta">' + projectSpan + assigneeSpan + afterSpan + '</div>' +
+          '<div class="task-meta">' + projectSpan + assigneeSpan + afterSpan + nextSpan + '</div>' +
         '</div>' +
         '<div class="task-badges">' + blockedBadge + '<span class="badge badge-' + t.status + '">' + t.status.replace('_', ' ') + '</span></div>' +
         (t.issueUrl ? '<div class="task-issue-links" onclick="event.stopPropagation()" style="display:flex;gap:4px;align-items:center;margin-left:8px;"><a href="' + escapeHtml(t.issueUrl) + '" target="_blank" rel="noopener" style="color:var(--muted-foreground);display:inline-flex;align-items:center;padding:4px;" title="Open issue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button onclick="copyUrl(\'' + escapeHtml(t.issueUrl).replace(/'/g, "\\'") + '\', this)" style="background:none;border:none;cursor:pointer;color:var(--muted-foreground);padding:4px;display:inline-flex;align-items:center;" title="Copy URL"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' : '') +
@@ -4334,6 +4346,7 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
         '<div class="task-detail-row"><span class="task-detail-label">Project:</span><select id="edit-project-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + projectOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Assignee:</span><select id="edit-assignee-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + assigneeOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Must be done after:</span><select id="edit-dependency-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + dependencyOptions + '</select></div>' +
+        '<div class="task-detail-row"><span class="task-detail-label">Next task:</span><select id="edit-nextTask-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + nextTaskOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Start after:</span><input type="datetime-local" id="edit-onOrAfter-' + t.id + '" value="' + (t.onOrAfterAt ? new Date(t.onOrAfterAt).toISOString().slice(0, 16) : '') + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Issue URL:</span><input type="url" id="edit-issueUrl-' + t.id + '" value="' + (t.issueUrl ? escapeHtml(t.issueUrl) : '') + '" placeholder="GitHub, OneDev, etc." style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
         (t.issueUrl ? '<div class="task-detail-row"><span class="task-detail-label"></span><span style="display:flex;align-items:center;gap:8px;"><a href="' + escapeHtml(t.issueUrl) + '" target="_blank" rel="noopener" style="color:var(--primary);display:inline-flex;align-items:center;" title="Open issue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><button onclick="event.preventDefault();copyUrl(\'' + escapeHtml(t.issueUrl).replace(/'/g, "\\'") + '\', this)" style="background:none;border:none;cursor:pointer;color:var(--muted-foreground);padding:4px;display:inline-flex;align-items:center;" title="Copy URL"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></span></div>' : '') +
@@ -5193,6 +5206,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const detail = document.getElementById('edit-detail-' + id).value.trim() || null;
       const issueUrl = document.getElementById('edit-issueUrl-' + id).value.trim() || null;
       const mustBeDoneAfterTaskId = document.getElementById('edit-dependency-' + id).value || null;
+      const nextTaskId = document.getElementById('edit-nextTask-' + id).value || null;
       const onOrAfterInput = document.getElementById('edit-onOrAfter-' + id).value;
       const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
       
@@ -5202,7 +5216,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, projectId, assigneeUserId, detail, issueUrl, mustBeDoneAfterTaskId, onOrAfterAt })
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail, issueUrl, mustBeDoneAfterTaskId, nextTaskId, onOrAfterAt })
       });
       
       if (res.ok) {
