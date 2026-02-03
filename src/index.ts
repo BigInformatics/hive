@@ -6053,23 +6053,8 @@ async function handleSwarmReorderTask(auth: AuthContext, id: string, request: Re
 
 async function handleListTemplates(auth: AuthContext, request: Request): Promise<Response> {
   try {
-    const url = new URL(request.url);
-    const projectId = url.searchParams.get("projectId") || undefined;
-    const enabled = url.searchParams.get("enabled");
-    const ownerUserId = url.searchParams.get("ownerUserId") || undefined;
-    
-    // DEBUG: Test raw query first
-    const { sql } = await import("./db/client");
-    const rawRows = await sql`SELECT id, title, owner_user_id FROM public.swarm_recurring_templates LIMIT 5`;
-    console.log("[api] Raw rows:", JSON.stringify(rawRows));
-    
-    const templates = await swarm.listTemplates({
-      projectId,
-      enabled: enabled !== null ? enabled === "true" : undefined,
-      ownerUserId,
-    });
-    
-    return json({ templates, debug: { rawCount: rawRows.length } });
+    // DEBUG: Just return static JSON to verify endpoint works
+    return json({ debug: "endpoint works", timestamp: Date.now() });
   } catch (err) {
     console.error("[api] Error listing templates:", err);
     return error("Failed to list templates: " + String(err), 500);
