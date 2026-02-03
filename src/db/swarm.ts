@@ -78,7 +78,7 @@ function rowToProject(row: Record<string, unknown>): SwarmProject {
     workHoursStart: row.work_hours_start as number | null,
     workHoursEnd: row.work_hours_end as number | null,
     workHoursTimezone: (row.work_hours_timezone as string) || 'America/Chicago',
-    blockingMode: row.blocking_mode as boolean || false,
+    blockingMode: row.blocking_mode !== false,
     archivedAt: row.archived_at ? new Date(row.archived_at as string) : null,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
@@ -155,7 +155,7 @@ export async function createProject(input: CreateProjectInput): Promise<SwarmPro
       ${input.workHoursStart ?? null},
       ${input.workHoursEnd ?? null},
       ${input.workHoursTimezone || 'America/Chicago'},
-      ${input.blockingMode ?? false}
+      ${input.blockingMode ?? true}
     )
     RETURNING *
   `;
