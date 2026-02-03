@@ -6045,18 +6045,23 @@ async function handleSwarmReorderTask(auth: AuthContext, id: string, request: Re
 // ============================================================
 
 async function handleListTemplates(auth: AuthContext, request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  const projectId = url.searchParams.get("projectId") || undefined;
-  const enabled = url.searchParams.get("enabled");
-  const ownerUserId = url.searchParams.get("ownerUserId") || undefined;
-  
-  const templates = await swarm.listTemplates({
-    projectId,
-    enabled: enabled !== null ? enabled === "true" : undefined,
-    ownerUserId,
-  });
-  
-  return json({ templates });
+  try {
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get("projectId") || undefined;
+    const enabled = url.searchParams.get("enabled");
+    const ownerUserId = url.searchParams.get("ownerUserId") || undefined;
+    
+    const templates = await swarm.listTemplates({
+      projectId,
+      enabled: enabled !== null ? enabled === "true" : undefined,
+      ownerUserId,
+    });
+    
+    return json({ templates });
+  } catch (err) {
+    console.error("[api] Error listing templates:", err);
+    return error("Failed to list templates", 500);
+  }
 }
 
 async function handleCreateTemplate(auth: AuthContext, request: Request): Promise<Response> {

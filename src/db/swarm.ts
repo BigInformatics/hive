@@ -864,12 +864,21 @@ export interface ListTemplatesOptions {
 
 export async function listTemplates(opts: ListTemplatesOptions = {}): Promise<RecurringTemplate[]> {
   // Simple version - fetch all then filter in JS for now
+  console.log("[swarm] listTemplates called with opts:", opts);
   const rows = await sql`
     SELECT * FROM public.swarm_recurring_templates
     ORDER BY created_at DESC
   `;
+  console.log("[swarm] listTemplates query returned", rows.length, "rows");
   
-  let result = rows.map(rowToTemplate);
+  let result = rows.map(row => {
+    try {
+      return rowToTemplate(row);
+    } catch (err) {
+      console.error("[swarm] rowToTemplate error:", err, "row:", row);
+      throw err;
+    }
+  });
   
   if (opts.projectId !== undefined) {
     result = result.filter(t => t.projectId === opts.projectId);
