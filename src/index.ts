@@ -2347,7 +2347,7 @@ async function handleUISwarmCreateProject(key: string, request: Request): Promis
   
   const identity = config.sender;
   
-  let body: { title?: string; color?: string; projectLeadUserId?: string; developerLeadUserId?: string; description?: string };
+  let body: { title?: string; color?: string; projectLeadUserId?: string; developerLeadUserId?: string; description?: string; onedevUrl?: string; dokployDeployUrl?: string };
   try {
     body = await request.json();
   } catch {
@@ -2370,6 +2370,8 @@ async function handleUISwarmCreateProject(key: string, request: Request): Promis
       projectLeadUserId: body.projectLeadUserId,
       developerLeadUserId: body.developerLeadUserId,
       description: body.description,
+      onedevUrl: body.onedevUrl,
+      dokployDeployUrl: body.dokployDeployUrl,
     });
     
     // Emit Buzz event
@@ -4599,6 +4601,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <button class="action-btn" onclick="toggleProjectForm()" style="width:100%;">+ New Project</button>
         <div id="projectForm" style="display:none;margin-top:12px;">
           <input type="text" id="newProjectTitle" placeholder="Project name..." style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
+          <textarea id="newProjectDesc" placeholder="Description (optional)..." style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;min-height:60px;resize:vertical;"></textarea>
           <div style="display:flex;gap:8px;margin-bottom:8px;">
             <input type="color" id="newProjectColor" value="#3B82F6" style="width:40px;height:32px;padding:2px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;">
             <select id="newProjectLead" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
@@ -4616,6 +4619,8 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
             <option value="domingo">Domingo</option>
             <option value="zumie">Zumie</option>
           </select>
+          <input type="url" id="newProjectRepoUrl" placeholder="Repo URL (OneDev)..." style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
+          <input type="url" id="newProjectDeployUrl" placeholder="Deploy URL (Dokploy)..." style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">
           <button class="create-btn" onclick="createProject()" style="width:100%;">Create Project</button>
         </div>
       </div>
@@ -4693,9 +4698,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     // Create project
     async function createProject() {
       const title = document.getElementById('newProjectTitle').value.trim();
+      const description = document.getElementById('newProjectDesc').value.trim() || null;
       const color = document.getElementById('newProjectColor').value;
       const projectLeadUserId = document.getElementById('newProjectLead').value;
       const developerLeadUserId = document.getElementById('newProjectDevLead').value;
+      const onedevUrl = document.getElementById('newProjectRepoUrl').value.trim() || null;
+      const dokployDeployUrl = document.getElementById('newProjectDeployUrl').value.trim() || null;
       
       if (!title) return alert('Project name is required');
       if (!projectLeadUserId) return alert('Project Lead is required');
@@ -4705,7 +4713,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, color, projectLeadUserId, developerLeadUserId })
+        body: JSON.stringify({ title, description, color, projectLeadUserId, developerLeadUserId, onedevUrl, dokployDeployUrl })
       });
       
       if (res.ok) {
