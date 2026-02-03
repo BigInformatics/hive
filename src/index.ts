@@ -2399,7 +2399,7 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
   
   const identity = config.sender;
   
-  let body: { title?: string; projectId?: string; assigneeUserId?: string; detail?: string };
+  let body: { title?: string; projectId?: string; assigneeUserId?: string; detail?: string; onOrAfterAt?: string };
   try {
     body = await request.json();
   } catch {
@@ -2416,6 +2416,7 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
       projectId: body.projectId || undefined,
       assigneeUserId: body.assigneeUserId || undefined,
       detail: body.detail || undefined,
+      onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : undefined,
       creatorUserId: identity,
       status: "queued",
     });
@@ -4070,6 +4071,12 @@ function _legacySwarmHTML(): string {
             </select>
           </div>
           <textarea id="newTaskDetail" placeholder="Details (optional)..."></textarea>
+          <div class="form-row" style="margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--muted-foreground);">
+              <span>Start after:</span>
+              <input type="datetime-local" id="newTaskOnOrAfter" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.8rem;">
+            </label>
+          </div>
           <button class="create-btn" onclick="createTask()">Create Task</button>
         </div>
         <button class="action-btn" onclick="toggleCreateForm()" style="margin-bottom:16px;">+ New Task</button>
@@ -4143,11 +4150,13 @@ function _legacySwarmHTML(): string {
       const projectId = document.getElementById('newTaskProject').value || null;
       const assigneeUserId = document.getElementById('newTaskAssignee').value || null;
       const detail = document.getElementById('newTaskDetail').value.trim() || null;
+      const onOrAfterInput = document.getElementById('newTaskOnOrAfter').value;
+      const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
       
       await fetch('/api/swarm/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, projectId, assigneeUserId, detail })
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail, onOrAfterAt })
       });
       location.reload();
     }
@@ -4659,6 +4668,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
             </select>
           </div>
           <textarea id="newTaskDetail" placeholder="Details (optional)..."></textarea>
+          <div class="form-row" style="margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--muted-foreground);">
+              <span>Start after:</span>
+              <input type="datetime-local" id="newTaskOnOrAfter" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.8rem;">
+            </label>
+          </div>
           <button class="create-btn" onclick="createTask()">Create Task</button>
         </div>
         <button class="action-btn" onclick="toggleCreateForm()" style="margin-bottom:16px;">+ New Task</button>
@@ -4821,12 +4836,14 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const projectId = document.getElementById('newTaskProject').value || null;
       const assigneeUserId = document.getElementById('newTaskAssignee').value || null;
       const detail = document.getElementById('newTaskDetail').value.trim() || null;
+      const onOrAfterInput = document.getElementById('newTaskOnOrAfter').value;
+      const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
       
       const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks' : '/api/swarm/tasks';
       await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, projectId, assigneeUserId, detail })
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail, onOrAfterAt })
       });
       location.reload();
     }
