@@ -94,6 +94,8 @@ To avoid inconsistent instance generation, recurrence evaluation MUST be determi
   - If a candidate local time is **missing** (spring-forward gap), **skip** that occurrence and move to the next valid occurrence.
   - If a candidate local time is **ambiguous** (fall-back repeated hour), choose the **earlier** occurrence to avoid duplicates.
 
+> **Open decision (2026-02-03):** Implementation currently **rolls forward** (2:30→3:30) for spring-forward gaps instead of skipping. Rationale: missing a daily task entirely feels worse than shifting it 1 hour. Pending Chris approval — if not approved, will implement skip and adjust tests.
+
 Add tests for DST boundaries and week parity in `America/Chicago`.
 
 ---
