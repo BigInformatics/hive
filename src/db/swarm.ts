@@ -27,6 +27,7 @@ export interface SwarmTask {
   projectId: string | null;
   title: string;
   detail: string | null;
+  issueUrl: string | null;
   creatorUserId: string;
   assigneeUserId: string | null;
   status: TaskStatus;
@@ -82,6 +83,7 @@ function rowToTask(row: Record<string, unknown>): SwarmTask {
     projectId: row.project_id as string | null,
     title: row.title as string,
     detail: row.detail as string | null,
+    issueUrl: row.issue_url as string | null,
     creatorUserId: row.creator_user_id as string,
     assigneeUserId: row.assignee_user_id as string | null,
     status: row.status as TaskStatus,
@@ -228,6 +230,7 @@ export interface CreateTaskInput {
   projectId?: string;
   title: string;
   detail?: string;
+  issueUrl?: string;
   creatorUserId: string;
   assigneeUserId?: string;
   status?: TaskStatus;
@@ -241,13 +244,14 @@ export interface CreateTaskInput {
 export async function createTask(input: CreateTaskInput): Promise<SwarmTask> {
   const [row] = await sql`
     INSERT INTO public.swarm_tasks (
-      project_id, title, detail, creator_user_id, assignee_user_id,
+      project_id, title, detail, issue_url, creator_user_id, assignee_user_id,
       status, on_or_after_at, must_be_done_after_task_id, sort_key,
       next_task_id, next_task_assignee_user_id
     ) VALUES (
       ${input.projectId || null},
       ${input.title},
       ${input.detail || null},
+      ${input.issueUrl || null},
       ${input.creatorUserId},
       ${input.assigneeUserId || null},
       ${input.status || 'queued'},
@@ -398,6 +402,7 @@ export interface UpdateTaskInput {
   projectId?: string | null;
   title?: string;
   detail?: string | null;
+  issueUrl?: string | null;
   assigneeUserId?: string | null;
   onOrAfterAt?: Date | null;
   mustBeDoneAfterTaskId?: string | null;
@@ -413,6 +418,7 @@ export async function updateTask(id: string, input: UpdateTaskInput): Promise<Sw
   if (input.projectId !== undefined) { updates.push('project_id'); values.push(input.projectId); }
   if (input.title !== undefined) { updates.push('title'); values.push(input.title); }
   if (input.detail !== undefined) { updates.push('detail'); values.push(input.detail); }
+  if (input.issueUrl !== undefined) { updates.push('issue_url'); values.push(input.issueUrl); }
   if (input.assigneeUserId !== undefined) { updates.push('assignee_user_id'); values.push(input.assigneeUserId); }
   if (input.onOrAfterAt !== undefined) { updates.push('on_or_after_at'); values.push(input.onOrAfterAt); }
   if (input.mustBeDoneAfterTaskId !== undefined) { updates.push('must_be_done_after_task_id'); values.push(input.mustBeDoneAfterTaskId); }

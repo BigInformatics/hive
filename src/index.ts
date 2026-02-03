@@ -2399,7 +2399,7 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
   
   const identity = config.sender;
   
-  let body: { title?: string; projectId?: string; assigneeUserId?: string; detail?: string; onOrAfterAt?: string };
+  let body: { title?: string; projectId?: string; assigneeUserId?: string; detail?: string; issueUrl?: string; onOrAfterAt?: string };
   try {
     body = await request.json();
   } catch {
@@ -2416,6 +2416,7 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
       projectId: body.projectId || undefined,
       assigneeUserId: body.assigneeUserId || undefined,
       detail: body.detail || undefined,
+      issueUrl: body.issueUrl || undefined,
       onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : undefined,
       creatorUserId: identity,
       status: "queued",
@@ -2491,7 +2492,7 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
   
   const identity = config.sender;
   
-  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null; mustBeDoneAfterTaskId?: string | null; onOrAfterAt?: string | null };
+  let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null; issueUrl?: string | null; mustBeDoneAfterTaskId?: string | null; onOrAfterAt?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -2507,6 +2508,7 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
       projectId: body.projectId,
       assigneeUserId: body.assigneeUserId,
       detail: body.detail,
+      issueUrl: body.issueUrl,
       mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
       onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : (body.onOrAfterAt === null ? null : undefined),
     });
@@ -4099,6 +4101,7 @@ function _legacySwarmHTML(): string {
             </select>
           </div>
           <textarea id="newTaskDetail" placeholder="Details (optional)..."></textarea>
+          <input type="url" id="newTaskIssueUrl" placeholder="Issue URL (GitHub, OneDev, etc.)..." style="margin-top:8px;">
           <div class="form-row" style="margin-top:8px;">
             <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--muted-foreground);">
               <span>Start after:</span>
@@ -4234,13 +4237,14 @@ function _legacySwarmHTML(): string {
       const projectId = document.getElementById('newTaskProject').value || null;
       const assigneeUserId = document.getElementById('newTaskAssignee').value || null;
       const detail = document.getElementById('newTaskDetail').value.trim() || null;
+      const issueUrl = document.getElementById('newTaskIssueUrl').value.trim() || null;
       const onOrAfterInput = document.getElementById('newTaskOnOrAfter').value;
       const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
       
       await fetch('/api/swarm/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, projectId, assigneeUserId, detail, onOrAfterAt })
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail, issueUrl, onOrAfterAt })
       });
       location.reload();
     }
@@ -4302,6 +4306,8 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
         '<div class="task-detail-row"><span class="task-detail-label">Assignee:</span><select id="edit-assignee-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + assigneeOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Must be done after:</span><select id="edit-dependency-' + t.id + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;">' + dependencyOptions + '</select></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Start after:</span><input type="datetime-local" id="edit-onOrAfter-' + t.id + '" value="' + (t.onOrAfterAt ? new Date(t.onOrAfterAt).toISOString().slice(0, 16) : '') + '" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
+        '<div class="task-detail-row"><span class="task-detail-label">Issue URL:</span><input type="url" id="edit-issueUrl-' + t.id + '" value="' + (t.issueUrl ? escapeHtml(t.issueUrl) : '') + '" placeholder="GitHub, OneDev, etc." style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;"></div>' +
+        (t.issueUrl ? '<div class="task-detail-row"><span class="task-detail-label"></span><a href="' + escapeHtml(t.issueUrl) + '" target="_blank" rel="noopener" style="color:var(--primary);font-size:0.8rem;">Open issue →</a></div>' : '') +
         '<div class="task-detail-row"><span class="task-detail-label">Created:</span><span class="task-detail-value">' + createdAt + '</span></div>' +
         '<div class="task-detail-row"><span class="task-detail-label">Updated:</span><span class="task-detail-value">' + updatedAt + '</span></div>' +
         (t.blockedReason ? '<div class="task-detail-row"><span class="task-detail-label">Blocked:</span><span class="task-detail-value" style="color:#ef4444;">' + escapeHtml(t.blockedReason) + '</span></div>' : '') +
@@ -4850,6 +4856,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
             </select>
           </div>
           <textarea id="newTaskDetail" placeholder="Details (optional)..."></textarea>
+          <input type="url" id="newTaskIssueUrl" placeholder="Issue URL (GitHub, OneDev, etc.)..." style="margin-top:8px;">
           <div class="form-row" style="margin-top:8px;">
             <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--muted-foreground);">
               <span>Start after:</span>
@@ -5120,6 +5127,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const projectId = document.getElementById('edit-project-' + id).value || null;
       const assigneeUserId = document.getElementById('edit-assignee-' + id).value || null;
       const detail = document.getElementById('edit-detail-' + id).value.trim() || null;
+      const issueUrl = document.getElementById('edit-issueUrl-' + id).value.trim() || null;
       const mustBeDoneAfterTaskId = document.getElementById('edit-dependency-' + id).value || null;
       const onOrAfterInput = document.getElementById('edit-onOrAfter-' + id).value;
       const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
@@ -5130,7 +5138,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, projectId, assigneeUserId, detail, mustBeDoneAfterTaskId, onOrAfterAt })
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail, issueUrl, mustBeDoneAfterTaskId, onOrAfterAt })
       });
       
       if (res.ok) {
@@ -5188,6 +5196,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const projectId = document.getElementById('newTaskProject').value || null;
       const assigneeUserId = document.getElementById('newTaskAssignee').value || null;
       const detail = document.getElementById('newTaskDetail').value.trim() || null;
+      const issueUrl = document.getElementById('newTaskIssueUrl').value.trim() || null;
       const onOrAfterInput = document.getElementById('newTaskOnOrAfter').value;
       const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
       
@@ -5195,7 +5204,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, projectId, assigneeUserId, detail, onOrAfterAt })
+        body: JSON.stringify({ title, projectId, assigneeUserId, detail, issueUrl, onOrAfterAt })
       });
       location.reload();
     }
