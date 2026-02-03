@@ -75,6 +75,18 @@ async function emitSwarmBuzz(payload: SwarmBuzzPayload): Promise<void> {
       swarmBuzzListenerCallback(event);
     }
     
+    // Broadcast to Swarm SSE listeners
+    for (const listener of swarmEventListeners) {
+      try {
+        listener({
+          type: payload.eventType,
+          taskId: payload.taskId,
+          projectId: payload.projectId,
+          actor: payload.actor,
+        });
+      } catch { /* listener may be closed */ }
+    }
+    
     console.log(`[swarm-buzz] Emitted ${payload.eventType}: ${payload.title}`);
   } catch (err) {
     console.error('[swarm-buzz] Failed to emit event:', err);
@@ -160,6 +172,10 @@ const lastApiActivity = new Map<string, number>(); // user -> timestamp
 // Presence change listeners (SSE controllers that want presence updates)
 type PresenceListener = (event: { type: 'join' | 'leave'; user: string; presence: PresenceInfo[] }) => void;
 const presenceListeners = new Set<PresenceListener>();
+
+// Swarm event listeners (SSE controllers that want swarm updates)
+type SwarmEventListener = (event: { type: string; taskId?: string; projectId?: string; actor?: string }) => void;
+const swarmEventListeners = new Set<SwarmEventListener>();
 
 type PresenceInfo = { user: string; online: boolean; lastSeen: number; unread: number; waiting: number };
 
@@ -1406,6 +1422,17 @@ async function handleUIStream(request: Request): Promise<Response> {
       };
       presenceListeners.add(presenceHandler);
       
+      // Listen for swarm events (task changes)
+      const swarmHandler: SwarmEventListener = (event) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`event: swarm\ndata: ${JSON.stringify(event)}\n\n`));
+        } catch {
+          closed = true;
+        }
+      };
+      swarmEventListeners.add(swarmHandler);
+      
       const pingInterval = setInterval(() => {
         if (closed) return;
         try {
@@ -1456,6 +1483,7 @@ async function handleUIStream(request: Request): Promise<Response> {
         clearInterval(pingInterval);
         clearInterval(pollInterval);
         presenceListeners.delete(presenceHandler);
+        swarmEventListeners.delete(swarmHandler);
         if (viewer) {
           removePresence(connId);
         }
@@ -5243,6 +5271,34 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         body: JSON.stringify({ title, projectId, assigneeUserId, detail, issueUrl, onOrAfterAt })
       });
       location.reload();
+    }
+    
+    // SSE: Listen for swarm events and refresh on changes from other users
+    if (UI_KEY) {
+      const currentUser = '${identity || ""}';
+      let sseRetryTimeout = null;
+      let lastReload = 0;
+      function connectSwarmSSE() {
+        const es = new EventSource('/ui/stream?key=' + UI_KEY);
+        es.addEventListener('swarm', (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            // Skip if this is our own action (we already reload after our actions)
+            if (data.actor === currentUser) return;
+            // Debounce: don't reload more than once per 2 seconds
+            const now = Date.now();
+            if (now - lastReload < 2000) return;
+            lastReload = now;
+            location.reload();
+          } catch {}
+        });
+        es.onerror = () => {
+          es.close();
+          if (sseRetryTimeout) clearTimeout(sseRetryTimeout);
+          sseRetryTimeout = setTimeout(connectSwarmSSE, 5000);
+        };
+      }
+      connectSwarmSSE();
     }
   </script>
 </body>
