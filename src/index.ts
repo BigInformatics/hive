@@ -4675,6 +4675,17 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     }
     .action-btn:hover { background: var(--secondary); }
     .action-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+    .preset-btn {
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--secondary);
+      color: var(--foreground);
+      cursor: pointer;
+      text-align: left;
+    }
+    .preset-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
     
     /* Empty state */
     .empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }
@@ -4777,6 +4788,15 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
   <div class="layout">
     <aside class="sidebar" id="sidebar">
+      <div class="filter-section" style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px;">
+        <h3>Quick Views</h3>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+          <button class="preset-btn" onclick="applyPreset('my-tasks')">My Tasks</button>
+          <button class="preset-btn" onclick="applyPreset('ready-next')">Ready Next</button>
+          <button class="preset-btn" onclick="applyPreset('unassigned')">Unassigned</button>
+          <button class="preset-btn" onclick="applyPreset('all')">Show All</button>
+        </div>
+      </div>
       <div class="filter-section">
         <div class="filter-header">
           <h3>Status</h3>
@@ -5138,6 +5158,40 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     function toggleCreateForm() {
       const form = document.getElementById('createForm');
       form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    // Preset views
+    const CURRENT_USER = '${identity || ""}';
+    function applyPreset(preset) {
+      // Reset all filters first
+      document.querySelectorAll('[data-filter]').forEach(cb => {
+        cb.checked = true;
+        cb.closest('.filter-option')?.classList.add('checked');
+      });
+      const showFutureEl = document.getElementById('showFuture');
+      if (showFutureEl) showFutureEl.checked = false;
+      document.getElementById('sortSelect').value = 'planned';
+      
+      if (preset === 'my-tasks' && CURRENT_USER) {
+        document.querySelectorAll('[data-filter="assignee"]').forEach(cb => {
+          const match = cb.value === CURRENT_USER;
+          cb.checked = match;
+          cb.closest('.filter-option')?.classList.toggle('checked', match);
+        });
+      } else if (preset === 'ready-next') {
+        document.querySelectorAll('[data-filter="status"]').forEach(cb => {
+          const match = cb.value === 'ready';
+          cb.checked = match;
+          cb.closest('.filter-option')?.classList.toggle('checked', match);
+        });
+      } else if (preset === 'unassigned') {
+        document.querySelectorAll('[data-filter="assignee"]').forEach(cb => {
+          const match = cb.value === 'unassigned';
+          cb.checked = match;
+          cb.closest('.filter-option')?.classList.toggle('checked', match);
+        });
+      }
+      applyFilters();
     }
     
     // Filter handling
