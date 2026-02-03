@@ -4671,6 +4671,58 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     body.light .badge-holding { background: rgba(245, 158, 11, 0.1); color: #d97706; }
     body.light .badge-review { background: rgba(168, 85, 247, 0.1); color: #9333ea; }
     body.light .badge-blocked { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+    
+    /* Project edit drawer */
+    .project-drawer-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
+    .project-drawer-overlay.open { display: block; }
+    .project-drawer {
+      position: fixed;
+      top: 0;
+      right: -400px;
+      width: 400px;
+      max-width: 90vw;
+      height: 100vh;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      z-index: 1001;
+      transition: right 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .project-drawer.open { right: 0; }
+    .project-drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .project-drawer-header h2 { font-size: 1.125rem; font-weight: 600; margin: 0; }
+    .project-drawer-body { flex: 1; padding: 20px; overflow-y: auto; }
+    .project-drawer-body label { display: block; font-size: 0.75rem; color: var(--muted-foreground); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .project-drawer-body input, .project-drawer-body textarea, .project-drawer-body select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--background);
+      color: var(--foreground);
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+    }
+    .project-drawer-body textarea { min-height: 80px; resize: vertical; }
+    .project-drawer-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
+    .project-drawer-footer button { flex: 1; padding: 10px; border-radius: var(--radius); cursor: pointer; font-size: 0.875rem; }
+    .project-drawer-footer .save-btn { background: var(--primary); color: white; border: none; }
+    .project-drawer-footer .cancel-btn { background: transparent; border: 1px solid var(--border); color: var(--foreground); }
+    .project-name-btn { background: none; border: none; cursor: pointer; color: var(--foreground); text-align: left; padding: 0; font-size: inherit; }
+    .project-name-btn:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -4715,7 +4767,11 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
           </div>
         </div>
         <label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="none"> No Project</label>
-        ${projects.map(p => '<label class="filter-option checked"><input type="checkbox" checked data-filter="project" value="' + p.id + '"> <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + ';margin-right:4px;"></span>' + p.title + '</label>').join('')}
+        ${projects.map(p => `<label class="filter-option checked" style="display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" checked data-filter="project" value="${p.id}">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></span>
+          <button class="project-name-btn" onclick="event.preventDefault();event.stopPropagation();openProjectDrawer('${p.id}')">${escapeHtml(p.title)}</button>
+        </label>`).join('')}
       </div>
       <div class="filter-section">
         <h3>Sort</h3>
@@ -4810,9 +4866,115 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       </div>
     </main>
   </div>
+  
+  <!-- Project Edit Drawer -->
+  <div class="project-drawer-overlay" id="projectDrawerOverlay" onclick="closeProjectDrawer()"></div>
+  <div class="project-drawer" id="projectDrawer">
+    <div class="project-drawer-header">
+      <h2>Edit Project</h2>
+      <button onclick="closeProjectDrawer()" style="background:none;border:none;cursor:pointer;color:var(--muted-foreground);font-size:1.25rem;">&times;</button>
+    </div>
+    <div class="project-drawer-body">
+      <input type="hidden" id="editProjectId">
+      <label>Title</label>
+      <input type="text" id="editProjectTitle" placeholder="Project name...">
+      <label>Description</label>
+      <textarea id="editProjectDesc" placeholder="Project description..."></textarea>
+      <label>Color</label>
+      <input type="color" id="editProjectColor" style="width:60px;height:40px;padding:4px;">
+      <label>Project Lead</label>
+      <select id="editProjectLead">
+        <option value="">No lead</option>
+        <option value="chris">Chris</option>
+        <option value="clio">Clio</option>
+        <option value="domingo">Domingo</option>
+        <option value="zumie">Zumie</option>
+      </select>
+      <label>Dev Lead</label>
+      <select id="editProjectDevLead">
+        <option value="">No lead</option>
+        <option value="chris">Chris</option>
+        <option value="clio">Clio</option>
+        <option value="domingo">Domingo</option>
+        <option value="zumie">Zumie</option>
+      </select>
+      <label>Repo URL (OneDev)</label>
+      <input type="url" id="editProjectRepo" placeholder="https://dev.biginformatics.net/...">
+      <label>Deploy URL (Dokploy)</label>
+      <input type="url" id="editProjectDeploy" placeholder="https://cp.biginformatics.net/...">
+    </div>
+    <div class="project-drawer-footer">
+      <button class="cancel-btn" onclick="closeProjectDrawer()">Cancel</button>
+      <button class="save-btn" onclick="saveProject()">Save</button>
+    </div>
+  </div>
+  
   <script>
     const UI_KEY = ${key ? "'" + key + "'" : 'null'};
     function getToken() { return UI_KEY; }
+    
+    // Projects data for edit drawer
+    const PROJECTS_DATA = ${JSON.stringify(projects.map(p => ({
+      id: p.id,
+      title: p.title,
+      description: p.description || '',
+      color: p.color,
+      projectLeadUserId: p.projectLeadUserId || '',
+      developerLeadUserId: p.developerLeadUserId || '',
+      onedevUrl: p.onedevUrl || '',
+      dokployDeployUrl: p.dokployDeployUrl || ''
+    })))};
+    
+    // Project drawer functions
+    function openProjectDrawer(projectId) {
+      const project = PROJECTS_DATA.find(p => p.id === projectId);
+      if (!project) return alert('Project not found');
+      
+      document.getElementById('editProjectId').value = project.id;
+      document.getElementById('editProjectTitle').value = project.title;
+      document.getElementById('editProjectDesc').value = project.description;
+      document.getElementById('editProjectColor').value = project.color;
+      document.getElementById('editProjectLead').value = project.projectLeadUserId;
+      document.getElementById('editProjectDevLead').value = project.developerLeadUserId;
+      document.getElementById('editProjectRepo').value = project.onedevUrl;
+      document.getElementById('editProjectDeploy').value = project.dokployDeployUrl;
+      
+      document.getElementById('projectDrawerOverlay').classList.add('open');
+      document.getElementById('projectDrawer').classList.add('open');
+    }
+    
+    function closeProjectDrawer() {
+      document.getElementById('projectDrawerOverlay').classList.remove('open');
+      document.getElementById('projectDrawer').classList.remove('open');
+    }
+    
+    async function saveProject() {
+      const id = document.getElementById('editProjectId').value;
+      const title = document.getElementById('editProjectTitle').value.trim();
+      const description = document.getElementById('editProjectDesc').value.trim() || null;
+      const color = document.getElementById('editProjectColor').value;
+      const projectLeadUserId = document.getElementById('editProjectLead').value || null;
+      const developerLeadUserId = document.getElementById('editProjectDevLead').value || null;
+      const onedevUrl = document.getElementById('editProjectRepo').value.trim() || null;
+      const dokployDeployUrl = document.getElementById('editProjectDeploy').value.trim() || null;
+      
+      if (!title) return alert('Project name is required');
+      
+      const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/projects/' + id : '/api/swarm/projects/' + id;
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, color, projectLeadUserId, developerLeadUserId, onedevUrl, dokployDeployUrl })
+      });
+      
+      if (res.ok) {
+        closeProjectDrawer();
+        location.reload();
+      } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Failed to update project'));
+      }
+    }
     
     // Sidebar toggle for mobile
     function toggleSidebar() {
