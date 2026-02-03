@@ -4551,7 +4551,12 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
         '<label>End Date (optional)</label><input type="datetime-local" id="endAt">' +
         '<label>Days of Week (optional)</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="mon" class="dow"> Mon</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="tue" class="dow"> Tue</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="wed" class="dow"> Wed</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="thu" class="dow"> Thu</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="fri" class="dow"> Fri</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="sat" class="dow"> Sat</label><label style="display:flex;gap:4px;font-size:0.8rem;"><input type="checkbox" value="sun" class="dow"> Sun</label></div>' +
         '<label>Week Parity</label><select id="weekParity"><option value="any">Any week</option><option value="odd">Odd weeks only</option><option value="even">Even weeks only</option></select>' +
+        '<label>Between Hours (optional)</label><div class="form-row"><div><input type="number" id="betweenStart" min="0" max="23" placeholder="Start (0-23)"></div><div><input type="number" id="betweenEnd" min="0" max="23" placeholder="End (0-23)"></div></div>' +
+        '<label>Timezone</label><select id="timezone"><option value="America/Chicago" selected>America/Chicago</option><option value="America/New_York">America/New_York</option><option value="America/Los_Angeles">America/Los_Angeles</option><option value="UTC">UTC</option></select>' +
         '<label>Primary Agent</label><select id="primaryAgent"><option value="">None</option><option value="chris">Chris</option><option value="clio">Clio</option><option value="domingo">Domingo</option><option value="zumie">Zumie</option></select>' +
+        '<label>Fallback Agent</label><select id="fallbackAgent"><option value="">None</option><option value="chris">Chris</option><option value="clio">Clio</option><option value="domingo">Domingo</option><option value="zumie">Zumie</option></select>' +
+        '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input type="checkbox" id="mute"> Mute notifications</label>' +
+        '<div id="muteIntervalRow" style="display:none;margin-top:8px;"><label>Mute Interval</label><input type="text" id="muteInterval" placeholder="e.g. 1 hour, 30 minutes"></div>' +
       '</div>' +
       '<div class="drawer-footer"><button class="btn" onclick="closeDrawer()">Cancel</button><button class="btn btn-primary" onclick="saveTemplate()">Save</button></div>' +
     '</div>' +
@@ -4574,7 +4579,14 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
           'document.getElementById("startAt").value = t.startAt ? new Date(t.startAt).toISOString().slice(0,16) : "";' +
           'document.getElementById("endAt").value = t.endAt ? new Date(t.endAt).toISOString().slice(0,16) : "";' +
           'document.getElementById("weekParity").value = t.weekParity;' +
+          'document.getElementById("betweenStart").value = t.betweenHoursStart ?? "";' +
+          'document.getElementById("betweenEnd").value = t.betweenHoursEnd ?? "";' +
+          'document.getElementById("timezone").value = t.timezone || "America/Chicago";' +
           'document.getElementById("primaryAgent").value = t.primaryAgent || "";' +
+          'document.getElementById("fallbackAgent").value = t.fallbackAgent || "";' +
+          'document.getElementById("mute").checked = t.mute || false;' +
+          'document.getElementById("muteInterval").value = t.muteInterval || "";' +
+          'document.getElementById("muteIntervalRow").style.display = t.mute ? "block" : "none";' +
           'document.querySelectorAll(".dow").forEach(cb => { cb.checked = t.daysOfWeek && t.daysOfWeek.includes(cb.value); });' +
         '} else {' +
           'document.getElementById("drawerTitle").textContent = "New Template";' +
@@ -4587,7 +4599,14 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
           'document.getElementById("startAt").value = "";' +
           'document.getElementById("endAt").value = "";' +
           'document.getElementById("weekParity").value = "any";' +
+          'document.getElementById("betweenStart").value = "";' +
+          'document.getElementById("betweenEnd").value = "";' +
+          'document.getElementById("timezone").value = "America/Chicago";' +
           'document.getElementById("primaryAgent").value = "";' +
+          'document.getElementById("fallbackAgent").value = "";' +
+          'document.getElementById("mute").checked = false;' +
+          'document.getElementById("muteInterval").value = "";' +
+          'document.getElementById("muteIntervalRow").style.display = "none";' +
           'document.querySelectorAll(".dow").forEach(cb => cb.checked = false);' +
         '}' +
       '}' +
@@ -4595,6 +4614,7 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
         'document.getElementById("drawerOverlay").classList.remove("open");' +
         'document.getElementById("drawer").classList.remove("open");' +
       '}' +
+      'document.getElementById("mute").onchange = function() { document.getElementById("muteIntervalRow").style.display = this.checked ? "block" : "none"; };' +
       'async function saveTemplate() {' +
         'const id = document.getElementById("templateId").value;' +
         'const title = document.getElementById("templateTitle").value.trim();' +
@@ -4605,12 +4625,18 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
         'const startAt = document.getElementById("startAt").value;' +
         'const endAt = document.getElementById("endAt").value || null;' +
         'const weekParity = document.getElementById("weekParity").value;' +
+        'const betweenStart = document.getElementById("betweenStart").value;' +
+        'const betweenEnd = document.getElementById("betweenEnd").value;' +
+        'const timezone = document.getElementById("timezone").value;' +
         'const primaryAgent = document.getElementById("primaryAgent").value || null;' +
+        'const fallbackAgent = document.getElementById("fallbackAgent").value || null;' +
+        'const mute = document.getElementById("mute").checked;' +
+        'const muteInterval = document.getElementById("muteInterval").value || null;' +
         'const daysOfWeek = [...document.querySelectorAll(".dow:checked")].map(cb => cb.value);' +
         'if (!title) return alert("Title is required");' +
         'if (!startAt) return alert("Start date is required");' +
         'if (!everyInterval || everyInterval < 1) return alert("Interval must be at least 1");' +
-        'const body = { title, projectId, detail, everyInterval, everyUnit, startAt: new Date(startAt).toISOString(), endAt: endAt ? new Date(endAt).toISOString() : null, weekParity, primaryAgent, daysOfWeek: daysOfWeek.length > 0 ? daysOfWeek : null };' +
+        'const body = { title, projectId, detail, everyInterval, everyUnit, startAt: new Date(startAt).toISOString(), endAt: endAt ? new Date(endAt).toISOString() : null, weekParity, betweenHoursStart: betweenStart ? parseInt(betweenStart) : null, betweenHoursEnd: betweenEnd ? parseInt(betweenEnd) : null, timezone, primaryAgent, fallbackAgent, mute, muteInterval, daysOfWeek: daysOfWeek.length > 0 ? daysOfWeek : null };' +
         'const url = id ? "/api/swarm/recurring/templates/" + id : "/api/swarm/recurring/templates";' +
         'const method = id ? "PATCH" : "POST";' +
         'const res = await fetch(url, { method, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + UI_KEY }, body: JSON.stringify(body) });' +
