@@ -10,8 +10,11 @@
     "migrate": "bun run src/migrate.ts",
     "deploy": "git push onedev main && curl -s -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: repo:push' -d '{\"ref\": \"refs/heads/main\"}' https://cp.biginformatics.net/api/deploy/compose/y-GQ66-yJTFF6Pee1Vubk"
   },
-  "dependencies": {},
+  "dependencies": {
+    "luxon": "^3.7.2"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/luxon": "^3.7.1"
   }
 }

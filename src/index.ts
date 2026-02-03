@@ -12,6 +12,7 @@ import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
 import { subscribe, emit, type MailboxEvent } from "./events";
 import * as broadcast from "./db/broadcast";
 import * as swarm from "./db/swarm";
+import { DateTime } from 'luxon';
 
 // ============================================================
 // SWARM BUZZ INTEGRATION
@@ -6213,69 +6214,77 @@ async function getLastInstanceTime(templateId: string): Promise<Date | null> {
   return last ? (last instanceof Date ? last : new Date(last)) : null;
 }
 
+// DST-aware recurrence computation using Luxon
 function computeNextOccurrence(template: swarm.RecurringTemplate, after: Date): Date | null {
-  // Simple implementation - add interval to cursor
-  const { everyInterval, everyUnit, daysOfWeek, weekParity, betweenHoursStart, betweenHoursEnd } = template;
+  const { everyInterval, everyUnit, daysOfWeek, weekParity, betweenHoursStart, betweenHoursEnd, timezone } = template;
+  const tz = timezone || 'America/Chicago';
   
-  let next = new Date(after);
+  // Convert to Luxon DateTime in template's timezone
+  let next = DateTime.fromJSDate(after, { zone: tz });
   
-  // Add interval
+  // Add interval (timezone-aware)
   switch (everyUnit) {
-    case 'minute': next.setMinutes(next.getMinutes() + everyInterval); break;
-    case 'hour': next.setHours(next.getHours() + everyInterval); break;
-    case 'day': next.setDate(next.getDate() + everyInterval); break;
-    case 'week': next.setDate(next.getDate() + everyInterval * 7); break;
-    case 'month': next.setMonth(next.getMonth() + everyInterval); break;
+    case 'minute': next = next.plus({ minutes: everyInterval }); break;
+    case 'hour': next = next.plus({ hours: everyInterval }); break;
+    case 'day': next = next.plus({ days: everyInterval }); break;
+    case 'week': next = next.plus({ weeks: everyInterval }); break;
+    case 'month': next = next.plus({ months: everyInterval }); break;
   }
   
-  // Apply day-of-week constraint (simple: advance to next matching day)
+  // Handle DST transitions per plan:
+  // - Missing local time (spring forward) → skip to next valid time
+  // - Ambiguous local time (fall back) → pick earlier occurrence
+  if (!next.isValid) {
+    // Spring forward: time doesn't exist, advance by 1 hour
+    next = DateTime.fromJSDate(after, { zone: tz }).plus({ hours: 1 });
+    switch (everyUnit) {
+      case 'minute': next = next.plus({ minutes: everyInterval }); break;
+      case 'hour': next = next.plus({ hours: everyInterval }); break;
+      case 'day': next = next.plus({ days: everyInterval }); break;
+      case 'week': next = next.plus({ weeks: everyInterval }); break;
+      case 'month': next = next.plus({ months: everyInterval }); break;
+    }
+  }
+  
+  // Apply day-of-week constraint
   if (daysOfWeek && daysOfWeek.length > 0) {
-    const dayMap: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+    const dayMap: Record<string, number> = { sun: 7, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
     const allowedDays = daysOfWeek.map(d => dayMap[d.toLowerCase()]).filter(n => n !== undefined);
     
     let attempts = 0;
-    while (!allowedDays.includes(next.getDay()) && attempts < 7) {
-      next.setDate(next.getDate() + 1);
+    while (!allowedDays.includes(next.weekday) && attempts < 7) {
+      next = next.plus({ days: 1 });
       attempts++;
     }
   }
   
-  // Apply week parity constraint
+  // Apply week parity constraint (ISO week number)
   if (weekParity !== 'any') {
-    const weekNum = getISOWeekNumber(next);
+    const weekNum = next.weekNumber;
     const isOdd = weekNum % 2 === 1;
     const wantOdd = weekParity === 'odd';
     
     if (isOdd !== wantOdd) {
-      // Move to next week
-      next.setDate(next.getDate() + 7);
+      next = next.plus({ weeks: 1 });
     }
   }
   
-  // Apply between-hours constraint (simple: set to start hour if outside window)
+  // Apply between-hours constraint
   if (betweenHoursStart !== null && betweenHoursEnd !== null) {
-    const hour = next.getHours();
+    const hour = next.hour;
     const inWindow = betweenHoursStart <= betweenHoursEnd
       ? (hour >= betweenHoursStart && hour < betweenHoursEnd)
       : (hour >= betweenHoursStart || hour < betweenHoursEnd);
     
     if (!inWindow) {
-      next.setHours(betweenHoursStart, 0, 0, 0);
-      if (next <= after) {
-        next.setDate(next.getDate() + 1);
+      next = next.set({ hour: betweenHoursStart, minute: 0, second: 0, millisecond: 0 });
+      if (next.toJSDate() <= after) {
+        next = next.plus({ days: 1 });
       }
     }
   }
   
-  return next;
-}
-
-function getISOWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return next.toJSDate();
 }
 
 async function countTemplateInstances(templateId: string): Promise<number> {
