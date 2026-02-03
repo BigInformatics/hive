@@ -725,3 +725,237 @@ async function rebalanceSortKeys(status: TaskStatus): Promise<void> {
   
   console.log(`[swarm] Rebalanced ${tasks.length} tasks in status ${status}`);
 }
+
+// ============================================================
+// Recurring Templates
+// ============================================================
+
+export type EveryUnit = 'minute' | 'hour' | 'day' | 'week' | 'month';
+export type WeekParity = 'any' | 'odd' | 'even';
+
+export interface RecurringTemplate {
+  id: string;
+  projectId: string | null;
+  title: string;
+  detail: string | null;
+  primaryAgent: string | null;
+  fallbackAgent: string | null;
+  ownerUserId: string;
+  mute: boolean;
+  muteInterval: string | null;
+  timezone: string;
+  startAt: Date;
+  endAt: Date | null;
+  repeatCount: number | null;
+  everyInterval: number;
+  everyUnit: EveryUnit;
+  daysOfWeek: string[] | null;
+  weekParity: WeekParity;
+  betweenHoursStart: number | null;
+  betweenHoursEnd: number | null;
+  enabled: boolean;
+  lastRunAt: Date | null;
+  nextRunAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function rowToTemplate(row: Record<string, unknown>): RecurringTemplate {
+  return {
+    id: row.id as string,
+    projectId: row.project_id as string | null,
+    title: row.title as string,
+    detail: row.detail as string | null,
+    primaryAgent: row.primary_agent as string | null,
+    fallbackAgent: row.fallback_agent as string | null,
+    ownerUserId: row.owner_user_id as string,
+    mute: row.mute as boolean,
+    muteInterval: row.mute_interval as string | null,
+    timezone: row.timezone as string,
+    startAt: new Date(row.start_at as string),
+    endAt: row.end_at ? new Date(row.end_at as string) : null,
+    repeatCount: row.repeat_count as number | null,
+    everyInterval: row.every_interval as number,
+    everyUnit: row.every_unit as EveryUnit,
+    daysOfWeek: row.days_of_week as string[] | null,
+    weekParity: row.week_parity as WeekParity,
+    betweenHoursStart: row.between_hours_start as number | null,
+    betweenHoursEnd: row.between_hours_end as number | null,
+    enabled: row.enabled as boolean,
+    lastRunAt: row.last_run_at ? new Date(row.last_run_at as string) : null,
+    nextRunAt: row.next_run_at ? new Date(row.next_run_at as string) : null,
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+  };
+}
+
+export interface CreateTemplateInput {
+  projectId?: string;
+  title: string;
+  detail?: string;
+  primaryAgent?: string;
+  fallbackAgent?: string;
+  ownerUserId: string;
+  mute?: boolean;
+  muteInterval?: string;
+  timezone?: string;
+  startAt: Date;
+  endAt?: Date;
+  repeatCount?: number;
+  everyInterval: number;
+  everyUnit: EveryUnit;
+  daysOfWeek?: string[];
+  weekParity?: WeekParity;
+  betweenHoursStart?: number;
+  betweenHoursEnd?: number;
+}
+
+export async function createTemplate(input: CreateTemplateInput): Promise<RecurringTemplate> {
+  const [row] = await sql`
+    INSERT INTO public.swarm_recurring_templates (
+      project_id, title, detail, primary_agent, fallback_agent, owner_user_id,
+      mute, mute_interval, timezone, start_at, end_at, repeat_count,
+      every_interval, every_unit, days_of_week, week_parity,
+      between_hours_start, between_hours_end
+    ) VALUES (
+      ${input.projectId || null},
+      ${input.title},
+      ${input.detail || null},
+      ${input.primaryAgent || null},
+      ${input.fallbackAgent || null},
+      ${input.ownerUserId},
+      ${input.mute || false},
+      ${input.muteInterval || null},
+      ${input.timezone || 'America/Chicago'},
+      ${input.startAt},
+      ${input.endAt || null},
+      ${input.repeatCount || null},
+      ${input.everyInterval},
+      ${input.everyUnit},
+      ${input.daysOfWeek || null},
+      ${input.weekParity || 'any'},
+      ${input.betweenHoursStart ?? null},
+      ${input.betweenHoursEnd ?? null}
+    )
+    RETURNING *
+  `;
+  return rowToTemplate(row);
+}
+
+export async function getTemplate(id: string): Promise<RecurringTemplate | null> {
+  const [row] = await sql`
+    SELECT * FROM public.swarm_recurring_templates WHERE id = ${id}
+  `;
+  return row ? rowToTemplate(row) : null;
+}
+
+export interface ListTemplatesOptions {
+  projectId?: string;
+  enabled?: boolean;
+  ownerUserId?: string;
+}
+
+export async function listTemplates(opts: ListTemplatesOptions = {}): Promise<RecurringTemplate[]> {
+  let query = 'SELECT * FROM public.swarm_recurring_templates WHERE 1=1';
+  const params: unknown[] = [];
+  let idx = 1;
+  
+  if (opts.projectId !== undefined) {
+    query += ` AND project_id = $${idx++}`;
+    params.push(opts.projectId);
+  }
+  if (opts.enabled !== undefined) {
+    query += ` AND enabled = $${idx++}`;
+    params.push(opts.enabled);
+  }
+  if (opts.ownerUserId !== undefined) {
+    query += ` AND owner_user_id = $${idx++}`;
+    params.push(opts.ownerUserId);
+  }
+  
+  query += ' ORDER BY created_at DESC';
+  
+  const rows = await sql.unsafe(query, params);
+  return rows.map(rowToTemplate);
+}
+
+export interface UpdateTemplateInput {
+  projectId?: string | null;
+  title?: string;
+  detail?: string | null;
+  primaryAgent?: string | null;
+  fallbackAgent?: string | null;
+  ownerUserId?: string;
+  mute?: boolean;
+  muteInterval?: string | null;
+  timezone?: string;
+  startAt?: Date;
+  endAt?: Date | null;
+  repeatCount?: number | null;
+  everyInterval?: number;
+  everyUnit?: EveryUnit;
+  daysOfWeek?: string[] | null;
+  weekParity?: WeekParity;
+  betweenHoursStart?: number | null;
+  betweenHoursEnd?: number | null;
+  enabled?: boolean;
+  lastRunAt?: Date | null;
+  nextRunAt?: Date | null;
+}
+
+export async function updateTemplate(id: string, input: UpdateTemplateInput): Promise<RecurringTemplate | null> {
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  
+  if (input.projectId !== undefined) { updates.push('project_id'); values.push(input.projectId); }
+  if (input.title !== undefined) { updates.push('title'); values.push(input.title); }
+  if (input.detail !== undefined) { updates.push('detail'); values.push(input.detail); }
+  if (input.primaryAgent !== undefined) { updates.push('primary_agent'); values.push(input.primaryAgent); }
+  if (input.fallbackAgent !== undefined) { updates.push('fallback_agent'); values.push(input.fallbackAgent); }
+  if (input.ownerUserId !== undefined) { updates.push('owner_user_id'); values.push(input.ownerUserId); }
+  if (input.mute !== undefined) { updates.push('mute'); values.push(input.mute); }
+  if (input.muteInterval !== undefined) { updates.push('mute_interval'); values.push(input.muteInterval); }
+  if (input.timezone !== undefined) { updates.push('timezone'); values.push(input.timezone); }
+  if (input.startAt !== undefined) { updates.push('start_at'); values.push(input.startAt); }
+  if (input.endAt !== undefined) { updates.push('end_at'); values.push(input.endAt); }
+  if (input.repeatCount !== undefined) { updates.push('repeat_count'); values.push(input.repeatCount); }
+  if (input.everyInterval !== undefined) { updates.push('every_interval'); values.push(input.everyInterval); }
+  if (input.everyUnit !== undefined) { updates.push('every_unit'); values.push(input.everyUnit); }
+  if (input.daysOfWeek !== undefined) { updates.push('days_of_week'); values.push(input.daysOfWeek); }
+  if (input.weekParity !== undefined) { updates.push('week_parity'); values.push(input.weekParity); }
+  if (input.betweenHoursStart !== undefined) { updates.push('between_hours_start'); values.push(input.betweenHoursStart); }
+  if (input.betweenHoursEnd !== undefined) { updates.push('between_hours_end'); values.push(input.betweenHoursEnd); }
+  if (input.enabled !== undefined) { updates.push('enabled'); values.push(input.enabled); }
+  if (input.lastRunAt !== undefined) { updates.push('last_run_at'); values.push(input.lastRunAt); }
+  if (input.nextRunAt !== undefined) { updates.push('next_run_at'); values.push(input.nextRunAt); }
+  
+  if (updates.length === 0) {
+    return getTemplate(id);
+  }
+  
+  const setClause = updates.map((col, i) => `${col} = $${i + 2}`).join(', ');
+  const query = `
+    UPDATE public.swarm_recurring_templates 
+    SET ${setClause}, updated_at = NOW()
+    WHERE id = $1
+    RETURNING *
+  `;
+  
+  const [row] = await sql.unsafe(query, [id, ...values]);
+  return row ? rowToTemplate(row) : null;
+}
+
+export async function deleteTemplate(id: string): Promise<boolean> {
+  const result = await sql`
+    DELETE FROM public.swarm_recurring_templates WHERE id = ${id}
+  `;
+  return result.count > 0;
+}
+
+export async function enableTemplate(id: string): Promise<RecurringTemplate | null> {
+  return updateTemplate(id, { enabled: true });
+}
+
+export async function disableTemplate(id: string): Promise<RecurringTemplate | null> {
+  return updateTemplate(id, { enabled: false, nextRunAt: null });
+}
