@@ -2806,6 +2806,15 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/skill") return handleSkill();
     if (path === "/readyz") return handleReadyz();
     
+    // Serve React bundle for dnd-kit
+    if (path === "/ui/bundle.js") {
+      const file = Bun.file("./public/bundle.js");
+      if (await file.exists()) {
+        return new Response(file, { headers: { "Content-Type": "application/javascript" } });
+      }
+      return error("Bundle not found", 404);
+    }
+    
     // PWA manifest and icon (serve at both root and /ui/ paths for compatibility)
     if (path === "/manifest.json" || path === "/ui/manifest.json") {
       return new Response(JSON.stringify({
@@ -4475,7 +4484,6 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
         '</div>' +
       '</div>' +
       '<div class="task-actions">' + 
-        '<span class="drag-handle" title="Drag to reorder" style="cursor:grab;padding:4px 8px;color:var(--muted-foreground);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg></span>' +
         claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + 
       '</div>' +
     '</div>' +
@@ -5674,30 +5682,21 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       });
     }
     
-    // Initialize drag-and-drop for task reordering
-    function initSortable() {
+    // Initialize drag-and-drop with dnd-kit (React island)
+    function initDndKit() {
       const taskList = document.getElementById('taskList');
-      if (!taskList || !window.Sortable) return;
+      if (!taskList || !window.initDndKit) return;
       
-      new Sortable(taskList, {
-        handle: '.drag-handle',
-        animation: 150,
-        ghostClass: 'sortable-ghost',
-        onEnd: async function(evt) {
-          const taskId = evt.item.dataset.id;
-          const visibleCards = [...taskList.querySelectorAll('.task-card')].filter(c => c.style.display !== 'none');
-          const newIdx = visibleCards.findIndex(c => c.dataset.id === taskId);
-          const beforeTaskId = newIdx + 1 < visibleCards.length ? visibleCards[newIdx + 1].dataset.id : null;
-          await reorderTask(taskId, beforeTaskId);
-        }
+      window.initDndKit(taskList, async function(taskId, beforeTaskId) {
+        await reorderTask(taskId, beforeTaskId);
       });
     }
     
-    // Load SortableJS and initialize
-    const sortableScript = document.createElement('script');
-    sortableScript.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js';
-    sortableScript.onload = initSortable;
-    document.head.appendChild(sortableScript);
+    // Load dnd-kit React bundle and initialize
+    const dndScript = document.createElement('script');
+    dndScript.src = '/ui/bundle.js';
+    dndScript.onload = initDndKit;
+    document.head.appendChild(dndScript);
     
     async function createTask() {
       const title = document.getElementById('newTaskTitle').value.trim();

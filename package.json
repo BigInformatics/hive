@@ -21,6 +21,8 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/luxon": "^3.7.1"
+    "@types/luxon": "^3.7.1",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3"
   }
 }
