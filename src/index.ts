@@ -12,6 +12,7 @@ import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
 import { subscribe, emit, type MailboxEvent } from "./events";
 import * as broadcast from "./db/broadcast";
 import * as swarm from "./db/swarm";
+import { appendEvent, listEventsSince } from "./db/event_log";
 import { DateTime } from 'luxon';
 
 // ============================================================
@@ -365,6 +366,16 @@ async function handleSend(
     title: body.title,
     urgent: body.urgent || false,
   });
+
+  // Persist to hive event log for resumable SSE consumers (wagl)
+  try {
+    await appendEvent("mailbox.message.created", {
+      mailbox: recipient,
+      message: serializeMessage(message),
+    });
+  } catch (e) {
+    console.error("[hive-events] failed to append mailbox.message.created", e);
+  }
 
   return json({ message: serializeMessage(message) }, 201);
 }
@@ -2959,6 +2970,11 @@ async function handleRequest(request: Request): Promise<Response> {
 
     if (method === "GET" && path === "/mailboxes/me/stream") {
       return requireAuth(request, (auth) => handleStream(auth));
+    }
+
+    // Unified resumable event stream (wagl integration)
+    if (method === "GET" && path === "/events") {
+      return requireAuth(request, (auth) => handleEventsStream(auth, request));
     }
 
     if (method === "GET" && path === "/mailboxes/me/messages") {
@@ -5780,6 +5796,89 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
   </script>
 </body>
 </html>`;
+}
+
+// Unified resumable event stream (DB-backed) for wagl and other agents.
+// - Uses Authorization via requireAuth
+// - Supports resume via Last-Event-ID header
+async function handleEventsStream(auth: AuthContext, request: Request): Promise<Response> {
+  // Currently all authenticated identities can read the unified stream.
+  // If/when we need scopes, add them to middleware/auth.
+  void auth;
+
+  const lastHeader = request.headers.get("Last-Event-ID") || request.headers.get("last-event-id");
+  let lastSeenId = 0n;
+  if (lastHeader) {
+    try {
+      lastSeenId = BigInt(lastHeader);
+    } catch {
+      // ignore invalid header
+      lastSeenId = 0n;
+    }
+  }
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const encoder = new TextEncoder();
+      let closed = false;
+
+      const send = (chunk: string) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(chunk));
+        } catch {
+          closed = true;
+        }
+      };
+
+      // initial comment
+      send(`: connected to events stream (since ${lastSeenId})\n\n`);
+
+      // keepalive
+      const pingInterval = setInterval(() => {
+        send(": ping\n\n");
+      }, 30000);
+
+      // poll DB for new events
+      const pollInterval = setInterval(async () => {
+        if (closed) return;
+        try {
+          const events = await listEventsSince(lastSeenId, 100);
+          for (const ev of events) {
+            if (closed) break;
+            lastSeenId = ev.id;
+            // Standard SSE fields: id, event, data
+            send(`id: ${ev.id.toString()}\n`);
+            send(`event: ${ev.type}\n`);
+            send(`data: ${JSON.stringify({
+              id: ev.id.toString(),
+              type: ev.type,
+              createdAt: ev.createdAt.toISOString(),
+              payload: ev.payload,
+            })}\n\n`);
+          }
+        } catch (e) {
+          // Don’t kill the stream on transient DB errors; just log.
+          console.error("[events-sse] poll error", e);
+        }
+      }, 1000);
+
+      return () => {
+        closed = true;
+        clearInterval(pingInterval);
+        clearInterval(pollInterval);
+      };
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
 
 const server = Bun.serve({

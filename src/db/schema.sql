@@ -203,3 +203,17 @@ CREATE INDEX IF NOT EXISTS idx_swarm_task_events_task
 COMMENT ON TABLE public.swarm_projects IS 'Swarm projects for organizing tasks';
 COMMENT ON TABLE public.swarm_tasks IS 'Swarm tasks with dependencies and scheduling';
 COMMENT ON TABLE public.swarm_task_events IS 'Audit trail for task changes';
+
+-- ============================================================
+-- HIVE EVENT LOG (for SSE resume + wagl integration)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.hive_events (
+    id BIGSERIAL PRIMARY KEY,
+    type TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    payload JSONB NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_hive_events_created
+    ON public.hive_events (created_at DESC);
