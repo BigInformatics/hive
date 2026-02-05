@@ -35,7 +35,7 @@ export async function appendEvent(type: string, payload: unknown): Promise<HiveE
   await ensureTable();
   const [row] = await sql`
     INSERT INTO public.hive_events (type, payload)
-    VALUES (${type}, ${JSON.stringify(payload)})
+    VALUES (${type}, ${sql.json(payload)})
     RETURNING *
   `;
 
