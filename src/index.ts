@@ -5918,10 +5918,10 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
       // initial comment
       send(`: connected to events stream (since ${lastSeenId})\n\n`);
 
-      // keepalive every 15s
+      // keepalive every 5s (same as handleStream)
       pingInterval = setInterval(() => {
         send(`: keepalive\n\n`);
-      }, 15000);
+      }, 5000);
 
       // poll DB for new events - use recursive setTimeout for async safety
       const poll = async () => {
@@ -5949,9 +5949,7 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
           pollInterval = setTimeout(poll, 1000);
         }
       };
-      // DEBUG: Disable DB poll temporarily to test if that's causing the disconnect
-      // pollInterval = setTimeout(poll, 1000);
-      console.log("[events-sse] DB poll disabled for debugging");
+      pollInterval = setTimeout(poll, 1000);
     },
     cancel(reason) {
       console.log(`[events-sse] Stream cancelled:`, reason);
