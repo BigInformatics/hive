@@ -33,9 +33,10 @@ async function ensureTable() {
 
 export async function appendEvent(type: string, payload: unknown): Promise<HiveEvent> {
   await ensureTable();
+  // Pass object directly - Bun SQL serializes to JSONB automatically
   const [row] = await sql`
     INSERT INTO public.hive_events (type, payload)
-    VALUES (${type}, ${sql.json(payload)})
+    VALUES (${type}, ${payload})
     RETURNING *
   `;
 
