@@ -6715,7 +6715,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       await new Promise(() => {});
     },
     cancel(reason) {
-      console.log(`[sse] Stream cancelled for ${recipient}:`, reason);
+      console.log(`[sse] Stream cancelled for ${recipient}:`, reason, new Error().stack);
       cleanup();
     },
   });
