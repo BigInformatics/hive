@@ -2815,8 +2815,8 @@ async function handleRequest(request: Request): Promise<Response> {
   try {
     if (path === "/healthz") return handleHealthz();
     
-    // Simple SSE test endpoint
-    if (path === "/api/sse-test") {
+    // Simple SSE test endpoint (access via /api/sse-test, path is stripped)
+    if (path === "/sse-test") {
       console.log("[sse-test] Starting simple SSE stream");
       const encoder = new TextEncoder();
       let count = 0;
