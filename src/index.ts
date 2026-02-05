@@ -5892,14 +5892,14 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
   const encoder = new TextEncoder();
   let closed = false;
   let pingInterval: ReturnType<typeof setInterval> | null = null;
-  let pollInterval: ReturnType<typeof setInterval> | null = null;
+  let pollInterval: ReturnType<typeof setTimeout> | null = null;
 
   const cleanup = () => {
     if (closed) return;
     closed = true;
     console.log(`[events-sse] Stream cleanup (since ${lastSeenId})`);
     if (pingInterval) clearInterval(pingInterval);
-    if (pollInterval) clearInterval(pollInterval);
+    if (pollInterval) clearTimeout(pollInterval);
   };
 
   const stream = new ReadableStream({
@@ -5923,8 +5923,8 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
         send(`: keepalive\n\n`);
       }, 15000);
 
-      // poll DB for new events every 1s
-      pollInterval = setInterval(async () => {
+      // poll DB for new events - use recursive setTimeout for async safety
+      const poll = async () => {
         if (closed) return;
         try {
           const events = await listEventsSince(lastSeenId, 100);
@@ -5945,7 +5945,11 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
           // Don't kill the stream on transient DB errors; just log.
           console.error("[events-sse] poll error", e);
         }
-      }, 1000);
+        if (!closed) {
+          pollInterval = setTimeout(poll, 1000);
+        }
+      };
+      pollInterval = setTimeout(poll, 1000);
     },
     cancel(reason) {
       console.log(`[events-sse] Stream cancelled:`, reason);
