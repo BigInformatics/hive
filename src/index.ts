@@ -6625,12 +6625,28 @@ async function handleSkill(): Promise<Response> {
 async function handleStream(auth: AuthContext): Promise<Response> {
   const recipient = auth.identity;
   const connId = generateConnectionId();
+  const encoder = new TextEncoder();
+  
+  // Cleanup state stored outside for cancel callback
+  let closed = false;
+  let pingInterval: ReturnType<typeof setInterval> | null = null;
+  let unsubscribe: (() => void) | null = null;
+  let presenceHandler: PresenceListener | null = null;
+  
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    console.log(`[sse] Cleaning up stream for ${recipient} (conn: ${connId})`);
+    if (pingInterval) clearInterval(pingInterval);
+    if (unsubscribe) unsubscribe();
+    if (presenceHandler) presenceListeners.delete(presenceHandler);
+    removePresence(connId);
+  };
   
   // Create a readable stream for SSE
   const stream = new ReadableStream({
     start(controller) {
-      const encoder = new TextEncoder();
-      let closed = false;
+      console.log(`[sse] Starting stream for ${recipient} (conn: ${connId})`);
       
       // Track presence for this authenticated user
       addPresence(connId, recipient, 'api');
@@ -6638,35 +6654,35 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       // Send initial connection event with presence info
       controller.enqueue(encoder.encode(`: connected to mailbox stream for ${recipient}\n\n`));
       getPresenceInfo().then(presence => {
+        if (closed) return;
         try {
           controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
         } catch { /* stream may be closed */ }
       });
       
       // Listen for presence changes
-      const presenceHandler: PresenceListener = (event) => {
+      presenceHandler = (event) => {
         if (closed) return;
         try {
           controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify(event)}\n\n`));
         } catch {
-          closed = true;
+          cleanup();
         }
       };
       presenceListeners.add(presenceHandler);
       
-      // Ping every 30 seconds to keep connection alive
-      const pingInterval = setInterval(() => {
+      // Ping every 15 seconds to keep connection alive (more aggressive than 30s)
+      pingInterval = setInterval(() => {
         if (closed) return;
         try {
-          controller.enqueue(encoder.encode(`: ping\n\n`));
+          controller.enqueue(encoder.encode(`: keepalive\n\n`));
         } catch {
-          closed = true;
-          clearInterval(pingInterval);
+          cleanup();
         }
-      }, 30000);
+      }, 15000);
       
       // Subscribe to real-time events for this mailbox (instant delivery)
-      const unsubscribe = subscribe(recipient, (event: MailboxEvent) => {
+      unsubscribe = subscribe(recipient, (event: MailboxEvent) => {
         if (closed) return;
         try {
           if (event.type === "message") {
@@ -6687,18 +6703,13 @@ async function handleStream(auth: AuthContext): Promise<Response> {
           }
         } catch (err) {
           console.error("[sse] Event send error:", err);
-          closed = true;
+          cleanup();
         }
       });
-      
-      // Cleanup on close
-      return () => {
-        closed = true;
-        clearInterval(pingInterval);
-        unsubscribe();
-        presenceListeners.delete(presenceHandler);
-        removePresence(connId);
-      };
+    },
+    cancel(reason) {
+      console.log(`[sse] Stream cancelled for ${recipient}:`, reason);
+      cleanup();
     },
   });
   
