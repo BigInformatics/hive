@@ -6671,7 +6671,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       };
       presenceListeners.add(presenceHandler);
       
-      // Ping every 15 seconds to keep connection alive (more aggressive than 30s)
+      // Ping every 5 seconds to keep connection alive (aggressive to beat proxy timeouts)
       pingInterval = setInterval(() => {
         if (closed) return;
         try {
@@ -6679,7 +6679,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
         } catch {
           cleanup();
         }
-      }, 15000);
+      }, 5000);
       
       // Subscribe to real-time events for this mailbox (instant delivery)
       unsubscribe = subscribe(recipient, (event: MailboxEvent) => {
