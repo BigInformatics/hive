@@ -6644,8 +6644,9 @@ async function handleStream(auth: AuthContext): Promise<Response> {
   };
   
   // Create a readable stream for SSE
+  // Using async start() that never resolves to keep stream open in Bun
   const stream = new ReadableStream({
-    start(controller) {
+    async start(controller) {
       console.log(`[sse] Starting stream for ${recipient} (conn: ${connId})`);
       
       // Track presence for this authenticated user
@@ -6653,12 +6654,14 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       
       // Send initial connection event with presence info
       controller.enqueue(encoder.encode(`: connected to mailbox stream for ${recipient}\n\n`));
-      getPresenceInfo().then(presence => {
-        if (closed) return;
-        try {
-          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
-        } catch { /* stream may be closed */ }
-      });
+      
+      // Send initial presence
+      try {
+        const presence = await getPresenceInfo();
+        controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
+      } catch (err) {
+        console.error("[sse] Failed to get initial presence:", err);
+      }
       
       // Listen for presence changes
       presenceHandler = (event) => {
@@ -6671,7 +6674,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       };
       presenceListeners.add(presenceHandler);
       
-      // Ping every 5 seconds to keep connection alive (aggressive to beat proxy timeouts)
+      // Ping every 5 seconds to keep connection alive
       pingInterval = setInterval(() => {
         if (closed) return;
         try {
@@ -6681,7 +6684,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
         }
       }, 5000);
       
-      // Subscribe to real-time events for this mailbox (instant delivery)
+      // Subscribe to real-time events for this mailbox
       unsubscribe = subscribe(recipient, (event: MailboxEvent) => {
         if (closed) return;
         try {
@@ -6706,6 +6709,10 @@ async function handleStream(auth: AuthContext): Promise<Response> {
           cleanup();
         }
       });
+      
+      // Return a promise that never resolves to keep stream open
+      // The cancel() callback will handle cleanup when client disconnects
+      await new Promise(() => {});
     },
     cancel(reason) {
       console.log(`[sse] Stream cancelled for ${recipient}:`, reason);
