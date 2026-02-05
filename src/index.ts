@@ -2814,6 +2814,35 @@ async function handleRequest(request: Request): Promise<Response> {
 
   try {
     if (path === "/healthz") return handleHealthz();
+    
+    // Simple SSE test endpoint
+    if (path === "/sse-test") {
+      console.log("[sse-test] Starting simple SSE stream");
+      const encoder = new TextEncoder();
+      let count = 0;
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(": connected\n\n"));
+          const interval = setInterval(() => {
+            count++;
+            console.log("[sse-test] Sending ping", count);
+            try {
+              controller.enqueue(encoder.encode(`data: ping ${count}\n\n`));
+            } catch (e) {
+              console.log("[sse-test] Error sending:", e);
+              clearInterval(interval);
+            }
+          }, 2000);
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
     if (path === "/skill") return handleSkill();
     if (path === "/readyz") return handleReadyz();
     
