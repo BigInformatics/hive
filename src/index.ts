@@ -1,12 +1,12 @@
 // Hive - Team Communication Hub
 import { healthCheck, close } from "./db/client";
-import { 
-  sendMessage, listMessages, getMessage, 
+import {
+  sendMessage, listMessages, getMessage,
   ackMessage, ackMessages, searchMessages,
   isValidMailbox, listAllMessages, getUnreadCounts,
-  markWaiting, clearWaiting, listMyWaiting, 
+  markWaiting, clearWaiting, listMyWaiting,
   listWaitingOnOthers, getWaitingCounts,
-  type SendMessageInput 
+  type SendMessageInput
 } from "./db/messages";
 import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
 import { subscribe, emit, type MailboxEvent } from "./events";
@@ -19,9 +19,9 @@ import { DateTime } from 'luxon';
 // SWARM BUZZ INTEGRATION
 // ============================================================
 
-type SwarmBuzzEventType = 
-  | 'swarm.task.created' 
-  | 'swarm.task.updated' 
+type SwarmBuzzEventType =
+  | 'swarm.task.created'
+  | 'swarm.task.updated'
   | 'swarm.task.status_changed'
   | 'swarm.task.assigned'
   | 'swarm.task.reordered'
@@ -71,12 +71,12 @@ async function emitSwarmBuzz(payload: SwarmBuzzPayload): Promise<void> {
         deepLink: payload.deepLink,
       },
     });
-    
+
     // Broadcast to SSE listeners
     if (swarmBuzzListenerCallback) {
       swarmBuzzListenerCallback(event);
     }
-    
+
     // Broadcast to Swarm SSE listeners
     for (const listener of swarmEventListeners) {
       try {
@@ -88,7 +88,7 @@ async function emitSwarmBuzz(payload: SwarmBuzzPayload): Promise<void> {
         });
       } catch { /* listener may be closed */ }
     }
-    
+
     console.log(`[swarm-buzz] Emitted ${payload.eventType}: ${payload.title}`);
   } catch (err) {
     console.error('[swarm-buzz] Failed to emit event:', err);
@@ -207,7 +207,7 @@ async function getPresenceInfo(): Promise<PresenceInfo[]> {
   const now = Date.now();
   const unreadCounts = await getUnreadCounts();
   const waitingCounts = await getWaitingCounts();
-  
+
   return allUsers.map(user => ({
     user,
     online: onlineUsers.includes(user),
@@ -221,7 +221,7 @@ async function addPresence(connId: string, user: string, type: 'ui' | 'api'): Pr
   const wasPresent = getPresent().includes(user);
   activeConnections.set(connId, { user, connectedAt: new Date(), type });
   userLastSeen.set(user, Date.now()); // Update last seen
-  
+
   if (!wasPresent) {
     const presence = await getPresenceInfo();
     console.log(`[presence] ${user} joined (${getPresent().length} online: ${getPresent().join(', ')})`);
@@ -232,11 +232,11 @@ async function addPresence(connId: string, user: string, type: 'ui' | 'api'): Pr
 async function removePresence(connId: string): Promise<void> {
   const entry = activeConnections.get(connId);
   if (!entry) return;
-  
+
   activeConnections.delete(connId);
   userLastSeen.set(entry.user, Date.now()); // Record when they left
   const stillPresent = getPresent().includes(entry.user);
-  
+
   if (!stillPresent) {
     const presence = await getPresenceInfo();
     console.log(`[presence] ${entry.user} left (${getPresent().length} online: ${getPresent().join(', ')})`);
@@ -259,7 +259,7 @@ async function recordApiActivity(user: string): Promise<void> {
   const wasPresent = getPresent().includes(user);
   lastApiActivity.set(user, Date.now());
   userLastSeen.set(user, Date.now());
-  
+
   if (!wasPresent) {
     const presence = await getPresenceInfo();
     console.log(`[presence] ${user} active via API (${getPresent().length} online: ${getPresent().join(', ')})`);
@@ -451,7 +451,7 @@ async function handleBatchAck(
     console.error("[api] Batch ack JSON parse error:", err);
     return error("Invalid JSON body", 400);
   }
-  
+
   if (!body.ids || !Array.isArray(body.ids)) {
     return error("ids array is required", 400);
   }
@@ -523,25 +523,25 @@ async function handleMarkWaiting(
   id: string
 ): Promise<Response> {
   const messageId = BigInt(id);
-  
+
   // Verify the message exists and the caller is the recipient (the one making the promise)
   const original = await getMessage(auth.identity, messageId);
   if (!original) {
     return error("Message not found", 404);
   }
-  
+
   const updated = await markWaiting(messageId, auth.identity);
   if (!updated) {
     return error("Failed to mark waiting", 500);
   }
-  
+
   // Emit event so sender knows their message has a waiting response
   emit(original.sender, {
     type: "message_waiting",
     messageId: messageId.toString(),
     responder: auth.identity,
   });
-  
+
   return json({ message: serializeMessage(updated) });
 }
 
@@ -550,35 +550,35 @@ async function handleClearWaiting(
   id: string
 ): Promise<Response> {
   const messageId = BigInt(id);
-  
+
   // Get the message to verify permissions and get the sender for notification
   const rows = await import("./db/client").then(m => m.sql`
     SELECT * FROM public.mailbox_messages WHERE id = ${messageId}
   `);
-  
+
   if (rows.length === 0) {
     return error("Message not found", 404);
   }
-  
+
   const msg = rows[0];
-  
+
   // Only the waiting_responder can clear (the one who made the promise)
   if (msg.waiting_responder !== auth.identity) {
     return error("Only the waiting responder can clear this", 403);
   }
-  
+
   const updated = await clearWaiting(messageId);
   if (!updated) {
     return error("Failed to clear waiting", 500);
   }
-  
+
   // Emit event so sender knows the waiting response was resolved
   emit(msg.sender as string, {
     type: "waiting_cleared",
     messageId: messageId.toString(),
     responder: auth.identity,
   });
-  
+
   return json({ message: serializeMessage(updated) });
 }
 
@@ -586,9 +586,9 @@ async function handleMyWaiting(
   auth: AuthContext
 ): Promise<Response> {
   const messages = await listMyWaiting(auth.identity);
-  return json({ 
+  return json({
     messages: messages.map(serializeMessage),
-    count: messages.length 
+    count: messages.length
   });
 }
 
@@ -596,9 +596,9 @@ async function handleWaitingOnOthers(
   auth: AuthContext
 ): Promise<Response> {
   const messages = await listWaitingOnOthers(auth.identity);
-  return json({ 
+  return json({
     messages: messages.map(serializeMessage),
-    count: messages.length 
+    count: messages.length
   });
 }
 
@@ -700,17 +700,17 @@ const ICONS = {
 function renderHeader(config: HeaderConfig): string {
   const { activeTab, loggedIn, key } = config;
   const keyPath = key ? '/' + key : '';
-  
+
   const titleIcon = activeTab === 'messages' ? ICONS.mail : (activeTab === 'buzz' ? ICONS.buzz : ICONS.swarm);
   const titleText = activeTab === 'messages' ? 'Messages' : (activeTab === 'buzz' ? 'Buzz' : 'Swarm');
-  
+
   // Build nav - uses key path when logged in
   let nav = `
       <div class="nav">
         <a href="/ui${keyPath}"${activeTab === 'messages' ? ' class="active"' : ''}>Messages</a>
         <a href="/ui${keyPath}/buzz"${activeTab === 'buzz' ? ' class="active"' : ''}>Buzz</a>
         <a href="/ui${keyPath}/swarm"${activeTab === 'swarm' ? ' class="active"' : ''}>Swarm</a>`;
-  
+
   if (loggedIn) {
     // Logged in: Logout | bell | theme
     nav += `
@@ -730,13 +730,13 @@ function renderHeader(config: HeaderConfig): string {
           </div>
         </div>`;
   }
-  
+
   // Default to sun icon (JS will update based on theme)
   const defaultThemeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
   nav += `
         <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">${defaultThemeIcon}</button>
       </div>`;
-  
+
   return `
     <div class="header">
       <h1>
@@ -756,18 +756,18 @@ const headerJS = `
     const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
     const bellIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
     const bellOffIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>';
-    
+
     function updateThemeIcon() {
       const btn = document.getElementById('themeToggle');
       if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
     }
-    
+
     function toggleTheme() {
       const isLight = document.body.classList.toggle('light');
       localStorage.setItem('theme', isLight ? 'light' : 'dark');
       updateThemeIcon();
     }
-    
+
     function toggleKeyPopover() {
       const popover = document.getElementById('keyPopover');
       if (!popover) return;
@@ -779,7 +779,7 @@ const headerJS = `
         popover.style.display = 'none';
       }
     }
-    
+
     function submitKey() {
       const input = document.getElementById('keyInput');
       const key = input ? input.value.trim() : '';
@@ -788,12 +788,12 @@ const headerJS = `
         window.location.href = '/ui/' + encodeURIComponent(key);
       }
     }
-    
+
     function logout() {
       localStorage.removeItem('hive_mailbox_key');
       window.location.href = '/ui';
     }
-    
+
     document.addEventListener('keydown', function(e) {
       const popover = document.getElementById('keyPopover');
       if (popover && popover.style.display === 'block') {
@@ -801,7 +801,7 @@ const headerJS = `
         if (e.key === 'Escape') toggleKeyPopover();
       }
     });
-    
+
     // Initialize theme
     if (localStorage.getItem('theme') === 'light') {
       document.body.classList.add('light');
@@ -990,12 +990,12 @@ async function handleUI(): Promise<Response> {
     // Theme toggle
     const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
     const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
-    
+
     function updateThemeIcon() {
       const btn = document.getElementById('themeToggle');
       if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
     }
-    
+
     function toggleKeyPopover() {
       const popover = document.getElementById('keyPopover');
       const input = document.getElementById('keyInput');
@@ -1006,7 +1006,7 @@ async function handleUI(): Promise<Response> {
         popover.style.display = 'none';
       }
     }
-    
+
     function submitKey() {
       const input = document.getElementById('keyInput');
       const key = input.value.trim();
@@ -1015,7 +1015,7 @@ async function handleUI(): Promise<Response> {
         window.location.href = '/ui/' + encodeURIComponent(key);
       }
     }
-    
+
     // Handle Enter key in input
     document.addEventListener('DOMContentLoaded', () => {
       const input = document.getElementById('keyInput');
@@ -1026,7 +1026,7 @@ async function handleUI(): Promise<Response> {
         });
       }
     });
-    
+
     // Auto-redirect if we have a stored key AND running as installed PWA
     (function() {
       const storedKey = localStorage.getItem('hive_mailbox_key');
@@ -1035,7 +1035,7 @@ async function handleUI(): Promise<Response> {
         window.location.href = '/ui/' + encodeURIComponent(storedKey);
       }
     })();
-    
+
     function toggleTheme() {
       const isLight = document.body.classList.toggle('light');
       localStorage.setItem('theme', isLight ? 'light' : 'dark');
@@ -1131,13 +1131,13 @@ async function handleUI(): Promise<Response> {
       const mins = Math.floor(diff / 60000);
       const hours = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
-      
+
       let relative;
       if (mins < 1) relative = 'just now';
       else if (mins < 60) relative = mins + 'm ago';
       else if (hours < 24) relative = hours + 'h ago';
       else relative = days + 'd ago';
-      
+
       return \`<span title="\${d.toLocaleString()}">\${relative}</span>\`;
     }
 
@@ -1183,16 +1183,16 @@ async function handleUI(): Promise<Response> {
     function getPresenceColor(info) {
       if (info.online) return { ring: '#22c55e', shadow: 'rgba(34,197,94,0.4)', name: '#22c55e' };
       if (!info.lastSeen) return { ring: 'var(--muted)', shadow: 'none', name: 'var(--muted-foreground)' };
-      
+
       const elapsed = Date.now() - info.lastSeen;
       const fadeRatio = Math.min(elapsed / FADE_DURATION_MS, 1);
-      
+
       // Interpolate from green to grey
       const g = Math.round(197 - (197 - 113) * fadeRatio); // 197 (green) -> 113 (grey)
       const r = Math.round(34 + (113 - 34) * fadeRatio);   // 34 -> 113
       const b = Math.round(94 + (113 - 94) * fadeRatio);   // 94 -> 113
       const opacity = 0.4 - (0.4 * fadeRatio);
-      
+
       return {
         ring: \`rgb(\${r},\${g},\${b})\`,
         shadow: opacity > 0.05 ? \`rgba(\${r},\${g},\${b},\${opacity})\` : 'none',
@@ -1232,28 +1232,28 @@ async function handleUI(): Promise<Response> {
       document.getElementById('status').textContent = 'Not connected (login required)';
       document.getElementById('status').className = 'status';
     }
-    
+
     function connectSSE_disabled() {
       const recipient = document.getElementById('recipient').value;
       const url = recipient ? '/ui/stream?recipient=' + recipient : '/ui/stream';
-      
+
       if (eventSource) {
         eventSource.close();
       }
-      
+
       eventSource = new EventSource(url);
-      
+
       eventSource.onopen = () => {
         document.getElementById('status').textContent = 'Connected';
         document.getElementById('status').className = 'status connected';
       };
-      
+
       eventSource.onerror = () => {
         document.getElementById('status').textContent = 'Disconnected';
         document.getElementById('status').className = 'status';
         setTimeout(connectSSE, 3000);
       };
-      
+
       // Handle presence events
       eventSource.addEventListener('presence', (e) => {
         try {
@@ -1265,12 +1265,12 @@ async function handleUI(): Promise<Response> {
           console.error('Presence parse error:', err);
         }
       });
-      
+
       let refreshTimeout = null;
       let initialLoadComplete = false;
       const seenMessageIds = new Set();
       setTimeout(() => { initialLoadComplete = true; }, 2000);
-      
+
       eventSource.addEventListener('message', (e) => {
         // (no sound in global /ui view)
         // Debounce: refresh at most every 500ms
@@ -1315,25 +1315,25 @@ async function handleUIMessages(request: Request): Promise<Response> {
   const sinceId = url.searchParams.get("sinceId");
   const urgentOnly = url.searchParams.get("urgent") === "true";
   const unreadOnly = url.searchParams.get("unread") === "true";
-  
+
   // Access control: require a valid UI key
   const uiKey = url.searchParams.get("key");
   if (!uiKey) {
     return error("Unauthorized - login required", 401);
   }
-  
+
   const config = uiMailboxKeys[uiKey];
   if (!config) {
     return error("Unauthorized - invalid key", 401);
   }
-  
+
   const viewer = config.sender;
   const isAdmin = config.admin || false;
 
   // For non-admins: don't use recipient filter from dropdown
   // Access control filter will handle visibility
   const effectiveRecipient = isAdmin ? recipient : undefined;
-  
+
   let messages = await listAllMessages({
     recipient: effectiveRecipient,
     limit: urgentOnly || unreadOnly ? 200 : limit, // Fetch more if filtering
@@ -1343,7 +1343,7 @@ async function handleUIMessages(request: Request): Promise<Response> {
   // Access control filter: non-admins only see their own messages
   if (!isAdmin) {
     messages = messages.filter(m => m.sender === viewer || m.recipient === viewer);
-    
+
     // If dropdown has a specific mailbox selected, also filter to conversations with that user
     if (recipient && recipient !== viewer) {
       messages = messages.filter(m => m.sender === recipient || m.recipient === recipient);
@@ -1357,7 +1357,7 @@ async function handleUIMessages(request: Request): Promise<Response> {
   if (unreadOnly) {
     messages = messages.filter(m => m.status === 'unread');
   }
-  
+
   // Re-apply limit after filtering
   messages = messages.slice(0, limit);
 
@@ -1371,7 +1371,7 @@ const VALID_PRESENCE_USERS = ['chris', 'clio', 'domingo', 'zumie'];
 async function handleUIStream(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const recipient = url.searchParams.get("recipient") || undefined;
-  
+
   // Access control: require valid UI key
   const uiKey = url.searchParams.get("key");
   if (!uiKey) {
@@ -1381,22 +1381,22 @@ async function handleUIStream(request: Request): Promise<Response> {
   if (!keyConfig) {
     return error("Unauthorized - invalid key", 401);
   }
-  
+
   const viewer = keyConfig.sender;
   const isAdmin = keyConfig.admin || false;
-  
+
   const connId = generateConnectionId();
-  
+
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
       let closed = false;
-      
+
       // Track presence if viewer is specified and valid
       if (viewer) {
         addPresence(connId, viewer, 'ui');
       }
-      
+
       // Helper to filter presence based on viewer permissions
       const filterPresence = (presenceList: PresenceInfo[]) => {
         if (isAdmin) return presenceList;
@@ -1408,7 +1408,7 @@ async function handleUIStream(request: Request): Promise<Response> {
           waiting: p.user === viewer ? p.waiting : 0
         }));
       };
-      
+
       // Send initial connection event with current presence
       controller.enqueue(encoder.encode(`: connected to UI stream\n\n`));
       getPresenceInfo().then(presence => {
@@ -1417,7 +1417,7 @@ async function handleUIStream(request: Request): Promise<Response> {
           controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence: filtered })}\n\n`));
         } catch { /* stream may be closed */ }
       });
-      
+
       // Listen for presence changes
       const presenceHandler: PresenceListener = (event) => {
         if (closed) return;
@@ -1433,7 +1433,7 @@ async function handleUIStream(request: Request): Promise<Response> {
         }
       };
       presenceListeners.add(presenceHandler);
-      
+
       // Listen for swarm events (task changes)
       const swarmHandler: SwarmEventListener = (event) => {
         if (closed) return;
@@ -1444,7 +1444,7 @@ async function handleUIStream(request: Request): Promise<Response> {
         }
       };
       swarmEventListeners.add(swarmHandler);
-      
+
       const pingInterval = setInterval(() => {
         if (closed) return;
         try {
@@ -1454,25 +1454,25 @@ async function handleUIStream(request: Request): Promise<Response> {
           clearInterval(pingInterval);
         }
       }, 30000);
-      
+
       let lastSeenId = 0n;
       const pollInterval = setInterval(async () => {
         if (closed) return;
         try {
-          let messages = await listAllMessages({ 
+          let messages = await listAllMessages({
             recipient,
             limit: 10,
-            sinceId: lastSeenId > 0n ? lastSeenId : undefined 
+            sinceId: lastSeenId > 0n ? lastSeenId : undefined
           });
-          
+
           // Access control: non-admins only see their own messages
           if (!isAdmin) {
             messages = messages.filter(m => m.sender === viewer || m.recipient === viewer);
           }
-          
+
           // Sort by id ascending for proper event order
           messages.sort((a, b) => Number(a.id - b.id));
-          
+
           for (const msg of messages) {
             if (closed) break;
             if (msg.id > lastSeenId) {
@@ -1489,7 +1489,7 @@ async function handleUIStream(request: Request): Promise<Response> {
           if (!closed) console.error("[ui-sse] Poll error:", err);
         }
       }, 3000);
-      
+
       return () => {
         closed = true;
         clearInterval(pingInterval);
@@ -1502,7 +1502,7 @@ async function handleUIStream(request: Request): Promise<Response> {
       };
     },
   });
-  
+
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
@@ -1517,47 +1517,47 @@ async function handleUIStream(request: Request): Promise<Response> {
 async function handlePresence(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const uiKey = url.searchParams.get("key");
-  
+
   // Get full presence info
   const allPresence = await getPresenceInfo();
-  
+
   // If no key or invalid key, return presence with counts hidden
   if (!uiKey) {
     // Show online status only, hide counts
-    return json({ 
-      presence: allPresence.map(p => ({ 
-        user: p.user, 
-        online: p.online, 
+    return json({
+      presence: allPresence.map(p => ({
+        user: p.user,
+        online: p.online,
         lastSeen: p.lastSeen,
         unread: 0,  // Hidden
         waiting: 0  // Hidden
       }))
     });
   }
-  
+
   const config = uiMailboxKeys[uiKey];
   if (!config) {
-    return json({ 
-      presence: allPresence.map(p => ({ 
-        user: p.user, 
-        online: p.online, 
+    return json({
+      presence: allPresence.map(p => ({
+        user: p.user,
+        online: p.online,
         lastSeen: p.lastSeen,
         unread: 0,
         waiting: 0
       }))
     });
   }
-  
+
   const viewer = config.sender;
   const isAdmin = config.admin || false;
-  
+
   // Admin sees all counts
   if (isAdmin) {
     return json({ presence: allPresence });
   }
-  
+
   // Non-admin: only show their own counts, hide others
-  return json({ 
+  return json({
     presence: allPresence.map(p => ({
       user: p.user,
       online: p.online,
@@ -1574,10 +1574,10 @@ async function handleUIWithKey(key: string): Promise<Response> {
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const sender = config.sender;
   const recipients = ["chris", "clio", "domingo", "zumie"].filter(r => r !== sender);
-  
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1743,7 +1743,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
 </head>
 <body>
 ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
-  
+
   <div id="composePanel" class="compose collapsed">
     <div class="compose-header" onclick="toggleCompose()">
       <h2>✏️ Compose Message</h2>
@@ -1828,7 +1828,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
       localStorage.removeItem('hive_mailbox_key');
       window.location.href = '/ui';
     }
-    
+
     // Compose panel toggle
     function toggleCompose() {
       const panel = document.getElementById('composePanel');
@@ -1864,12 +1864,12 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
     const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
     const bellIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
     const bellOffIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>';
-    
+
     function updateThemeIcon() {
       const btn = document.getElementById('themeToggle');
       if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
     }
-    
+
     function toggleTheme() {
       const isLight = document.body.classList.toggle('light');
       localStorage.setItem('theme', isLight ? 'light' : 'dark');
@@ -1962,7 +1962,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
     async function copyMessageId(msgId) {
       const btn = event.target.closest('.copy-id-btn');
       let success = false;
-      
+
       // Try modern clipboard API first
       if (navigator?.clipboard?.writeText) {
         try {
@@ -1970,7 +1970,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
           success = true;
         } catch (e) { /* fall through to legacy */ }
       }
-      
+
       // Fallback: execCommand with hidden textarea
       if (!success) {
         const ta = document.createElement('textarea');
@@ -1984,14 +1984,14 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
         } catch (e) { /* ignore */ }
         document.body.removeChild(ta);
       }
-      
+
       // Visual feedback - show checkmark and "copied" state
       if (success && btn) {
         const original = btn.innerHTML;
         btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
         btn.classList.add('copied');
-        setTimeout(() => { 
-          btn.innerHTML = original; 
+        setTimeout(() => {
+          btn.innerHTML = original;
           btn.classList.remove('copied');
         }, 1500);
       }
@@ -2013,13 +2013,13 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
       const mins = Math.floor(diff / 60000);
       const hours = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
-      
+
       let relative;
       if (mins < 1) relative = 'just now';
       else if (mins < 60) relative = mins + 'm ago';
       else if (hours < 24) relative = hours + 'h ago';
       else relative = days + 'd ago';
-      
+
       return \`<span title="\${d.toLocaleString()}">\${relative}</span>\`;
     }
 
@@ -2029,12 +2029,12 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
       if (msg.status === 'unread') classes.push('unread');
       if (isNew) classes.push('new-message');
       if (selectedMessage === msg.id) classes.push('selected');
-      
+
       const canMarkRead = msg.recipient === CURRENT_SENDER && msg.status === 'unread';
-      const markReadBtn = canMarkRead 
+      const markReadBtn = canMarkRead
         ? \`<button class="mark-read-btn" onclick="event.stopPropagation(); markAsRead('\${msg.id}')">Mark read</button>\`
         : '';
-      
+
       // SVG copy icon - using single quotes for SVG attributes to avoid escaping issues
       const copyIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
       const copyBtn = \`<button class="copy-id-btn" onclick="event.stopPropagation(); copyMessageId('\${msg.id}')" title="Copy message ID">\${copyIcon}</button>\`;
@@ -2070,11 +2070,11 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
       replyToId = el.dataset.id;
       const sender = el.dataset.sender;
       const title = el.dataset.title;
-      
+
       document.getElementById('replyInfo').textContent = 'Replying to: #' + replyToId + ' from ' + sender + ' - "' + title + '"';
       document.getElementById('replyInfo').style.display = 'block';
       document.getElementById('composeTitle').value = 'Re: ' + title;
-      
+
       // Set recipient to original sender
       const recipientSelect = document.getElementById('composeRecipient');
       for (let i = 0; i < recipientSelect.options.length; i++) {
@@ -2101,16 +2101,16 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
       const title = document.getElementById('composeTitle').value.trim();
       const body = document.getElementById('composeBody').value.trim();
       const urgent = document.getElementById('composeUrgent').checked;
-      
+
       if (!title && !body) {
         document.getElementById('composeStatus').textContent = 'Title or body required';
         document.getElementById('composeStatus').className = 'compose-status error';
         return;
       }
-      
+
       const payload = { recipient, title, body, urgent };
       if (replyToId) payload.replyToMessageId = replyToId;
-      
+
       try {
         const res = await fetch('/ui/' + MAILBOX_KEY + '/send', {
           method: 'POST',
@@ -2142,25 +2142,25 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
       if (recipient) params.set('recipient', recipient);
       if (filterUrgent) params.set('urgent', 'true');
       if (filterUnread) params.set('unread', 'true');
-      
+
       // Pass key for server-side access control
       params.set('key', MAILBOX_KEY);
       const res = await fetch('/ui/messages?' + params);
       const data = await res.json();
-      
+
       // Server-side access control already applied; client-side filter for waiting
       let messages = data.messages;
       if (filterWaiting) {
         messages = messages.filter(m => m.responseWaiting && m.waitingResponder === CURRENT_SENDER);
       }
-      
+
       const container = document.getElementById('messages');
       if (messages.length === 0) {
         container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">No messages match filters</div>';
       } else {
         container.innerHTML = messages.map(m => renderMessage(m)).join('');
       }
-      
+
       if (data.messages.length > 0) {
         lastId = data.messages[0].id;
         // Add all loaded messages to seen set (so we don't beep on reconnect)
@@ -2177,16 +2177,16 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
     function getPresenceColor(info) {
       if (info.online) return { ring: '#22c55e', shadow: 'rgba(34,197,94,0.4)', name: '#22c55e' };
       if (!info.lastSeen) return { ring: 'var(--muted)', shadow: 'none', name: 'var(--muted-foreground)' };
-      
+
       const elapsed = Date.now() - info.lastSeen;
       const fadeRatio = Math.min(elapsed / FADE_DURATION_MS, 1);
-      
+
       // Interpolate from green to grey
       const g = Math.round(197 - (197 - 113) * fadeRatio);
       const r = Math.round(34 + (113 - 34) * fadeRatio);
       const b = Math.round(94 + (113 - 94) * fadeRatio);
       const opacity = 0.4 - (0.4 * fadeRatio);
-      
+
       return {
         ring: \`rgb(\${r},\${g},\${b})\`,
         shadow: opacity > 0.05 ? \`rgba(\${r},\${g},\${b},\${opacity})\` : 'none',
@@ -2215,7 +2215,7 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
           </div>
         \`;
       }).join('');
-      
+
       // Update stats bar with unread and waiting counts for current user
       const statsBar = document.getElementById('statsBar');
       if (statsBar && presenceData) {
@@ -2240,21 +2240,21 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
       // Include key for auth and access control
       let url = '/ui/stream?key=' + encodeURIComponent(MAILBOX_KEY);
       if (recipient) url += '&recipient=' + encodeURIComponent(recipient);
-      
+
       if (eventSource) eventSource.close();
       eventSource = new EventSource(url);
-      
+
       eventSource.onopen = () => {
         document.getElementById('status').textContent = 'Connected';
         document.getElementById('status').className = 'status connected';
       };
-      
+
       eventSource.onerror = () => {
         document.getElementById('status').textContent = 'Disconnected';
         document.getElementById('status').className = 'status';
         setTimeout(connectSSE, 3000);
       };
-      
+
       // Handle presence events
       eventSource.addEventListener('presence', (e) => {
         try {
@@ -2266,9 +2266,9 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
           console.error('Presence parse error:', err);
         }
       });
-      
+
       let refreshTimeout = null;
-      
+
       eventSource.addEventListener('message', (e) => {
         try {
           const msg = JSON.parse(e.data);
@@ -2319,27 +2319,27 @@ async function handleUISend(key: string, request: Request): Promise<Response> {
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const sender = config.sender;
-  
+
   let body: { recipient?: string; title?: string; body?: string; urgent?: boolean; replyToMessageId?: string };
   try {
     body = await request.json();
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   const { recipient, title, urgent, replyToMessageId } = body;
   const msgBody = body.body;
-  
+
   if (!recipient || !isValidMailbox(recipient)) {
     return error("Invalid recipient", 400);
   }
-  
+
   if (!title && !msgBody) {
     return error("title or body is required", 400);
   }
-  
+
   try {
     const message = await sendMessage({
       recipient,
@@ -2349,7 +2349,7 @@ async function handleUISend(key: string, request: Request): Promise<Response> {
       urgent: urgent || false,
       replyToMessageId: replyToMessageId ? BigInt(replyToMessageId) : undefined,
     });
-    
+
     return json({ message: serializeMessage(message) }, 201);
   } catch (err) {
     console.error("[ui-send] Error:", err);
@@ -2363,9 +2363,9 @@ async function handleUIAck(key: string, msgId: string): Promise<Response> {
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const sender = config.sender;
-  
+
   try {
     const message = await ackMessage(sender, BigInt(msgId));
     if (!message) {
@@ -2384,25 +2384,25 @@ async function handleUISwarmCreateProject(key: string, request: Request): Promis
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
-  
+
   let body: { title?: string; color?: string; projectLeadUserId?: string; developerLeadUserId?: string; description?: string; onedevUrl?: string; dokployDeployUrl?: string };
   try {
     body = await request.json();
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   if (!body.title || !body.color || !body.projectLeadUserId || !body.developerLeadUserId) {
     return error("title, color, projectLeadUserId, and developerLeadUserId are required", 400);
   }
-  
+
   // Validate color format
   if (!/^#[0-9A-Fa-f]{6}$/.test(body.color)) {
     return error("color must be a valid hex color (e.g., #FF5500)", 400);
   }
-  
+
   try {
     const project = await swarm.createProject({
       title: body.title,
@@ -2413,7 +2413,7 @@ async function handleUISwarmCreateProject(key: string, request: Request): Promis
       onedevUrl: body.onedevUrl,
       dokployDeployUrl: body.dokployDeployUrl,
     });
-    
+
     // Emit Buzz event
     emitSwarmBuzz({
       eventType: 'swarm.project.created',
@@ -2422,7 +2422,19 @@ async function handleUISwarmCreateProject(key: string, request: Request): Promis
       actor: identity,
       deepLink: getSwarmDeepLink(),
     });
-    
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent("swarm.project.created", {
+        projectId: project.id,
+        title: project.title,
+        actor: identity,
+        deepLink: getSwarmDeepLink(),
+      });
+    } catch (e) {
+      console.error("[hive-events] failed to append swarm.project.created", e);
+    }
+
     return json({ project }, 201);
   } catch (err) {
     console.error("[ui-swarm] Error creating project:", err);
@@ -2436,22 +2448,22 @@ async function handleUISwarmUpdateProject(key: string, projectId: string, reques
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
-  
+
   let body: swarm.UpdateProjectInput;
   try {
     body = await request.json();
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   try {
     const project = await swarm.updateProject(projectId, body);
     if (!project) {
       return error("Project not found", 404);
     }
-    
+
     // Emit Buzz event
     emitSwarmBuzz({
       eventType: 'swarm.project.updated',
@@ -2460,7 +2472,19 @@ async function handleUISwarmUpdateProject(key: string, projectId: string, reques
       actor: identity,
       deepLink: getSwarmDeepLink(),
     });
-    
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent("swarm.project.updated", {
+        projectId: project.id,
+        title: project.title,
+        actor: identity,
+        deepLink: getSwarmDeepLink(),
+      });
+    } catch (e) {
+      console.error("[hive-events] failed to append swarm.project.updated", e);
+    }
+
     return json({ project });
   } catch (err) {
     console.error("[ui-swarm] Error updating project:", err);
@@ -2474,22 +2498,22 @@ async function handleUISwarmUpdateProject(key: string, projectId: string, reques
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
-  
+
   let body: swarm.UpdateProjectInput;
   try {
     body = await request.json();
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   try {
     const project = await swarm.updateProject(projectId, body);
     if (!project) {
       return error("Project not found", 404);
     }
-    
+
     // Emit Buzz event
     emitSwarmBuzz({
       eventType: 'swarm.project.updated',
@@ -2498,7 +2522,19 @@ async function handleUISwarmUpdateProject(key: string, projectId: string, reques
       actor: identity,
       deepLink: getSwarmDeepLink(),
     });
-    
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent("swarm.project.updated", {
+        projectId: project.id,
+        title: project.title,
+        actor: identity,
+        deepLink: getSwarmDeepLink(),
+      });
+    } catch (e) {
+      console.error("[hive-events] failed to append swarm.project.updated", e);
+    }
+
     return json({ project });
   } catch (err) {
     console.error("[ui-swarm] Error updating project:", err);
@@ -2512,20 +2548,20 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
-  
+
   let body: { title?: string; projectId?: string; assigneeUserId?: string; detail?: string; issueUrl?: string; onOrAfterAt?: string };
   try {
     body = await request.json();
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   if (!body.title) {
     return error("title is required", 400);
   }
-  
+
   try {
     const task = await swarm.createTask({
       title: body.title,
@@ -2537,7 +2573,7 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
       creatorUserId: identity,
       status: "queued",
     });
-    
+
     // Record creation event
     await swarm.createTaskEvent({
       taskId: task.id,
@@ -2545,7 +2581,7 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
       kind: "created",
       afterState: { title: task.title, status: task.status },
     });
-    
+
     // Emit Buzz event
     emitSwarmBuzz({
       eventType: 'swarm.task.created',
@@ -2557,7 +2593,22 @@ async function handleUISwarmCreateTask(key: string, request: Request): Promise<R
       status: task.status,
       deepLink: getSwarmDeepLink(task.id),
     });
-    
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent("swarm.task.created", {
+        taskId: task.id,
+        projectId: task.projectId,
+        title: task.title,
+        actor: identity,
+        assignee: task.assigneeUserId,
+        status: task.status,
+        deepLink: getSwarmDeepLink(task.id),
+      });
+    } catch (e) {
+      console.error("[hive-events] failed to append swarm.task.created", e);
+    }
+
     return json({ task }, 201);
   } catch (err) {
     console.error("[ui-swarm] Error creating task:", err);
@@ -2571,15 +2622,15 @@ async function handleUISwarmClaimTask(key: string, taskId: string): Promise<Resp
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
-  
+
   try {
     const task = await swarm.claimTask(taskId, identity);
     if (!task) {
       return error("Task not found", 404);
     }
-    
+
     // Emit Buzz event for assignment
     emitSwarmBuzz({
       eventType: 'swarm.task.assigned',
@@ -2591,7 +2642,7 @@ async function handleUISwarmClaimTask(key: string, taskId: string): Promise<Resp
       status: task.status,
       deepLink: getSwarmDeepLink(task.id),
     });
-    
+
     return json({ task });
   } catch (err) {
     console.error("[ui-swarm] Error claiming task:", err);
@@ -2605,20 +2656,20 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
-  
+
   let body: { title?: string; projectId?: string | null; assigneeUserId?: string | null; detail?: string | null; issueUrl?: string | null; mustBeDoneAfterTaskId?: string | null; nextTaskId?: string | null; onOrAfterAt?: string | null };
   try {
     body = await request.json();
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   try {
     // Get current task to detect assignment changes
     const oldTask = await swarm.getTask(taskId);
-    
+
     const task = await swarm.updateTask(taskId, {
       title: body.title,
       projectId: body.projectId,
@@ -2629,36 +2680,42 @@ async function handleUISwarmUpdateTask(key: string, taskId: string, request: Req
       nextTaskId: body.nextTaskId,
       onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : (body.onOrAfterAt === null ? null : undefined),
     });
-    
+
     if (!task) {
       return error("Task not found", 404);
     }
-    
+
     // Emit Buzz event - check if it was an assignment change
-    if (oldTask && body.assigneeUserId !== undefined && oldTask.assigneeUserId !== task.assigneeUserId) {
-      emitSwarmBuzz({
-        eventType: 'swarm.task.assigned',
+    const eventType = (oldTask && body.assigneeUserId !== undefined && oldTask.assigneeUserId !== task.assigneeUserId)
+      ? 'swarm.task.assigned'
+      : 'swarm.task.updated';
+
+    emitSwarmBuzz({
+      eventType,
+      taskId: task.id,
+      projectId: task.projectId || undefined,
+      title: task.title,
+      actor: identity,
+      assignee: task.assigneeUserId,
+      status: task.status,
+      deepLink: getSwarmDeepLink(task.id),
+    });
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent(eventType, {
         taskId: task.id,
-        projectId: task.projectId || undefined,
+        projectId: task.projectId,
         title: task.title,
         actor: identity,
         assignee: task.assigneeUserId,
         status: task.status,
         deepLink: getSwarmDeepLink(task.id),
       });
-    } else {
-      emitSwarmBuzz({
-        eventType: 'swarm.task.updated',
-        taskId: task.id,
-        projectId: task.projectId || undefined,
-        title: task.title,
-        actor: identity,
-        assignee: task.assigneeUserId,
-        status: task.status,
-        deepLink: getSwarmDeepLink(task.id),
-      });
+    } catch (e) {
+      console.error(`[hive-events] failed to append ${eventType}`, e);
     }
-    
+
     return json({ task });
   } catch (err) {
     console.error("[ui-swarm] Error updating task:", err);
@@ -2672,38 +2729,38 @@ async function handleUISwarmTaskStatus(key: string, taskId: string, request: Req
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
-  
+
   let body: { status?: string };
   try {
     body = await request.json();
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   if (!body.status) {
     return error("status is required", 400);
   }
-  
+
   const validStatuses: swarm.TaskStatus[] = ["queued", "ready", "in_progress", "holding", "review", "complete"];
   if (!validStatuses.includes(body.status as swarm.TaskStatus)) {
     return error(`status must be one of: ${validStatuses.join(", ")}`, 400);
   }
-  
+
   try {
     const result = await swarm.updateTaskStatusWithValidation(taskId, body.status as swarm.TaskStatus, identity);
-    
+
     if (!result.success) {
       // Return 400 for blocked transitions
       return error(result.error || "Failed to update status", 400);
     }
-    
+
     const task = result.task;
     if (!task) {
       return error("Task not found", 404);
     }
-    
+
     // Emit Buzz event - special event for completion
     if (body.status === 'complete') {
       emitSwarmBuzz({
@@ -2728,7 +2785,7 @@ async function handleUISwarmTaskStatus(key: string, taskId: string, request: Req
         deepLink: getSwarmDeepLink(task.id),
       });
     }
-    
+
     return json({ task });
   } catch (err) {
     console.error("[ui-swarm] Error updating task status:", err);
@@ -2742,23 +2799,23 @@ async function handleUISwarmReorderTask(key: string, taskId: string, request: Re
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
-  
+
   let body: { beforeTaskId?: string | null };
   try {
     body = await request.json();
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   try {
     const task = await swarm.reorderTask(taskId, body.beforeTaskId || null, identity);
-    
+
     if (!task) {
       return error("Task not found", 404);
     }
-    
+
     // Emit Buzz event
     emitSwarmBuzz({
       eventType: 'swarm.task.reordered',
@@ -2770,7 +2827,7 @@ async function handleUISwarmReorderTask(key: string, taskId: string, request: Re
       status: task.status,
       deepLink: getSwarmDeepLink(task.id),
     });
-    
+
     return json({ task });
   } catch (err) {
     console.error("[ui-swarm] Error reordering task:", err);
@@ -2785,17 +2842,17 @@ async function handleAvatar(name: string, ext: string): Promise<Response> {
   if (!validNames.includes(name)) {
     return error("Avatar not found", 404);
   }
-  
+
   const filePath = `./assets/avatars/${name}.${ext}`;
   try {
     const file = Bun.file(filePath);
     if (!(await file.exists())) {
       return error("Avatar not found", 404);
     }
-    
+
     const contentType = ext === "svg" ? "image/svg+xml" : ext === "png" ? "image/png" : "image/jpeg";
     return new Response(file, {
-      headers: { 
+      headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400"
       }
@@ -2814,38 +2871,9 @@ async function handleRequest(request: Request): Promise<Response> {
 
   try {
     if (path === "/healthz") return handleHealthz();
-    
-    // Simple SSE test endpoint (access via /api/sse-test, path is stripped)
-    if (path === "/sse-test") {
-      console.log("[sse-test] Starting simple SSE stream");
-      const encoder = new TextEncoder();
-      let count = 0;
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(": connected\n\n"));
-          const interval = setInterval(() => {
-            count++;
-            console.log("[sse-test] Sending ping", count);
-            try {
-              controller.enqueue(encoder.encode(`data: ping ${count}\n\n`));
-            } catch (e) {
-              console.log("[sse-test] Error sending:", e);
-              clearInterval(interval);
-            }
-          }, 2000);
-        },
-      });
-      return new Response(stream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
-        },
-      });
-    }
     if (path === "/skill") return handleSkill();
     if (path === "/readyz") return handleReadyz();
-    
+
     // Serve React bundle for dnd-kit
     if (path === "/ui/bundle.js") {
       const file = Bun.file("./public/bundle.js");
@@ -2854,7 +2882,7 @@ async function handleRequest(request: Request): Promise<Response> {
       }
       return error("Bundle not found", 404);
     }
-    
+
     // PWA manifest and icon (serve at both root and /ui/ paths for compatibility)
     if (path === "/manifest.json" || path === "/ui/manifest.json") {
       return new Response(JSON.stringify({
@@ -2871,7 +2899,7 @@ async function handleRequest(request: Request): Promise<Response> {
         ]
       }), { headers: { "Content-Type": "application/manifest+json" } });
     }
-    
+
     if (path === "/icon.svg" || path === "/ui/icon.svg") {
       const icon = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
         <rect width="512" height="512" rx="80" fill="#0a0a0a"/>
@@ -2882,26 +2910,26 @@ async function handleRequest(request: Request): Promise<Response> {
       </svg>`;
       return new Response(icon, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" } });
     }
-    
+
     // App icon
     if (method === "GET" && (path === "/ui/assets/icon.png" || path === "/icon.png")) {
       try {
         const file = Bun.file("./assets/icon.png");
         if (await file.exists()) {
-          return new Response(file, { 
-            headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } 
+          return new Response(file, {
+            headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" }
           });
         }
       } catch { }
       return error("Icon not found", 404);
     }
-    
+
     // Static assets (avatars)
     const assetMatch = path.match(/^\/ui\/assets\/avatars\/([a-z]+)\.(svg|png|jpg)$/);
     if (method === "GET" && assetMatch) {
       return handleAvatar(assetMatch[1], assetMatch[2]);
     }
-    
+
     // Serve React island bundle
     if (method === "GET" && path === "/ui/task-list-island.js") {
       try {
@@ -2914,22 +2942,22 @@ async function handleRequest(request: Request): Promise<Response> {
       } catch { }
       return error("Bundle not found", 404);
     }
-    
+
     // UI endpoints (no auth, internal only)
     if (path === "/ui") return handleUI();
     if (path === "/ui/messages") return handleUIMessages(request);
     if (path === "/ui/stream") return handleUIStream(request);
     if (path === "/ui/presence") return handlePresence(request);
-    
+
     // Buzz UI tab (must be before keyed UI routes)
     // Public Buzz requires login - redirect
     if (path === "/ui/buzz") return Response.redirect("/ui", 302);
     if (path === "/ui/buzz/stream") return handleBroadcastUIStream(request);
-    
+
     // Swarm UI tab (must be before keyed UI routes)
     if (path === "/ui/swarm") return handleSwarmUI();
     if (path === "/ui/swarm/stream") return handleSwarmUIStream(request);
-    
+
     // Keyed UI with compose
     const uiKeyMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)$/);
     const uiKeySendMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/send$/);
@@ -2937,7 +2965,7 @@ async function handleRequest(request: Request): Promise<Response> {
     const uiKeySwarmMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm$/);
     const uiKeySwarmRecurringMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/recurring$/);
     const uiKeyBuzzMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/buzz$/);
-    
+
     if (method === "GET" && uiKeySwarmRecurringMatch) {
       return handleRecurringUIWithKey(uiKeySwarmRecurringMatch[1]);
     }
@@ -2956,7 +2984,7 @@ async function handleRequest(request: Request): Promise<Response> {
     if (method === "POST" && uiKeyAckMatch) {
       return handleUIAck(uiKeyAckMatch[1], uiKeyAckMatch[2]);
     }
-    
+
     // UI-keyed Swarm endpoints
     const uiKeySwarmProjectsMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/projects$/);
     const uiKeySwarmProjectMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/projects\/([a-f0-9-]+)$/);
@@ -2965,7 +2993,7 @@ async function handleRequest(request: Request): Promise<Response> {
     const uiKeySwarmTaskClaimMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/claim$/);
     const uiKeySwarmTaskStatusMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/status$/);
     const uiKeySwarmTaskReorderMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/swarm\/tasks\/([a-f0-9-]+)\/reorder$/);
-    
+
     if (method === "POST" && uiKeySwarmProjectsMatch) {
       return handleUISwarmCreateProject(uiKeySwarmProjectsMatch[1], request);
     }
@@ -3068,44 +3096,44 @@ async function handleRequest(request: Request): Promise<Response> {
     // ============================================================
     // BROADCAST WEBHOOK ENDPOINTS
     // ============================================================
-    
+
     // Create webhook (auth required)
     if (method === "POST" && path === "/broadcast/webhooks") {
       return requireAuth(request, handleCreateWebhook);
     }
-    
+
     // List webhooks (auth required)
     if (method === "GET" && path === "/broadcast/webhooks") {
       return requireAuth(request, handleListWebhooks);
     }
-    
+
     // Get webhook by ID (auth required)
     const webhookIdMatch = path.match(/^\/broadcast\/webhooks\/(\d+)$/);
     if (method === "GET" && webhookIdMatch) {
       return requireAuth(request, (auth) => handleGetWebhook(auth, parseInt(webhookIdMatch[1])));
     }
-    
+
     // Enable/disable webhook (auth required)
     const webhookEnableMatch = path.match(/^\/broadcast\/webhooks\/(\d+)\/(enable|disable)$/);
     if (method === "POST" && webhookEnableMatch) {
       return requireAuth(request, (auth) => handleWebhookToggle(auth, parseInt(webhookEnableMatch[1]), webhookEnableMatch[2] === "enable"));
     }
-    
+
     // Delete webhook (auth required)
     if (method === "DELETE" && webhookIdMatch) {
       return requireAuth(request, (auth) => handleDeleteWebhook(auth, parseInt(webhookIdMatch[1])));
     }
-    
+
     // List broadcast events (auth required)
     if (method === "GET" && path === "/broadcast/events") {
       return requireAuth(request, handleListBroadcastEvents);
     }
-    
+
     // GET /buzz - Simple buzz endpoint for agents (alias for broadcast events)
     if (method === "GET" && path === "/buzz") {
       return requireAuth(request, handleBuzz);
     }
-    
+
     // Ingest endpoint (NO AUTH - public webhook endpoint)
     // Route: /api/ingest/{app_name}/{token} (path has /api stripped, so matches /ingest/...)
     const ingestMatch = path.match(/^\/ingest\/([a-z][a-z0-9_-]*)\/([a-f0-9]{14})$/);
@@ -3116,7 +3144,7 @@ async function handleRequest(request: Request): Promise<Response> {
     // ============================================================
     // SWARM API - Task Management
     // ============================================================
-    
+
     // Projects
     if (method === "GET" && path === "/swarm/projects") {
       return requireAuth(request, handleSwarmListProjects);
@@ -3138,7 +3166,7 @@ async function handleRequest(request: Request): Promise<Response> {
     if (method === "DELETE" && swarmProjectArchiveMatch) {
       return requireAuth(request, (auth) => handleSwarmUnarchiveProject(auth, swarmProjectArchiveMatch[1]));
     }
-    
+
     // Tasks
     if (method === "GET" && path === "/swarm/tasks") {
       return requireAuth(request, (auth) => handleSwarmListTasks(auth, request));
@@ -3169,7 +3197,7 @@ async function handleRequest(request: Request): Promise<Response> {
     if (method === "POST" && swarmTaskReorderMatch) {
       return requireAuth(request, (auth) => handleSwarmReorderTask(auth, swarmTaskReorderMatch[1], request));
     }
-    
+
     // Recurring templates routes
     if (method === "GET" && path === "/swarm/recurring/templates") {
       return requireAuth(request, (auth) => handleListTemplates(auth, request));
@@ -3235,25 +3263,25 @@ function broadcastToListeners(event: broadcast.BroadcastEvent): void {
 async function handleCreateWebhook(auth: AuthContext, request: Request): Promise<Response> {
   try {
     const body = await request.json() as { appName?: string; title?: string; for?: string };
-    
+
     if (!body.appName || !body.title) {
       return error("appName and title are required", 400);
     }
-    
+
     // Validate appName format
     if (!/^[a-z][a-z0-9_-]*$/.test(body.appName)) {
       return error("appName must start with a letter and contain only lowercase letters, numbers, underscores, and hyphens", 400);
     }
-    
+
     const webhook = await broadcast.createWebhook({
       appName: body.appName,
       title: body.title,
       owner: auth.identity,
       forUsers: body.for,
     });
-    
+
     const ingestUrl = `https://messages.biginformatics.net/api/ingest/${webhook.appName}/${webhook.token}`;
-    
+
     return json({
       ...webhook,
       ingestUrl,
@@ -3268,9 +3296,9 @@ async function handleListWebhooks(auth: AuthContext, request: Request): Promise<
   try {
     const url = new URL(request.url);
     const all = url.searchParams.get("all") === "true" && auth.isAdmin;
-    
+
     const webhooks = await broadcast.listWebhooks(all ? undefined : auth.identity);
-    
+
     return json({
       webhooks: webhooks.map(w => ({
         ...w,
@@ -3286,16 +3314,16 @@ async function handleListWebhooks(auth: AuthContext, request: Request): Promise<
 async function handleGetWebhook(auth: AuthContext, id: number): Promise<Response> {
   try {
     const webhook = await broadcast.getWebhookById(id);
-    
+
     if (!webhook) {
       return error("Webhook not found", 404);
     }
-    
+
     // Only owner or admin can view
     if (webhook.owner !== auth.identity && !auth.isAdmin) {
       return error("Forbidden", 403);
     }
-    
+
     return json({
       ...webhook,
       ingestUrl: `https://messages.biginformatics.net/api/ingest/${webhook.appName}/${webhook.token}`,
@@ -3309,18 +3337,18 @@ async function handleGetWebhook(auth: AuthContext, id: number): Promise<Response
 async function handleWebhookToggle(auth: AuthContext, id: number, enabled: boolean): Promise<Response> {
   try {
     const webhook = await broadcast.getWebhookById(id);
-    
+
     if (!webhook) {
       return error("Webhook not found", 404);
     }
-    
+
     // Only owner or admin can toggle
     if (webhook.owner !== auth.identity && !auth.isAdmin) {
       return error("Forbidden", 403);
     }
-    
+
     const updated = await broadcast.setWebhookEnabled(id, enabled);
-    
+
     return json({
       ...updated,
       ingestUrl: `https://messages.biginformatics.net/api/ingest/${updated!.appName}/${updated!.token}`,
@@ -3334,18 +3362,18 @@ async function handleWebhookToggle(auth: AuthContext, id: number, enabled: boole
 async function handleDeleteWebhook(auth: AuthContext, id: number): Promise<Response> {
   try {
     const webhook = await broadcast.getWebhookById(id);
-    
+
     if (!webhook) {
       return error("Webhook not found", 404);
     }
-    
+
     // Only owner or admin can delete
     if (webhook.owner !== auth.identity && !auth.isAdmin) {
       return error("Forbidden", 403);
     }
-    
+
     await broadcast.deleteWebhook(id);
-    
+
     return json({ ok: true });
   } catch (err) {
     console.error("[broadcast] Delete webhook error:", err);
@@ -3358,13 +3386,13 @@ async function handleListBroadcastEvents(auth: AuthContext, request: Request): P
     const url = new URL(request.url);
     const appName = url.searchParams.get("app") || undefined;
     const limit = parseInt(url.searchParams.get("limit") || "100");
-    
+
     const events = await broadcast.listEvents({
       appName,
       forUser: auth.identity,
       limit: Math.min(limit, 500),
     });
-    
+
     return json({ events });
   } catch (err) {
     console.error("[broadcast] List events error:", err);
@@ -3379,21 +3407,21 @@ async function handleBuzz(auth: AuthContext, request: Request): Promise<Response
     const appName = url.searchParams.get("app") || undefined;
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const sinceId = url.searchParams.get("since") ? parseInt(url.searchParams.get("since")!) : undefined;
-    
+
     let events = await broadcast.listEvents({
       appName,
       forUser: auth.identity,
       limit: Math.min(limit, 200),
     });
-    
+
     // Filter by sinceId if provided (only return events newer than this id)
     if (sinceId) {
       events = events.filter(e => e.id > sinceId);
     }
-    
+
     // Register API presence
     lastApiActivity.set(auth.identity, Date.now());
-    
+
     return json({
       events: events.map(e => ({
         id: e.id,
@@ -3412,23 +3440,23 @@ async function handleBuzz(auth: AuthContext, request: Request): Promise<Response
 async function handleWebhookIngest(appName: string, token: string, request: Request): Promise<Response> {
   try {
     const webhook = await broadcast.getWebhookByToken(appName, token);
-    
+
     if (!webhook || !webhook.enabled) {
       return error("Not found", 404);
     }
-    
+
     // Parse body
     const contentType = request.headers.get("content-type") || "";
     let bodyText: string | null = null;
     let bodyJson: unknown | null = null;
-    
+
     const rawBody = await request.text();
-    
+
     // Limit body size (256KB)
     if (rawBody.length > 256 * 1024) {
       return error("Payload too large", 413);
     }
-    
+
     if (contentType.includes("application/json")) {
       try {
         bodyJson = JSON.parse(rawBody);
@@ -3438,7 +3466,7 @@ async function handleWebhookIngest(appName: string, token: string, request: Requ
     } else {
       bodyText = rawBody;
     }
-    
+
     // Record the event
     const event = await broadcast.recordEvent({
       webhookId: webhook.id,
@@ -3449,12 +3477,27 @@ async function handleWebhookIngest(appName: string, token: string, request: Requ
       bodyText,
       bodyJson,
     });
-    
+
     console.log(`[broadcast] Received event for ${appName}/${token}: ${event.id}`);
-    
+
     // Broadcast to listeners
     broadcastToListeners(event);
-    
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent("broadcast.created", {
+        id: event.id,
+        appName: event.appName,
+        title: event.title,
+        forUsers: event.forUsers,
+        receivedAt: event.receivedAt.toISOString(),
+        bodyText: event.bodyText,
+        bodyJson: event.bodyJson,
+      });
+    } catch (e) {
+      console.error("[hive-events] failed to append broadcast.created", e);
+    }
+
     return json({ ok: true, id: event.id });
   } catch (err) {
     console.error("[broadcast] Ingest error:", err);
@@ -3505,27 +3548,27 @@ async function handleBroadcastUI(): Promise<Response> {
       --input: #e4e4e7;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
-      font-family: system-ui, -apple-system, sans-serif; 
-      background: var(--background); 
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--background);
       color: var(--foreground);
       min-height: 100vh;
       padding: 20px;
     }
     .container { max-width: 900px; margin: 0 auto; }
-    .header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
     }
     .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
     .nav { display: flex; gap: 12px; align-items: center; }
-    .nav a { 
-      color: var(--muted-foreground); 
-      text-decoration: none; 
+    .nav a {
+      color: var(--muted-foreground);
+      text-decoration: none;
       padding: 6px 12px;
       border-radius: var(--radius);
       font-size: 0.875rem;
@@ -3588,16 +3631,16 @@ async function handleBroadcastUI(): Promise<Response> {
     .event-card.expanded { border-color: var(--primary); }
     .event-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
     .event-title { font-weight: 600; font-size: 0.9375rem; }
-    .event-meta { 
-      display: flex; 
-      gap: 12px; 
-      margin-top: 8px; 
-      font-size: 0.8125rem; 
+    .event-meta {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 0.8125rem;
       color: var(--muted-foreground);
     }
-    .event-app { 
-      background: var(--secondary); 
-      padding: 2px 8px; 
+    .event-app {
+      background: var(--secondary);
+      padding: 2px 8px;
       border-radius: 4px;
       font-family: monospace;
       font-size: 0.75rem;
@@ -3670,14 +3713,14 @@ async function handleBroadcastUI(): Promise<Response> {
       </div>
     </div>
     <div id="presenceIndicators"></div>
-    
+
     <div class="filter-bar">
       <select id="appFilter" onchange="applyFilter()">
         <option value="">All Apps</option>
       </select>
       <span id="connectionStatus" class="status-badge disconnected">Disconnected</span>
     </div>
-    
+
     <div id="events" class="events">
       <div class="empty-state">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>
@@ -3686,37 +3729,37 @@ async function handleBroadcastUI(): Promise<Response> {
       </div>
     </div>
   </div>
-  
+
   <script>
     let events = [];
     let eventSource = null;
     let currentFilter = '';
     let expandedEventId = null;
-    
+
     function toggleExpand(id) {
       expandedEventId = (expandedEventId === id) ? null : id;
       renderEvents();
     }
-    
+
     // Theme handling
     const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
     const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
-    
+
     function updateThemeIcon() {
       const btn = document.getElementById('themeToggle');
       if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
     }
-    
+
     const savedTheme = localStorage.getItem('theme') || 'dark';
     if (savedTheme === 'light') document.body.classList.add('light');
     updateThemeIcon();
-    
+
     function toggleTheme() {
       document.body.classList.toggle('light');
       localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
       updateThemeIcon();
     }
-    
+
     // Check if logged in and update nav
     const bellIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
     const storedKey = localStorage.getItem('hive_mailbox_key');
@@ -3730,7 +3773,7 @@ async function handleBroadcastUI(): Promise<Response> {
         logoutBtn.onclick = function() { localStorage.removeItem('hive_mailbox_key'); window.location.href = '/ui'; };
         logoutBtn.style.cssText = 'color:var(--muted-foreground);padding:6px 12px;border-radius:var(--radius);font-size:0.875rem;background:transparent;border:1px solid var(--border);cursor:pointer;';
         logoutBtn.textContent = 'Logout';
-        
+
         // Create bell button (same styling as key button)
         const bellBtn = document.createElement('button');
         bellBtn.id = 'soundToggle';
@@ -3738,7 +3781,7 @@ async function handleBroadcastUI(): Promise<Response> {
         bellBtn.onclick = function() {}; // No sound on Buzz page
         bellBtn.title = 'Notifications (Messages only)';
         bellBtn.innerHTML = bellIcon;
-        
+
         // Insert before key button, then remove key
         keyBtn.parentNode.insertBefore(logoutBtn, keyBtn);
         keyBtn.parentNode.insertBefore(bellBtn, keyBtn);
@@ -3746,7 +3789,7 @@ async function handleBroadcastUI(): Promise<Response> {
         if (keyPopover) keyPopover.remove();
       }
     }
-    
+
     // Key popover
     function toggleKeyPopover() {
       const popover = document.getElementById('keyPopover');
@@ -3758,7 +3801,7 @@ async function handleBroadcastUI(): Promise<Response> {
         popover.style.display = 'none';
       }
     }
-    
+
     function submitKey() {
       const key = document.getElementById('keyInput').value.trim();
       if (key) {
@@ -3766,14 +3809,14 @@ async function handleBroadcastUI(): Promise<Response> {
         window.location.href = '/ui/' + encodeURIComponent(key);
       }
     }
-    
+
     document.addEventListener('keydown', function(e) {
       if (document.getElementById('keyPopover').style.display !== 'none') {
         if (e.key === 'Enter') submitKey();
         if (e.key === 'Escape') toggleKeyPopover();
       }
     });
-    
+
     // Presence
     const avatarColors = {
       chris: { bg: '#4f46e5', fg: '#fff' },
@@ -3781,7 +3824,7 @@ async function handleBroadcastUI(): Promise<Response> {
       domingo: { bg: '#dc2626', fg: '#fff' },
       zumie: { bg: '#f59e0b', fg: '#fff' }
     };
-    
+
     // Avatar images (same as Messages UI)
     const avatarData = {
       chris: '/ui/assets/avatars/chris.jpg',
@@ -3789,7 +3832,7 @@ async function handleBroadcastUI(): Promise<Response> {
       domingo: '/ui/assets/avatars/domingo.jpg',
       zumie: '/ui/assets/avatars/zumie.png'
     }
-    
+
     function renderPresence(presence) {
       const container = document.getElementById('presenceIndicators');
       container.innerHTML = presence.map(info => {
@@ -3811,7 +3854,7 @@ async function handleBroadcastUI(): Promise<Response> {
         \`;
       }).join('');
     }
-    
+
     // Fetch presence from Messages SSE (shared)
     async function loadPresence() {
       try {
@@ -3819,7 +3862,7 @@ async function handleBroadcastUI(): Promise<Response> {
         // Just get initial presence from a quick connection
       } catch(e) {}
     }
-    
+
     // Simple presence fetch from main UI stream init
     const presenceSource = new EventSource('/ui/stream');
     presenceSource.addEventListener('presence', (e) => {
@@ -3830,27 +3873,27 @@ async function handleBroadcastUI(): Promise<Response> {
       const data = JSON.parse(e.data);
       if (data.presence) renderPresence(data.presence);
     });
-    
+
     function formatTime(date) {
       return new Date(date).toLocaleString();
     }
-    
+
     function renderEvents() {
       const container = document.getElementById('events');
-      const filtered = currentFilter 
+      const filtered = currentFilter
         ? events.filter(e => e.appName === currentFilter)
         : events;
-      
+
       // Clear expanded state if the event no longer exists
       if (expandedEventId && !events.find(e => e.id === expandedEventId)) {
         expandedEventId = null;
       }
-      
+
       // Auto-expand first item if nothing is expanded
       if (!expandedEventId && filtered.length > 0) {
         expandedEventId = filtered[0].id;
       }
-      
+
       if (filtered.length === 0) {
         container.innerHTML = \`
           <div class="empty-state">
@@ -3861,7 +3904,7 @@ async function handleBroadcastUI(): Promise<Response> {
         \`;
         return;
       }
-      
+
       container.innerHTML = filtered.map(e => \`
         <div class="event-card\${expandedEventId === e.id ? ' expanded' : ''}" onclick="toggleExpand('\${e.id}')">
           <div class="event-header">
@@ -3880,62 +3923,62 @@ async function handleBroadcastUI(): Promise<Response> {
         </div>
       \`).join('');
     }
-    
+
     function escapeHtml(text) {
       if (!text) return '';
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
-    
+
     function updateAppFilter() {
       const apps = [...new Set(events.map(e => e.appName))].sort();
       const select = document.getElementById('appFilter');
       const currentValue = select.value;
-      
-      select.innerHTML = '<option value="">All Apps</option>' + 
+
+      select.innerHTML = '<option value="">All Apps</option>' +
         apps.map(a => \`<option value="\${a}">\${a}</option>\`).join('');
-      
+
       if (apps.includes(currentValue)) {
         select.value = currentValue;
       }
     }
-    
+
     function applyFilter() {
       currentFilter = document.getElementById('appFilter').value;
       renderEvents();
     }
-    
+
     function setStatus(connected) {
       const badge = document.getElementById('connectionStatus');
       badge.textContent = connected ? 'Connected' : 'Disconnected';
       badge.className = 'status-badge ' + (connected ? 'connected' : 'disconnected');
     }
-    
+
     function connect() {
       eventSource = new EventSource('/ui/buzz/stream');
-      
+
       eventSource.onopen = () => setStatus(true);
       eventSource.onerror = () => {
         setStatus(false);
         eventSource.close();
         setTimeout(connect, 3000);
       };
-      
+
       eventSource.addEventListener('init', (e) => {
         const data = JSON.parse(e.data);
         events = data.events || [];
         updateAppFilter();
         renderEvents();
       });
-      
+
       eventSource.addEventListener('event', (e) => {
         const event = JSON.parse(e.data);
         events.unshift(event);
         if (events.length > 500) events.pop();
         updateAppFilter();
         renderEvents();
-        
+
         // Highlight new event
         const first = document.querySelector('.event-card');
         if (first) {
@@ -3944,7 +3987,7 @@ async function handleBroadcastUI(): Promise<Response> {
         }
       });
     }
-    
+
     connect();
   </script>
 <!-- build: img-avatars-v3 -->
@@ -3960,16 +4003,16 @@ async function handleBroadcastUI(): Promise<Response> {
 function handleBroadcastUIStream(request: Request): Response {
   const url = new URL(request.url);
   const viewer = url.searchParams.get("viewer")?.toLowerCase();
-  
+
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
       let closed = false;
-      
+
       // Send initial events
       const initialEvents = await broadcast.listEvents({ forUser: viewer, limit: 100 });
       controller.enqueue(encoder.encode(`event: init\ndata: ${JSON.stringify({ events: initialEvents })}\n\n`));
-      
+
       // Listen for new events
       const listenerEntry = {
         listener: (event: broadcast.BroadcastEvent) => {
@@ -3983,7 +4026,7 @@ function handleBroadcastUIStream(request: Request): Response {
         forUser: viewer,
       };
       broadcastListeners.add(listenerEntry);
-      
+
       // Ping every 30 seconds
       const pingInterval = setInterval(() => {
         if (closed) return;
@@ -3994,7 +4037,7 @@ function handleBroadcastUIStream(request: Request): Response {
           clearInterval(pingInterval);
         }
       }, 30000);
-      
+
       // Cleanup
       return () => {
         closed = true;
@@ -4003,7 +4046,7 @@ function handleBroadcastUIStream(request: Request): Response {
       };
     },
   });
-  
+
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
@@ -4065,32 +4108,32 @@ function _legacySwarmHTML(): string {
       --input: #e4e4e7;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
-      font-family: system-ui, -apple-system, sans-serif; 
-      background: var(--background); 
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--background);
       color: var(--foreground);
       min-height: 100vh;
     }
     .layout { display: flex; min-height: 100vh; }
-    .sidebar { 
-      width: 240px; 
-      border-right: 1px solid var(--border); 
+    .sidebar {
+      width: 240px;
+      border-right: 1px solid var(--border);
       padding: 20px;
       flex-shrink: 0;
     }
     .main { flex: 1; display: flex; flex-direction: column; }
-    .header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       padding: 16px 24px;
       border-bottom: 1px solid var(--border);
     }
     .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
     .nav { display: flex; gap: 8px; align-items: center; }
-    .nav a { 
-      color: var(--muted-foreground); 
-      text-decoration: none; 
+    .nav a {
+      color: var(--muted-foreground);
+      text-decoration: none;
       padding: 6px 12px;
       border-radius: var(--radius);
       font-size: 0.875rem;
@@ -4100,12 +4143,12 @@ function _legacySwarmHTML(): string {
     }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn { 
-      width: 36px; height: 36px; 
-      display: inline-flex; align-items: center; justify-content: center; 
-      padding: 0; line-height: 0; 
-      background: transparent; border: none; 
-      cursor: pointer; color: var(--foreground); opacity: 0.7; 
+    .nav .icon-btn {
+      width: 36px; height: 36px;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0; line-height: 0;
+      background: transparent; border: none;
+      cursor: pointer; color: var(--foreground); opacity: 0.7;
     }
     .nav .icon-btn:hover { opacity: 1; }
     .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
@@ -4116,20 +4159,20 @@ function _legacySwarmHTML(): string {
       cursor: pointer; color: var(--foreground);
     }
     .content { flex: 1; padding: 24px; overflow-y: auto; }
-    
+
     /* Filter sidebar */
     .filter-section { margin-bottom: 24px; }
-    .filter-section h3 { 
-      font-size: 0.75rem; 
-      text-transform: uppercase; 
-      color: var(--muted-foreground); 
+    .filter-section h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
       margin-bottom: 8px;
       letter-spacing: 0.05em;
     }
-    .filter-option { 
-      display: flex; 
-      align-items: center; 
-      gap: 8px; 
+    .filter-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       padding: 6px 8px;
       border-radius: var(--radius);
       cursor: pointer;
@@ -4138,12 +4181,12 @@ function _legacySwarmHTML(): string {
     .filter-option:hover { background: var(--secondary); }
     .filter-option input { cursor: pointer; accent-color: var(--primary); }
     .filter-option.checked { background: var(--secondary); }
-    
+
     /* Task list */
     .task-list { display: flex; flex-direction: column; gap: 8px; }
-    .task-card { 
-      background: var(--card); 
-      border: 1px solid var(--border); 
+    .task-card {
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
       display: flex;
@@ -4159,10 +4202,10 @@ function _legacySwarmHTML(): string {
     .task-title { font-weight: 500; margin-bottom: 4px; }
     .task-meta { font-size: 0.8125rem; color: var(--muted-foreground); display: flex; gap: 12px; flex-wrap: wrap; }
     .task-badges { display: flex; gap: 6px; flex-shrink: 0; }
-    .badge { 
-      font-size: 0.6875rem; 
-      padding: 2px 8px; 
-      border-radius: 999px; 
+    .badge {
+      font-size: 0.6875rem;
+      padding: 2px 8px;
+      border-radius: 999px;
       font-weight: 500;
       text-transform: uppercase;
     }
@@ -4173,17 +4216,17 @@ function _legacySwarmHTML(): string {
     .badge-review { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
     .badge-complete { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
     .badge-blocked { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-    
+
     /* Quick actions */
-    .task-actions { 
-      display: none; 
-      gap: 4px; 
+    .task-actions {
+      display: none;
+      gap: 4px;
       margin-top: 8px;
     }
     .task-card:hover .task-actions { display: flex; }
-    .action-btn { 
-      font-size: 0.75rem; 
-      padding: 4px 8px; 
+    .action-btn {
+      font-size: 0.75rem;
+      padding: 4px 8px;
       border-radius: var(--radius);
       border: 1px solid var(--border);
       background: var(--background);
@@ -4192,24 +4235,24 @@ function _legacySwarmHTML(): string {
     }
     .action-btn:hover { background: var(--secondary); }
     .action-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
-    
+
     /* Empty state */
-    .empty-state { 
-      text-align: center; 
-      padding: 60px 20px; 
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
       color: var(--muted-foreground);
     }
     .empty-state h3 { font-size: 1rem; margin-bottom: 8px; color: var(--foreground); }
-    
+
     /* Create task form */
-    .create-form { 
-      background: var(--card); 
-      border: 1px solid var(--border); 
+    .create-form {
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
       margin-bottom: 16px;
     }
-    .create-form input, .create-form select, .create-form textarea { 
+    .create-form input, .create-form select, .create-form textarea {
       width: 100%;
       padding: 8px 12px;
       border: 1px solid var(--border);
@@ -4222,10 +4265,10 @@ function _legacySwarmHTML(): string {
     .create-form textarea { min-height: 80px; resize: vertical; }
     .form-row { display: flex; gap: 12px; }
     .form-row > * { flex: 1; }
-    .create-btn { 
-      background: var(--primary); 
-      color: white; 
-      border: none; 
+    .create-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
       padding: 8px 16px;
       border-radius: var(--radius);
       cursor: pointer;
@@ -4233,7 +4276,7 @@ function _legacySwarmHTML(): string {
       font-weight: 500;
     }
     .create-btn:hover { opacity: 0.9; }
-    
+
     /* Status colors */
     body.light .badge-queued { background: #f4f4f5; color: #71717a; }
     body.light .badge-ready { background: rgba(34, 197, 94, 0.1); color: #16a34a; }
@@ -4323,7 +4366,7 @@ function _legacySwarmHTML(): string {
         </div>
         <button class="action-btn" onclick="toggleCreateForm()" style="margin-bottom:16px;">+ New Task</button>
         <div class="task-list" id="taskList">
-          ${enrichedTasks.length === 0 ? '<div class="empty-state"><h3>No tasks yet</h3><p>Create your first task to get started</p></div>' : 
+          ${enrichedTasks.length === 0 ? '<div class="empty-state"><h3>No tasks yet</h3><p>Create your first task to get started</p></div>' :
             enrichedTasks.map(t => renderTaskCard(t, projects, enrichedTasks)).join('')}
         </div>
       </div>
@@ -4337,13 +4380,13 @@ function _legacySwarmHTML(): string {
       document.body.classList.toggle('light');
       localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
     }
-    
+
     // Create form toggle
     function toggleCreateForm() {
       const form = document.getElementById('createForm');
       form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }
-    
+
     // Filter handling
     document.querySelectorAll('[data-filter]').forEach(cb => {
       cb.addEventListener('change', () => {
@@ -4351,34 +4394,34 @@ function _legacySwarmHTML(): string {
         applyFilters();
       });
     });
-    
+
     function applyFilters() {
       const statuses = [...document.querySelectorAll('[data-filter="status"]:checked')].map(cb => cb.value);
       const assignees = [...document.querySelectorAll('[data-filter="assignee"]:checked')].map(cb => cb.value);
       const projects = [...document.querySelectorAll('[data-filter="project"]:checked')].map(cb => cb.value);
       const showFuture = document.getElementById('showFuture')?.checked || false;
       const sortValue = document.getElementById('sortSelect')?.value || 'planned';
-      
+
       // Filter cards
       document.querySelectorAll('.task-card').forEach(card => {
         const status = card.dataset.status;
         const assignee = card.dataset.assignee || 'unassigned';
         const project = card.dataset.project || 'none';
         const isFuture = card.dataset.future === 'true';
-        
+
         const statusMatch = statuses.includes(status);
         const assigneeMatch = assignees.includes(assignee);
         const projectMatch = projects.includes(project);
         const futureMatch = showFuture || !isFuture;
-        
+
         card.style.display = (statusMatch && assigneeMatch && projectMatch && futureMatch) ? 'flex' : 'none';
       });
-      
+
       // Sort cards
       const taskList = document.getElementById('taskList');
       const cards = [...taskList.querySelectorAll('.task-card')];
       const statusOrder = { in_progress: 1, review: 2, ready: 3, queued: 4, holding: 5, complete: 6 };
-      
+
       cards.sort((a, b) => {
         if (sortValue === 'planned') {
           const statusA = statusOrder[a.dataset.status] || 99;
@@ -4401,27 +4444,27 @@ function _legacySwarmHTML(): string {
       });
       cards.forEach(card => taskList.appendChild(card));
     }
-    
+
     // Task actions
     async function claimTask(id) {
       await fetch('/api/swarm/tasks/' + id + '/claim', { method: 'POST' });
       location.reload();
     }
-    
+
     async function updateStatus(id, status) {
-      await fetch('/api/swarm/tasks/' + id + '/status', { 
+      await fetch('/api/swarm/tasks/' + id + '/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       });
       location.reload();
     }
-    
+
     async function moveTask(id, direction) {
       const cards = [...document.querySelectorAll('.task-card')].filter(c => c.style.display !== 'none');
       const idx = cards.findIndex(c => c.dataset.id === id);
       if (idx === -1) return;
-      
+
       let beforeTaskId = null;
       if (direction === 'up' && idx > 0) {
         // Move before the previous visible card
@@ -4432,7 +4475,7 @@ function _legacySwarmHTML(): string {
       } else {
         return; // Can't move further
       }
-      
+
       await fetch('/api/swarm/tasks/' + id + '/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4440,18 +4483,18 @@ function _legacySwarmHTML(): string {
       });
       location.reload();
     }
-    
+
     async function createTask() {
       const title = document.getElementById('newTaskTitle').value.trim();
       if (!title) return alert('Title is required');
-      
+
       const projectId = document.getElementById('newTaskProject').value || null;
       const assigneeUserId = document.getElementById('newTaskAssignee').value || null;
       const detail = document.getElementById('newTaskDetail').value.trim() || null;
       const issueUrl = document.getElementById('newTaskIssueUrl').value.trim() || null;
       const onOrAfterInput = document.getElementById('newTaskOnOrAfter').value;
       const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
-      
+
       await fetch('/api/swarm/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4467,51 +4510,51 @@ function _legacySwarmHTML(): string {
 function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allTasks: swarm.SwarmTask[]): string {
   const project = projects.find(p => p.id === t.projectId);
   const accentColor = project?.color || '#71717a';
-  
+
   const projectSpan = project ? '<span>' + project.title + '</span>' : '';
   const assigneeSpan = t.assigneeUserId ? '<span>@' + t.assigneeUserId + '</span>' : '<span>Unassigned</span>';
   const afterSpan = t.onOrAfterAt ? '<span>After ' + new Date(t.onOrAfterAt).toLocaleDateString() + '</span>' : '';
   const blockedBadge = t.blockedReason ? '<span class="badge badge-blocked">Blocked</span>' : '';
-  
+
   const claimBtn = !t.assigneeUserId ? '<button class="action-btn" onclick="event.stopPropagation();claimTask(\'' + t.id + '\')">Claim</button>' : '';
   const readyBtn = t.status === 'queued' ? '<button class="action-btn" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'ready\')">Ready</button>' : '';
   const startBtn = t.status === 'ready' && !t.blockedReason ? '<button class="action-btn primary" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'in_progress\')">Start</button>' : '';
   const reviewBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'review\')">Review</button>' : '';
   const holdBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'holding\')">Hold</button>' : '';
   const completeBtn = t.status === 'review' ? '<button class="action-btn primary" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'complete\')">Complete</button>' : '';
-  
+
   // Format dates
   const createdAt = new Date(t.createdAt).toLocaleString();
   const updatedAt = new Date(t.updatedAt).toLocaleString();
-  
+
   // Project options for dropdown
-  const projectOptions = '<option value="">No Project</option>' + 
+  const projectOptions = '<option value="">No Project</option>' +
     projects.map(p => '<option value="' + p.id + '"' + (p.id === t.projectId ? ' selected' : '') + '>' + escapeHtml(p.title) + '</option>').join('');
-  
+
   // Assignee options
   const assigneeOptions = '<option value="">Unassigned</option>' +
     ['chris', 'clio', 'domingo', 'zumie'].map(a => '<option value="' + a + '"' + (a === t.assigneeUserId ? ' selected' : '') + '>' + a + '</option>').join('');
-  
+
   // Dependency options (other tasks, excluding self and complete tasks)
   const dependencyOptions = '<option value="">None</option>' +
     allTasks
       .filter(other => other.id !== t.id && other.status !== 'complete')
       .map(other => '<option value="' + other.id + '"' + (other.id === t.mustBeDoneAfterTaskId ? ' selected' : '') + '>' + escapeHtml(other.title).substring(0, 40) + (other.title.length > 40 ? '...' : '') + '</option>')
       .join('');
-  
+
   // Next task options (other tasks, excluding self)
   const nextTaskOptions = '<option value="">None</option>' +
     allTasks
       .filter(other => other.id !== t.id)
       .map(other => '<option value="' + other.id + '"' + (other.id === t.nextTaskId ? ' selected' : '') + '>' + escapeHtml(other.title).substring(0, 40) + (other.title.length > 40 ? '...' : '') + '</option>')
       .join('');
-  
+
   // Find next task for display
   const nextTask = t.nextTaskId ? allTasks.find(other => other.id === t.nextTaskId) : null;
   const nextSpan = nextTask ? '<span style="color:var(--muted-foreground);font-size:0.75rem;">→ ' + escapeHtml(nextTask.title).substring(0, 20) + (nextTask.title.length > 20 ? '...' : '') + '</span>' : '';
-  
+
   const isFuture = t.onOrAfterAt && new Date(t.onOrAfterAt) > new Date();
-  
+
   return '<div class="task-card" data-id="' + t.id + '" data-status="' + t.status + '" data-assignee="' + (t.assigneeUserId || '') + '" data-project="' + (t.projectId || '') + '" data-future="' + (isFuture ? 'true' : 'false') + '" data-created="' + new Date(t.createdAt).getTime() + '" data-updated="' + new Date(t.updatedAt).getTime() + '" data-sort-key="' + (t.sortKey || 0) + '" onclick="toggleTaskExpand(this)">' +
     '<div class="task-accent" style="background:' + accentColor + '"></div>' +
     '<div class="task-content">' +
@@ -4541,8 +4584,8 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
           claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn +
         '</div>' +
       '</div>' +
-      '<div class="task-actions">' + 
-        claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn + 
+      '<div class="task-actions">' +
+        claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn +
       '</div>' +
     '</div>' +
   '</div>';
@@ -4563,7 +4606,7 @@ function handleSwarmUIStream(request: Request): Response {
     start(controller) {
       const encoder = new TextEncoder();
       controller.enqueue(encoder.encode(': connected\n\n'));
-      
+
       const pingInterval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(': ping\n\n'));
@@ -4573,7 +4616,7 @@ function handleSwarmUIStream(request: Request): Response {
       }, 30000);
     },
   });
-  
+
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
@@ -4589,13 +4632,13 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
   const templates = await swarm.listTemplates({});
   const projects = await swarm.listProjects({ includeArchived: false });
-  
+
   const keyPath = '/' + key;
-  
+
   const formatSchedule = (t: swarm.RecurringTemplate): string => {
     let s = 'Every ' + t.everyInterval + ' ' + t.everyUnit + (t.everyInterval > 1 ? 's' : '');
     if (t.daysOfWeek && t.daysOfWeek.length > 0) {
@@ -4606,13 +4649,13 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
     }
     return s;
   };
-  
-  const projectOptions = '<option value="">No Project</option>' + 
+
+  const projectOptions = '<option value="">No Project</option>' +
     projects.map(p => '<option value="' + p.id + '">' + escapeHtml(p.title) + '</option>').join('');
-  
-  const templateCards = templates.length === 0 
+
+  const templateCards = templates.length === 0
     ? '<div class="empty-state"><h3>No recurring templates</h3><p>Create your first recurring task template</p></div>'
-    : templates.map(t => 
+    : templates.map(t =>
         '<div class="template-card" onclick="openDrawer(\'' + t.id + '\')">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
             '<div>' +
@@ -4628,7 +4671,7 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
           '</div>' +
         '</div>'
       ).join('');
-  
+
   const html = '<!DOCTYPE html>' +
     '<html lang="en"><head>' +
     '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' +
@@ -4791,7 +4834,7 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
       'const savedTheme = localStorage.getItem("theme"); if (savedTheme === "light") document.body.classList.add("light");' +
     '</script>' +
     '</body></html>';
-  
+
   return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
@@ -4801,17 +4844,17 @@ async function handleSwarmUIWithKey(key: string): Promise<Response> {
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   const identity = config.sender;
   const projects = await swarm.listProjects({ includeArchived: false });
-  const tasks = await swarm.listTasks({ 
+  const tasks = await swarm.listTasks({
     includeCompleted: false,
     includeFuture: true,
     sort: 'planned',
     limit: 100
   });
   const enrichedTasks = await swarm.enrichTasksWithBlocked(tasks);
-  
+
   // Build the same UI but with auth headers for API calls
   const html = renderSwarmHTML(projects, enrichedTasks, key, identity);
   return new Response(html, { headers: { "Content-Type": "text/html" } });
@@ -4823,7 +4866,7 @@ async function handleBroadcastUIWithKey(key: string): Promise<Response> {
   if (!config) {
     return error("Invalid key", 404);
   }
-  
+
   // For now, render the existing Buzz UI (public view is fine for Buzz as it's broadcast)
   // TODO: Could add key-aware filtering here if needed
   return handleBroadcastUI();
@@ -4833,7 +4876,7 @@ async function handleBroadcastUIWithKey(key: string): Promise<Response> {
 function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[], key: string | null, identity: string | null): string {
   const keyPath = key ? '/' + key : '';
   const authHeader = key ? ', headers: { "Authorization": "Bearer " + getToken() }' : '';
-  
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4875,18 +4918,18 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       --input: #e4e4e7;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { 
-      font-family: system-ui, -apple-system, sans-serif; 
-      background: var(--background); 
+    html, body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--background);
       color: var(--foreground);
       min-height: 100vh;
       max-width: 100vw;
       overflow-x: hidden;
     }
     .layout { display: flex; min-height: 100vh; max-width: 100vw; }
-    .sidebar { 
-      width: 240px; 
-      border-right: 1px solid var(--border); 
+    .sidebar {
+      width: 240px;
+      border-right: 1px solid var(--border);
       padding: 20px;
       flex-shrink: 0;
       background: var(--background);
@@ -4929,18 +4972,18 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       .nav a { padding: 4px 8px; font-size: 0.8rem; }
     }
     .main { flex: 1; display: flex; flex-direction: column; }
-    .header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       padding: 16px 24px;
       border-bottom: 1px solid var(--border);
     }
     .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
     .nav { display: flex; gap: 8px; align-items: center; }
-    .nav a { 
-      color: var(--muted-foreground); 
-      text-decoration: none; 
+    .nav a {
+      color: var(--muted-foreground);
+      text-decoration: none;
       padding: 6px 12px;
       border-radius: var(--radius);
       font-size: 0.875rem;
@@ -4950,12 +4993,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     }
     .nav a:hover { background: var(--secondary); color: var(--foreground); }
     .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn { 
-      width: 36px; height: 36px; 
-      display: inline-flex; align-items: center; justify-content: center; 
-      padding: 0; line-height: 0; 
-      background: transparent; border: none; 
-      cursor: pointer; color: var(--foreground); opacity: 0.7; 
+    .nav .icon-btn {
+      width: 36px; height: 36px;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0; line-height: 0;
+      background: transparent; border: none;
+      cursor: pointer; color: var(--foreground); opacity: 0.7;
     }
     .nav .icon-btn:hover { opacity: 1; }
     .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
@@ -4967,19 +5010,19 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     }
     .content { flex: 1; padding: 24px; overflow-y: auto; max-width: 100%; }
     .user-badge { font-size: 0.75rem; background: var(--primary); color: white; padding: 2px 8px; border-radius: 999px; margin-left: 8px; }
-    
+
     /* Filter sidebar */
     .filter-section { margin-bottom: 24px; }
-    .filter-header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
+    .filter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 8px;
     }
-    .filter-section h3 { 
-      font-size: 0.75rem; 
-      text-transform: uppercase; 
-      color: var(--muted-foreground); 
+    .filter-section h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
       letter-spacing: 0.05em;
       margin: 0;
     }
@@ -4994,10 +5037,10 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       cursor: pointer;
     }
     .filter-toggles button:hover { background: var(--secondary); color: var(--foreground); }
-    .filter-option { 
-      display: flex; 
-      align-items: center; 
-      gap: 8px; 
+    .filter-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       padding: 6px 8px;
       border-radius: var(--radius);
       cursor: pointer;
@@ -5006,12 +5049,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     .filter-option:hover { background: var(--secondary); }
     .filter-option input { cursor: pointer; accent-color: var(--primary); }
     .filter-option.checked { background: var(--secondary); }
-    
+
     /* Task list */
     .task-list { display: flex; flex-direction: column; gap: 8px; }
-    .task-card { 
-      background: var(--card); 
-      border: 1px solid var(--border); 
+    .task-card {
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
       display: flex;
@@ -5030,10 +5073,10 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     .task-title { font-weight: 500; margin-bottom: 4px; word-break: break-word; }
     .task-meta { font-size: 0.8125rem; color: var(--muted-foreground); display: flex; gap: 8px; flex-wrap: wrap; }
     .task-badges { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
-    .badge { 
-      font-size: 0.6875rem; 
-      padding: 2px 8px; 
-      border-radius: 999px; 
+    .badge {
+      font-size: 0.6875rem;
+      padding: 2px 8px;
+      border-radius: 999px;
       font-weight: 500;
       text-transform: uppercase;
     }
@@ -5044,12 +5087,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     .badge-review { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
     .badge-complete { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
     .badge-blocked { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-    
+
     /* Quick actions */
     .task-actions { display: none; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
     .task-card:hover .task-actions { display: flex; }
     .task-card.expanded .task-actions { display: none; }  /* Hide hover actions when expanded - detail section has them */
-    
+
     /* Expanded task detail */
     .task-card.expanded { border-color: var(--primary); }
     .task-detail { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
@@ -5059,9 +5102,9 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     .task-detail-value { color: var(--foreground); }
     .task-detail-body { white-space: pre-wrap; line-height: 1.5; color: var(--foreground); margin-top: 8px; padding: 12px; background: var(--secondary); border-radius: var(--radius); }
     .task-detail-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    .action-btn { 
-      font-size: 0.75rem; 
-      padding: 4px 8px; 
+    .action-btn {
+      font-size: 0.75rem;
+      padding: 4px 8px;
       border-radius: var(--radius);
       border: 1px solid var(--border);
       background: var(--background);
@@ -5081,20 +5124,20 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       text-align: left;
     }
     .preset-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
-    
+
     /* Empty state */
     .empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }
     .empty-state h3 { font-size: 1rem; margin-bottom: 8px; color: var(--foreground); }
-    
+
     /* Create task form */
-    .create-form { 
-      background: var(--card); 
-      border: 1px solid var(--border); 
+    .create-form {
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
       margin-bottom: 16px;
     }
-    .create-form input, .create-form select, .create-form textarea { 
+    .create-form input, .create-form select, .create-form textarea {
       width: 100%;
       padding: 8px 12px;
       border: 1px solid var(--border);
@@ -5107,10 +5150,10 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     .create-form textarea { min-height: 80px; resize: vertical; }
     .form-row { display: flex; gap: 12px; }
     .form-row > * { flex: 1; }
-    .create-btn { 
-      background: var(--primary); 
-      color: white; 
-      border: none; 
+    .create-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
       padding: 8px 16px;
       border-radius: var(--radius);
       cursor: pointer;
@@ -5118,14 +5161,14 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       font-weight: 500;
     }
     .create-btn:hover { opacity: 0.9; }
-    
+
     body.light .badge-queued { background: #f4f4f5; color: #71717a; }
     body.light .badge-ready { background: rgba(34, 197, 94, 0.1); color: #16a34a; }
     body.light .badge-in_progress { background: rgba(14, 165, 233, 0.1); color: #0284c7; }
     body.light .badge-holding { background: rgba(245, 158, 11, 0.1); color: #d97706; }
     body.light .badge-review { background: rgba(168, 85, 247, 0.1); color: #9333ea; }
     body.light .badge-blocked { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
-    
+
     /* Project edit drawer */
     .project-drawer-overlay {
       display: none;
@@ -5325,13 +5368,13 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         </div>
         <button class="action-btn" onclick="toggleCreateForm()" style="margin-bottom:16px;">+ New Task</button>
         <div class="task-list" id="taskList">
-          ${tasks.length === 0 ? '<div class="empty-state"><h3>No tasks yet</h3><p>Create your first task to get started</p></div>' : 
+          ${tasks.length === 0 ? '<div class="empty-state"><h3>No tasks yet</h3><p>Create your first task to get started</p></div>' :
             tasks.map(t => renderTaskCard(t, projects, tasks)).join('')}
         </div>
       </div>
     </main>
   </div>
-  
+
   <!-- Project Edit Drawer -->
   <div class="project-drawer-overlay" id="projectDrawerOverlay" onclick="closeProjectDrawer()"></div>
   <div class="project-drawer" id="projectDrawer">
@@ -5404,11 +5447,11 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       <button class="save-btn" onclick="saveProject()">Save</button>
     </div>
   </div>
-  
+
   <script>
     const UI_KEY = ${key ? "'" + key + "'" : 'null'};
     function getToken() { return UI_KEY; }
-    
+
     // Projects data for edit drawer
     const PROJECTS_DATA = ${JSON.stringify(projects.map(p => ({
       id: p.id,
@@ -5424,12 +5467,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       workHoursTimezone: p.workHoursTimezone || 'America/Chicago',
       blockingMode: p.blockingMode || false
     })))};
-    
+
     // Project drawer functions
     function openProjectDrawer(projectId) {
       const project = PROJECTS_DATA.find(p => p.id === projectId);
       if (!project) return alert('Project not found');
-      
+
       document.getElementById('editProjectId').value = project.id;
       document.getElementById('editProjectTitle').value = project.title;
       document.getElementById('editProjectDesc').value = project.description;
@@ -5442,22 +5485,22 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       document.getElementById('editProjectWorkEnd').value = project.workHoursEnd !== null ? project.workHoursEnd : '';
       document.getElementById('editProjectWorkTz').value = project.workHoursTimezone;
       document.getElementById('editProjectBlocking').checked = project.blockingMode;
-      
+
       // Show/hide external link buttons
       const repoLink = document.getElementById('editProjectRepoLink');
       const deployLink = document.getElementById('editProjectDeployLink');
       if (project.onedevUrl) { repoLink.href = project.onedevUrl; repoLink.style.display = 'inline-flex'; } else { repoLink.style.display = 'none'; }
       if (project.dokployDeployUrl) { deployLink.href = project.dokployDeployUrl; deployLink.style.display = 'inline-flex'; } else { deployLink.style.display = 'none'; }
-      
+
       document.getElementById('projectDrawerOverlay').classList.add('open');
       document.getElementById('projectDrawer').classList.add('open');
     }
-    
+
     function closeProjectDrawer() {
       document.getElementById('projectDrawerOverlay').classList.remove('open');
       document.getElementById('projectDrawer').classList.remove('open');
     }
-    
+
     async function saveProject() {
       const id = document.getElementById('editProjectId').value;
       const title = document.getElementById('editProjectTitle').value.trim();
@@ -5473,16 +5516,16 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const workHoursEnd = workEndVal !== '' ? parseInt(workEndVal) : null;
       const workHoursTimezone = document.getElementById('editProjectWorkTz').value;
       const blockingMode = document.getElementById('editProjectBlocking').checked;
-      
+
       if (!title) return alert('Project name is required');
-      
+
       const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/projects/' + id : '/api/swarm/projects/' + id;
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, color, projectLeadUserId, developerLeadUserId, onedevUrl, dokployDeployUrl, workHoursStart, workHoursEnd, workHoursTimezone, blockingMode })
       });
-      
+
       if (res.ok) {
         closeProjectDrawer();
         location.reload();
@@ -5491,7 +5534,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         alert('Error: ' + (err.error || 'Failed to update project'));
       }
     }
-    
+
     // Copy URL to clipboard
     async function copyUrl(url, btn) {
       let success = false;
@@ -5512,13 +5555,13 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
       }
     }
-    
+
     // Sidebar toggle for mobile
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open');
       document.getElementById('sidebarOverlay').classList.toggle('open');
     }
-    
+
     // Toggle task expansion
     function toggleTaskExpand(card) {
       // Close other expanded cards
@@ -5528,13 +5571,13 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       // Toggle this card
       card.classList.toggle('expanded');
     }
-    
+
     // Toggle project form
     function toggleProjectForm() {
       const form = document.getElementById('projectForm');
       form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }
-    
+
     // Create project
     async function createProject() {
       const title = document.getElementById('newProjectTitle').value.trim();
@@ -5544,18 +5587,18 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const developerLeadUserId = document.getElementById('newProjectDevLead').value;
       const onedevUrl = document.getElementById('newProjectRepoUrl').value.trim() || null;
       const dokployDeployUrl = document.getElementById('newProjectDeployUrl').value.trim() || null;
-      
+
       if (!title) return alert('Project name is required');
       if (!projectLeadUserId) return alert('Project Lead is required');
       if (!developerLeadUserId) return alert('Dev Lead is required');
-      
+
       const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/projects' : '/api/swarm/projects';
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, color, projectLeadUserId, developerLeadUserId, onedevUrl, dokployDeployUrl })
       });
-      
+
       if (res.ok) {
         location.reload();
       } else {
@@ -5563,7 +5606,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         alert('Error: ' + (err.error || 'Failed to create project'));
       }
     }
-    
+
     // Toggle all filters in a section
     function toggleAllFilters(filterType, checked) {
       document.querySelectorAll('[data-filter="' + filterType + '"]').forEach(cb => {
@@ -5572,7 +5615,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       });
       applyFilters();
     }
-    
+
     // Theme
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') document.body.classList.add('light');
@@ -5580,19 +5623,19 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       document.body.classList.toggle('light');
       localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
     }
-    
+
     // Logout
     function logout() {
       localStorage.removeItem('mailboxKey');
       window.location.href = '/ui/swarm';
     }
-    
+
     // Create form toggle
     function toggleCreateForm() {
       const form = document.getElementById('createForm');
       form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }
-    
+
     // Preset views
     const CURRENT_USER = '${identity || ""}';
     function applyPreset(preset) {
@@ -5604,7 +5647,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const showFutureEl = document.getElementById('showFuture');
       if (showFutureEl) showFutureEl.checked = false;
       document.getElementById('sortSelect').value = 'planned';
-      
+
       if (preset === 'my-tasks' && CURRENT_USER) {
         document.querySelectorAll('[data-filter="assignee"]').forEach(cb => {
           const match = cb.value === CURRENT_USER;
@@ -5626,7 +5669,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       }
       applyFilters();
     }
-    
+
     // Filter handling
     document.querySelectorAll('[data-filter]').forEach(cb => {
       cb.addEventListener('change', () => {
@@ -5634,34 +5677,34 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         applyFilters();
       });
     });
-    
+
     function applyFilters() {
       const statuses = [...document.querySelectorAll('[data-filter="status"]:checked')].map(cb => cb.value);
       const assignees = [...document.querySelectorAll('[data-filter="assignee"]:checked')].map(cb => cb.value);
       const projects = [...document.querySelectorAll('[data-filter="project"]:checked')].map(cb => cb.value);
       const showFuture = document.getElementById('showFuture')?.checked || false;
       const sortValue = document.getElementById('sortSelect')?.value || 'planned';
-      
+
       // Filter cards
       document.querySelectorAll('.task-card').forEach(card => {
         const status = card.dataset.status;
         const assignee = card.dataset.assignee || 'unassigned';
         const project = card.dataset.project || 'none';
         const isFuture = card.dataset.future === 'true';
-        
+
         const statusMatch = statuses.includes(status);
         const assigneeMatch = assignees.includes(assignee);
         const projectMatch = projects.includes(project);
         const futureMatch = showFuture || !isFuture;
-        
+
         card.style.display = (statusMatch && assigneeMatch && projectMatch && futureMatch) ? 'flex' : 'none';
       });
-      
+
       // Sort cards
       const taskList = document.getElementById('taskList');
       const cards = [...taskList.querySelectorAll('.task-card')];
       const statusOrder = { in_progress: 1, review: 2, ready: 3, queued: 4, holding: 5, complete: 6 };
-      
+
       cards.sort((a, b) => {
         if (sortValue === 'planned') {
           const statusA = statusOrder[a.dataset.status] || 99;
@@ -5684,7 +5727,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       });
       cards.forEach(card => taskList.appendChild(card));
     }
-    
+
     // Save task edits
     async function saveTask(id) {
       const title = document.getElementById('edit-title-' + id).value.trim();
@@ -5696,16 +5739,16 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       const nextTaskId = document.getElementById('edit-nextTask-' + id).value || null;
       const onOrAfterInput = document.getElementById('edit-onOrAfter-' + id).value;
       const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
-      
+
       if (!title) return alert('Title is required');
-      
+
       const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + id : '/api/swarm/tasks/' + id;
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, projectId, assigneeUserId, detail, issueUrl, mustBeDoneAfterTaskId, nextTaskId, onOrAfterAt })
       });
-      
+
       if (res.ok) {
         location.reload();
       } else {
@@ -5713,24 +5756,24 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         alert('Error: ' + (err.error || 'Failed to save'));
       }
     }
-    
+
     // Task actions - use UI-keyed endpoints when we have a key
     async function claimTask(id) {
       const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + id + '/claim' : '/api/swarm/tasks/' + id + '/claim';
       await fetch(url, { method: 'POST' });
       location.reload();
     }
-    
+
     async function updateStatus(id, status) {
       const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks/' + id + '/status' : '/api/swarm/tasks/' + id + '/status';
-      await fetch(url, { 
+      await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       });
       location.reload();
     }
-    
+
     // Initialize drag-and-drop with dnd-kit React island
     function initTaskListIsland() {
       console.log('[DnD] initTaskListIsland called');
@@ -5741,7 +5784,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         console.log('[DnD] Early return - missing element or function');
         return;
       }
-      
+
       // Collect task card data
       const taskCards = taskList.querySelectorAll('.task-card');
       console.log('[DnD] Found task cards:', taskCards.length);
@@ -5749,19 +5792,19 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         id: card.dataset.id,
         html: card.outerHTML
       }));
-      
+
       if (tasks.length === 0) {
         console.log('[DnD] No tasks to mount');
         return;
       }
-      
+
       // Clear the original list and mount React island
       console.log('[DnD] Mounting React island with', tasks.length, 'tasks');
       taskList.innerHTML = '';
       window.mountTaskListIsland('taskList', tasks, UI_KEY);
       console.log('[DnD] Mount complete');
     }
-    
+
     // Load dnd-kit React bundle and initialize
     const dndScript = document.createElement('script');
     dndScript.src = '/ui/task-list-island.js';
@@ -5774,18 +5817,18 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     };
     document.head.appendChild(dndScript);
     console.log('[DnD] Loading script...');
-    
+
     async function createTask() {
       const title = document.getElementById('newTaskTitle').value.trim();
       if (!title) return alert('Title is required');
-      
+
       const projectId = document.getElementById('newTaskProject').value || null;
       const assigneeUserId = document.getElementById('newTaskAssignee').value || null;
       const detail = document.getElementById('newTaskDetail').value.trim() || null;
       const issueUrl = document.getElementById('newTaskIssueUrl').value.trim() || null;
       const onOrAfterInput = document.getElementById('newTaskOnOrAfter').value;
       const onOrAfterAt = onOrAfterInput ? new Date(onOrAfterInput).toISOString() : null;
-      
+
       const url = UI_KEY ? '/ui/' + UI_KEY + '/swarm/tasks' : '/api/swarm/tasks';
       await fetch(url, {
         method: 'POST',
@@ -5794,7 +5837,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       });
       location.reload();
     }
-    
+
     // SSE: Listen for swarm events and refresh on changes from other users
     if (UI_KEY) {
       const currentUser = '${identity || ""}';
@@ -5846,30 +5889,42 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
     }
   }
 
+  const encoder = new TextEncoder();
+  let closed = false;
+  let pingInterval: ReturnType<typeof setInterval> | null = null;
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    console.log(`[events-sse] Stream cleanup (since ${lastSeenId})`);
+    if (pingInterval) clearInterval(pingInterval);
+    if (pollInterval) clearInterval(pollInterval);
+  };
+
   const stream = new ReadableStream({
     start(controller) {
-      const encoder = new TextEncoder();
-      let closed = false;
+      console.log(`[events-sse] Starting stream (since ${lastSeenId})`);
 
       const send = (chunk: string) => {
         if (closed) return;
         try {
           controller.enqueue(encoder.encode(chunk));
         } catch {
-          closed = true;
+          cleanup();
         }
       };
 
       // initial comment
       send(`: connected to events stream (since ${lastSeenId})\n\n`);
 
-      // keepalive
-      const pingInterval = setInterval(() => {
-        send(": ping\n\n");
-      }, 30000);
+      // keepalive every 15s
+      pingInterval = setInterval(() => {
+        send(`: keepalive\n\n`);
+      }, 15000);
 
-      // poll DB for new events
-      const pollInterval = setInterval(async () => {
+      // poll DB for new events every 1s
+      pollInterval = setInterval(async () => {
         if (closed) return;
         try {
           const events = await listEventsSince(lastSeenId, 100);
@@ -5887,16 +5942,14 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
             })}\n\n`);
           }
         } catch (e) {
-          // Don’t kill the stream on transient DB errors; just log.
+          // Don't kill the stream on transient DB errors; just log.
           console.error("[events-sse] poll error", e);
         }
       }, 1000);
-
-      return () => {
-        closed = true;
-        clearInterval(pingInterval);
-        clearInterval(pollInterval);
-      };
+    },
+    cancel(reason) {
+      console.log(`[events-sse] Stream cancelled:`, reason);
+      cleanup();
     },
   });
 
@@ -5996,25 +6049,25 @@ async function handleSwarmListProjects(auth: AuthContext): Promise<Response> {
 async function handleSwarmCreateProject(auth: AuthContext, request: Request): Promise<Response> {
   try {
     const body = await request.json() as swarm.CreateProjectInput;
-    
+
     if (!body.title || !body.color || !body.projectLeadUserId || !body.developerLeadUserId) {
       return error("title, color, projectLeadUserId, and developerLeadUserId are required", 400);
     }
-    
+
     // Validate color format
     if (!/^#[0-9A-Fa-f]{6}$/.test(body.color)) {
       return error("color must be a valid hex color (e.g., #FF5500)", 400);
     }
-    
+
     const project = await swarm.createProject(body);
-    
+
     // Emit Buzz event
     await emitSwarmBuzz("swarm.project.created", {
       projectId: project.id,
       title: project.title,
       actor: auth.identity,
     });
-    
+
     return json({ project: serializeProject(project) }, 201);
   } catch (err) {
     console.error("[swarm] Create project error:", err);
@@ -6033,22 +6086,22 @@ async function handleSwarmGetProject(auth: AuthContext, id: string): Promise<Res
 async function handleSwarmUpdateProject(auth: AuthContext, id: string, request: Request): Promise<Response> {
   try {
     const body = await request.json() as swarm.UpdateProjectInput;
-    
+
     if (body.color && !/^#[0-9A-Fa-f]{6}$/.test(body.color)) {
       return error("color must be a valid hex color (e.g., #FF5500)", 400);
     }
-    
+
     const project = await swarm.updateProject(id, body);
     if (!project) {
       return error("Project not found", 404);
     }
-    
+
     await emitSwarmBuzz("swarm.project.updated", {
       projectId: project.id,
       title: project.title,
       actor: auth.identity,
     });
-    
+
     return json({ project: serializeProject(project) });
   } catch (err) {
     console.error("[swarm] Update project error:", err);
@@ -6061,13 +6114,13 @@ async function handleSwarmArchiveProject(auth: AuthContext, id: string): Promise
   if (!project) {
     return error("Project not found", 404);
   }
-  
+
   await emitSwarmBuzz("swarm.project.archived", {
     projectId: project.id,
     title: project.title,
     actor: auth.identity,
   });
-  
+
   return json({ project: serializeProject(project) });
 }
 
@@ -6076,20 +6129,20 @@ async function handleSwarmUnarchiveProject(auth: AuthContext, id: string): Promi
   if (!project) {
     return error("Project not found", 404);
   }
-  
+
   await emitSwarmBuzz("swarm.project.unarchived", {
     projectId: project.id,
     title: project.title,
     actor: auth.identity,
   });
-  
+
   return json({ project: serializeProject(project) });
 }
 
 // Tasks
 async function handleSwarmListTasks(auth: AuthContext, request: Request): Promise<Response> {
   const url = new URL(request.url);
-  
+
   const opts: swarm.ListTasksOptions = {
     statuses: url.searchParams.getAll("status") as swarm.TaskStatus[],
     assignees: url.searchParams.getAll("assignee"),
@@ -6104,32 +6157,32 @@ async function handleSwarmListTasks(auth: AuthContext, request: Request): Promis
     sortDir: (url.searchParams.get("dir") as "asc" | "desc") || "asc",
     limit: parseInt(url.searchParams.get("limit") || "100"),
   };
-  
+
   // Clean empty arrays
   if (opts.statuses?.length === 0) delete opts.statuses;
   if (opts.assignees?.length === 0) delete opts.assignees;
   if (opts.projects?.length === 0) delete opts.projects;
-  
+
   let tasks = await swarm.listTasks(opts);
   tasks = await swarm.enrichTasksWithBlocked(tasks);
-  
+
   return json({ tasks: tasks.map(serializeTask) });
 }
 
 async function handleSwarmCreateTask(auth: AuthContext, request: Request): Promise<Response> {
   try {
     const body = await request.json() as Omit<swarm.CreateTaskInput, "creatorUserId">;
-    
+
     if (!body.title) {
       return error("title is required", 400);
     }
-    
+
     const task = await swarm.createTask({
       ...body,
       creatorUserId: auth.identity,
       onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt as unknown as string) : undefined,
     });
-    
+
     // Record event
     await swarm.createTaskEvent({
       taskId: task.id,
@@ -6137,7 +6190,7 @@ async function handleSwarmCreateTask(auth: AuthContext, request: Request): Promi
       kind: "created",
       afterState: serializeTask(task),
     });
-    
+
     // Emit Buzz
     emitSwarmBuzz({
       eventType: 'swarm.task.created',
@@ -6149,7 +6202,22 @@ async function handleSwarmCreateTask(auth: AuthContext, request: Request): Promi
       status: task.status,
       deepLink: getSwarmDeepLink(task.id),
     });
-    
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent("swarm.task.created", {
+        taskId: task.id,
+        projectId: task.projectId,
+        title: task.title,
+        actor: auth.identity,
+        assignee: task.assigneeUserId,
+        status: task.status,
+        deepLink: getSwarmDeepLink(task.id),
+      });
+    } catch (e) {
+      console.error("[hive-events] failed to append swarm.task.created", e);
+    }
+
     return json({ task: serializeTask(task) }, 201);
   } catch (err) {
     console.error("[swarm] Create task error:", err);
@@ -6169,22 +6237,22 @@ async function handleSwarmGetTask(auth: AuthContext, id: string): Promise<Respon
 async function handleSwarmUpdateTask(auth: AuthContext, id: string, request: Request): Promise<Response> {
   try {
     const body = await request.json() as swarm.UpdateTaskInput;
-    
+
     const before = await swarm.getTask(id);
     if (!before) {
       return error("Task not found", 404);
     }
-    
+
     // Handle date conversion
     if (body.onOrAfterAt) {
       body.onOrAfterAt = new Date(body.onOrAfterAt as unknown as string);
     }
-    
+
     const task = await swarm.updateTask(id, body);
     if (!task) {
       return error("Task not found", 404);
     }
-    
+
     await swarm.createTaskEvent({
       taskId: id,
       actorUserId: auth.identity,
@@ -6192,7 +6260,7 @@ async function handleSwarmUpdateTask(auth: AuthContext, id: string, request: Req
       beforeState: serializeTask(before),
       afterState: serializeTask(task),
     });
-    
+
     emitSwarmBuzz({
       eventType: 'swarm.task.updated',
       taskId: task.id,
@@ -6203,7 +6271,22 @@ async function handleSwarmUpdateTask(auth: AuthContext, id: string, request: Req
       status: task.status,
       deepLink: getSwarmDeepLink(task.id),
     });
-    
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent("swarm.task.updated", {
+        taskId: task.id,
+        projectId: task.projectId,
+        title: task.title,
+        actor: auth.identity,
+        assignee: task.assigneeUserId,
+        status: task.status,
+        deepLink: getSwarmDeepLink(task.id),
+      });
+    } catch (e) {
+      console.error("[hive-events] failed to append swarm.task.updated", e);
+    }
+
     await swarm.enrichTaskWithBlocked(task);
     return json({ task: serializeTask(task) });
   } catch (err) {
@@ -6217,7 +6300,7 @@ async function handleSwarmClaimTask(auth: AuthContext, id: string): Promise<Resp
   if (!task) {
     return error("Task not found", 404);
   }
-  
+
   emitSwarmBuzz({
     eventType: 'swarm.task.assigned',
     taskId: task.id,
@@ -6228,7 +6311,22 @@ async function handleSwarmClaimTask(auth: AuthContext, id: string): Promise<Resp
     status: task.status,
     deepLink: getSwarmDeepLink(task.id),
   });
-  
+
+  // Emit to hive event log for /api/events SSE consumers
+  try {
+    await appendEvent("swarm.task.assigned", {
+      taskId: task.id,
+      projectId: task.projectId,
+      title: task.title,
+      actor: auth.identity,
+      assignee: auth.identity,
+      status: task.status,
+      deepLink: getSwarmDeepLink(task.id),
+    });
+  } catch (e) {
+    console.error("[hive-events] failed to append swarm.task.assigned", e);
+  }
+
   await swarm.enrichTaskWithBlocked(task);
   return json({ task: serializeTask(task) });
 }
@@ -6236,34 +6334,34 @@ async function handleSwarmClaimTask(auth: AuthContext, id: string): Promise<Resp
 async function handleSwarmUpdateTaskStatus(auth: AuthContext, id: string, request: Request): Promise<Response> {
   try {
     const body = await request.json() as { status: swarm.TaskStatus };
-    
+
     if (!body.status) {
       return error("status is required", 400);
     }
-    
+
     const validStatuses: swarm.TaskStatus[] = ["queued", "ready", "in_progress", "holding", "review", "complete"];
     if (!validStatuses.includes(body.status)) {
       return error(`status must be one of: ${validStatuses.join(", ")}`, 400);
     }
-    
+
     // Check if task is blocked
     const current = await swarm.getTask(id);
     if (!current) {
       return error("Task not found", 404);
     }
-    
+
     await swarm.enrichTaskWithBlocked(current);
-    
+
     // Prevent transitioning blocked tasks to active states
     if (current.blockedReason && ["in_progress", "review", "complete"].includes(body.status)) {
       return error(`Cannot transition to ${body.status}: task is blocked by ${current.blockedReason}`, 400);
     }
-    
+
     const task = await swarm.updateTaskStatus(id, body.status, auth.identity);
     if (!task) {
       return error("Task not found", 404);
     }
-    
+
     const eventType = body.status === "complete" ? 'swarm.task.completed' : 'swarm.task.status_changed';
     emitSwarmBuzz({
       eventType: eventType as SwarmBuzzEventType,
@@ -6275,7 +6373,22 @@ async function handleSwarmUpdateTaskStatus(auth: AuthContext, id: string, reques
       status: task.status,
       deepLink: getSwarmDeepLink(task.id),
     });
-    
+
+    // Emit to hive event log for /api/events SSE consumers
+    try {
+      await appendEvent(eventType, {
+        taskId: task.id,
+        projectId: task.projectId,
+        title: task.title,
+        actor: auth.identity,
+        assignee: task.assigneeUserId,
+        status: task.status,
+        deepLink: getSwarmDeepLink(task.id),
+      });
+    } catch (e) {
+      console.error(`[hive-events] failed to append ${eventType}`, e);
+    }
+
     await swarm.enrichTaskWithBlocked(task);
     return json({ task: serializeTask(task) });
   } catch (err) {
@@ -6289,7 +6402,7 @@ async function handleSwarmGetTaskEvents(auth: AuthContext, id: string): Promise<
   if (!task) {
     return error("Task not found", 404);
   }
-  
+
   const events = await swarm.getTaskEvents(id);
   return json({ events: events.map(serializeTaskEvent) });
 }
@@ -6302,14 +6415,14 @@ async function handleSwarmReorderTask(auth: AuthContext, id: string, request: Re
   } catch {
     return error("Invalid JSON", 400);
   }
-  
+
   try {
     const task = await swarm.reorderTask(id, body.beforeTaskId || null, auth.identity);
-    
+
     if (!task) {
       return error("Task not found", 404);
     }
-    
+
     // Emit Buzz event
     emitSwarmBuzz({
       eventType: 'swarm.task.reordered',
@@ -6321,7 +6434,7 @@ async function handleSwarmReorderTask(auth: AuthContext, id: string, request: Re
       status: task.status,
       deepLink: getSwarmDeepLink(task.id),
     });
-    
+
     return json({ task: serializeTask(task) });
   } catch (err) {
     console.error("[api] Error reordering task:", err);
@@ -6340,13 +6453,13 @@ async function handleListTemplates(auth: AuthContext, request: Request): Promise
     const projectId = url.searchParams.get("projectId") || undefined;
     const enabled = url.searchParams.get("enabled");
     const ownerUserId = url.searchParams.get("ownerUserId") || undefined;
-    
+
     const templates = await swarm.listTemplates({
       projectId,
       enabled: enabled !== null ? enabled === "true" : undefined,
       ownerUserId,
     });
-    
+
     return json({ templates });
   } catch (err) {
     console.error("[api] Error listing templates:", err);
@@ -6357,19 +6470,19 @@ async function handleListTemplates(auth: AuthContext, request: Request): Promise
 async function handleCreateTemplate(auth: AuthContext, request: Request): Promise<Response> {
   try {
     const body = await request.json() as Omit<swarm.CreateTemplateInput, "ownerUserId"> & { ownerUserId?: string };
-    
+
     if (!body.title) return error("title is required", 400);
     if (!body.startAt) return error("startAt is required", 400);
     if (!body.everyInterval) return error("everyInterval is required", 400);
     if (!body.everyUnit) return error("everyUnit is required", 400);
-    
+
     const template = await swarm.createTemplate({
       ...body,
       ownerUserId: body.ownerUserId || auth.identity,
       startAt: new Date(body.startAt as unknown as string),
       endAt: body.endAt ? new Date(body.endAt as unknown as string) : undefined,
     });
-    
+
     return json({ template }, 201);
   } catch (err) {
     console.error("[api] Error creating template:", err);
@@ -6386,13 +6499,13 @@ async function handleGetTemplate(id: string): Promise<Response> {
 async function handleUpdateTemplate(auth: AuthContext, id: string, request: Request): Promise<Response> {
   try {
     const body = await request.json() as swarm.UpdateTemplateInput;
-    
+
     if (body.startAt) body.startAt = new Date(body.startAt as unknown as string);
     if (body.endAt) body.endAt = new Date(body.endAt as unknown as string);
-    
+
     const template = await swarm.updateTemplate(id, body);
     if (!template) return error("Template not found", 404);
-    
+
     return json({ template });
   } catch (err) {
     console.error("[api] Error updating template:", err);
@@ -6422,7 +6535,7 @@ async function handleRunGenerator(auth: AuthContext, request: Request): Promise<
   try {
     const url = new URL(request.url);
     const templateId = url.searchParams.get("templateId") || undefined;
-    
+
     const result = await runRecurringGenerator(templateId);
     return json(result);
   } catch (err) {
@@ -6433,53 +6546,53 @@ async function handleRunGenerator(auth: AuthContext, request: Request): Promise<
 
 // Simple generator implementation
 async function runRecurringGenerator(templateId?: string): Promise<{ generated: number; errors: string[] }> {
-  const templates = templateId 
+  const templates = templateId
     ? [await swarm.getTemplate(templateId)].filter(Boolean) as swarm.RecurringTemplate[]
     : await swarm.listTemplates({ enabled: true });
-  
+
   let generated = 0;
   const errors: string[] = [];
   const now = new Date();
   const horizonDays = 14;
   const maxInstancesPerTemplate = 10;
   const horizon = new Date(now.getTime() + horizonDays * 24 * 60 * 60 * 1000);
-  
+
   for (const template of templates) {
     try {
       // Skip if template hasn't started yet
       if (template.startAt > now) continue;
-      
+
       // Skip if template has ended
       if (template.endAt && template.endAt < now) continue;
-      
+
       // Get the last generated instance time from DB (for determinism)
       const lastInstance = await getLastInstanceTime(template.id);
-      
+
       // Start from the last instance or template startAt (deterministic!)
       let cursor = lastInstance || template.startAt;
       let instancesGenerated = 0;
-      
+
       while (instancesGenerated < maxInstancesPerTemplate) {
         const next = computeNextOccurrence(template, cursor);
         if (!next || next > horizon) break;
         if (template.endAt && next > template.endAt) break;
-        
+
         // Check repeat count
         if (template.repeatCount) {
           const existingCount = await countTemplateInstances(template.id);
           if (existingCount >= template.repeatCount) break;
         }
-        
+
         // Try to create instance (idempotent via unique constraint)
         const created = await createRecurringInstance(template, next);
         if (created) {
           generated++;
           instancesGenerated++;
         }
-        
+
         cursor = next;
       }
-      
+
       // Update lastRunAt to track when generator last processed this template
       await swarm.updateTemplate(template.id, { lastRunAt: now });
     } catch (err) {
@@ -6488,7 +6601,7 @@ async function runRecurringGenerator(templateId?: string): Promise<{ generated: 
       console.error("[generator]", msg);
     }
   }
-  
+
   return { generated, errors };
 }
 
@@ -6496,7 +6609,7 @@ async function getLastInstanceTime(templateId: string): Promise<Date | null> {
   const { sql } = await import("./db/client");
   const result = await sql`
     SELECT MAX(recurring_instance_at) as last_instance
-    FROM public.swarm_tasks 
+    FROM public.swarm_tasks
     WHERE recurring_template_id = ${templateId}
   `;
   const last = result[0]?.last_instance;
@@ -6507,10 +6620,10 @@ async function getLastInstanceTime(templateId: string): Promise<Date | null> {
 function computeNextOccurrence(template: swarm.RecurringTemplate, after: Date): Date | null {
   const { everyInterval, everyUnit, daysOfWeek, weekParity, betweenHoursStart, betweenHoursEnd, timezone } = template;
   const tz = timezone || 'America/Chicago';
-  
+
   // Convert to Luxon DateTime in template's timezone
   let next = DateTime.fromJSDate(after, { zone: tz });
-  
+
   // Add interval (timezone-aware)
   switch (everyUnit) {
     case 'minute': next = next.plus({ minutes: everyInterval }); break;
@@ -6519,7 +6632,7 @@ function computeNextOccurrence(template: swarm.RecurringTemplate, after: Date): 
     case 'week': next = next.plus({ weeks: everyInterval }); break;
     case 'month': next = next.plus({ months: everyInterval }); break;
   }
-  
+
   // Handle DST transitions per plan:
   // - Missing local time (spring forward) → skip to next valid time
   // - Ambiguous local time (fall back) → pick earlier occurrence
@@ -6534,37 +6647,37 @@ function computeNextOccurrence(template: swarm.RecurringTemplate, after: Date): 
       case 'month': next = next.plus({ months: everyInterval }); break;
     }
   }
-  
+
   // Apply day-of-week constraint
   if (daysOfWeek && daysOfWeek.length > 0) {
     const dayMap: Record<string, number> = { sun: 7, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
     const allowedDays = daysOfWeek.map(d => dayMap[d.toLowerCase()]).filter(n => n !== undefined);
-    
+
     let attempts = 0;
     while (!allowedDays.includes(next.weekday) && attempts < 7) {
       next = next.plus({ days: 1 });
       attempts++;
     }
   }
-  
+
   // Apply week parity constraint (ISO week number)
   if (weekParity !== 'any') {
     const weekNum = next.weekNumber;
     const isOdd = weekNum % 2 === 1;
     const wantOdd = weekParity === 'odd';
-    
+
     if (isOdd !== wantOdd) {
       next = next.plus({ weeks: 1 });
     }
   }
-  
+
   // Apply between-hours constraint
   if (betweenHoursStart !== null && betweenHoursEnd !== null) {
     const hour = next.hour;
     const inWindow = betweenHoursStart <= betweenHoursEnd
       ? (hour >= betweenHoursStart && hour < betweenHoursEnd)
       : (hour >= betweenHoursStart || hour < betweenHoursEnd);
-    
+
     if (!inWindow) {
       next = next.set({ hour: betweenHoursStart, minute: 0, second: 0, millisecond: 0 });
       if (next.toJSDate() <= after) {
@@ -6572,13 +6685,13 @@ function computeNextOccurrence(template: swarm.RecurringTemplate, after: Date): 
       }
     }
   }
-  
+
   return next.toJSDate();
 }
 
 async function countTemplateInstances(templateId: string): Promise<number> {
   const result = await import("./db/client").then(m => m.sql`
-    SELECT COUNT(*) as count FROM public.swarm_tasks 
+    SELECT COUNT(*) as count FROM public.swarm_tasks
     WHERE recurring_template_id = ${templateId}
   `);
   return Number(result[0]?.count || 0);
@@ -6587,7 +6700,7 @@ async function countTemplateInstances(templateId: string): Promise<number> {
 async function createRecurringInstance(template: swarm.RecurringTemplate, scheduledAt: Date): Promise<boolean> {
   try {
     const { sql } = await import("./db/client");
-    
+
     // Use ON CONFLICT DO NOTHING for idempotency
     const result = await sql`
       INSERT INTO public.swarm_tasks (
@@ -6603,12 +6716,12 @@ async function createRecurringInstance(template: swarm.RecurringTemplate, schedu
         ${template.primaryAgent},
         'queued'
       )
-      ON CONFLICT (recurring_template_id, recurring_instance_at) 
+      ON CONFLICT (recurring_template_id, recurring_instance_at)
       WHERE recurring_template_id IS NOT NULL
       DO NOTHING
       RETURNING id
     `;
-    
+
     return result.length > 0;
   } catch (err) {
     console.error("[generator] Failed to create instance:", err);
@@ -6626,7 +6739,7 @@ async function handleSkill(): Promise<Response> {
       "/app/SKILL.md",
       new URL("../SKILL.md", import.meta.url).pathname,
     ];
-    
+
     for (const p of paths) {
       const file = Bun.file(p);
       if (await file.exists()) {
@@ -6636,7 +6749,7 @@ async function handleSkill(): Promise<Response> {
         });
       }
     }
-    
+
     return new Response("# Mailbox API Skill\n\nSKILL.md not found.", {
       status: 404,
       headers: { "Content-Type": "text/markdown" },
@@ -6655,13 +6768,13 @@ async function handleStream(auth: AuthContext): Promise<Response> {
   const recipient = auth.identity;
   const connId = generateConnectionId();
   const encoder = new TextEncoder();
-  
+
   // Cleanup state stored outside for cancel callback
   let closed = false;
   let pingInterval: ReturnType<typeof setInterval> | null = null;
   let unsubscribe: (() => void) | null = null;
   let presenceHandler: PresenceListener | null = null;
-  
+
   const cleanup = () => {
     if (closed) return;
     closed = true;
@@ -6671,19 +6784,19 @@ async function handleStream(auth: AuthContext): Promise<Response> {
     if (presenceHandler) presenceListeners.delete(presenceHandler);
     removePresence(connId);
   };
-  
+
   // Create a readable stream for SSE
   // Using synchronous start() pattern that works in Bun
   const stream = new ReadableStream({
     start(controller) {
       console.log(`[sse] Starting stream for ${recipient} (conn: ${connId})`);
-      
+
       // Track presence for this authenticated user
       addPresence(connId, recipient, 'api');
-      
+
       // Send initial connection event
       controller.enqueue(encoder.encode(`: connected to mailbox stream for ${recipient}\n\n`));
-      
+
       // Send initial presence (fire and forget, don't await)
       getPresenceInfo().then(presence => {
         if (closed) return;
@@ -6693,7 +6806,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       }).catch(err => {
         console.error("[sse] Failed to get initial presence:", err);
       });
-      
+
       // Listen for presence changes
       presenceHandler = (event) => {
         if (closed) return;
@@ -6704,7 +6817,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
         }
       };
       presenceListeners.add(presenceHandler);
-      
+
       // Ping every 5 seconds to keep connection alive
       pingInterval = setInterval(() => {
         if (closed) return;
@@ -6714,7 +6827,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
           cleanup();
         }
       }, 5000);
-      
+
       // Subscribe to real-time events for this mailbox
       unsubscribe = subscribe(recipient, (event: MailboxEvent) => {
         if (closed) return;
@@ -6740,7 +6853,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
           cleanup();
         }
       });
-      
+
       // Note: No return value needed - stream stays open as long as we don't call controller.close()
     },
     cancel(reason) {
@@ -6748,7 +6861,7 @@ async function handleStream(auth: AuthContext): Promise<Response> {
       cleanup();
     },
   });
-  
+
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
