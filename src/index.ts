@@ -5949,7 +5949,9 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
           pollInterval = setTimeout(poll, 1000);
         }
       };
-      pollInterval = setTimeout(poll, 1000);
+      // DEBUG: Disable DB poll temporarily to test if that's causing the disconnect
+      // pollInterval = setTimeout(poll, 1000);
+      console.log("[events-sse] DB poll disabled for debugging");
     },
     cancel(reason) {
       console.log(`[events-sse] Stream cancelled:`, reason);
