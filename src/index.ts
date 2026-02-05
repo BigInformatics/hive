@@ -6673,24 +6673,26 @@ async function handleStream(auth: AuthContext): Promise<Response> {
   };
   
   // Create a readable stream for SSE
-  // Using async start() that never resolves to keep stream open in Bun
+  // Using synchronous start() pattern that works in Bun
   const stream = new ReadableStream({
-    async start(controller) {
+    start(controller) {
       console.log(`[sse] Starting stream for ${recipient} (conn: ${connId})`);
       
       // Track presence for this authenticated user
       addPresence(connId, recipient, 'api');
       
-      // Send initial connection event with presence info
+      // Send initial connection event
       controller.enqueue(encoder.encode(`: connected to mailbox stream for ${recipient}\n\n`));
       
-      // Send initial presence
-      try {
-        const presence = await getPresenceInfo();
-        controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
-      } catch (err) {
+      // Send initial presence (fire and forget, don't await)
+      getPresenceInfo().then(presence => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`event: presence\ndata: ${JSON.stringify({ presence })}\n\n`));
+        } catch { /* ignore */ }
+      }).catch(err => {
         console.error("[sse] Failed to get initial presence:", err);
-      }
+      });
       
       // Listen for presence changes
       presenceHandler = (event) => {
@@ -6739,12 +6741,10 @@ async function handleStream(auth: AuthContext): Promise<Response> {
         }
       });
       
-      // Return a promise that never resolves to keep stream open
-      // The cancel() callback will handle cleanup when client disconnects
-      await new Promise(() => {});
+      // Note: No return value needed - stream stays open as long as we don't call controller.close()
     },
     cancel(reason) {
-      console.log(`[sse] Stream cancelled for ${recipient}:`, reason, new Error().stack);
+      console.log(`[sse] Stream cancelled for ${recipient}:`, reason);
       cleanup();
     },
   });
