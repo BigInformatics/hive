@@ -1,6 +1,6 @@
 # Hive Plan: Swarm (Task List) + Projects
 
-**Repo:** Team/hive  
+**Repo:** BigInformatics/hive  
 **Doc purpose:** Detailed implementation plan for adding a new Hive tab **Swarm**: a timeline-style task list (not kanban) with full API control, and a companion **Projects** model. Updates broadcast into Buzz.
 
 ---

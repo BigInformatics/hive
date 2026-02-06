@@ -1,6 +1,6 @@
 # Hive Plan (Phase 2): Swarm Recurring Tasks
 
-**Repo:** Team/hive  
+**Repo:** BigInformatics/hive  
 **Doc purpose:** Phase 2 design for **recurring tasks** in the Swarm task list system.
 
 This plan extends the Phase 1 Swarm timeline model with a **flexible recurrence engine**, while keeping the UI consistent with Hive’s existing Messages/Buzz style.

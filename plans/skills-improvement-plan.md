@@ -1,6 +1,6 @@
 # Hive Plan: Skills Improvements (Primary Skills + Endpoint-Scoped Skill Docs)
 
-**Repo:** Team/hive  
+**Repo:** BigInformatics/hive  
 **Doc purpose:** Improve how agents learn/operate Hive APIs without loading a giant monolithic skill document.
 
 ---
