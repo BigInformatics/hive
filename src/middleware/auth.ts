@@ -15,6 +15,14 @@ export function loadTokens(config: Record<string, { identity: string; admin?: bo
   }
 }
 
+export function addToken(token: string, context: AuthContext) {
+  tokens.set(token, context);
+}
+
+export function removeToken(token: string) {
+  tokens.delete(token);
+}
+
 export function authenticate(request: Request): AuthContext | null {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {

@@ -97,6 +97,34 @@ export async function setWebhookEnabled(id: number, enabled: boolean): Promise<W
   return row ? mapWebhook(row) : null;
 }
 
+// Update webhook parameters (appName is NOT updatable — it's part of the ingest URL)
+export async function updateWebhook(id: number, params: {
+  title?: string;
+  forUsers?: string | null;
+  owner?: string;
+}): Promise<Webhook | null> {
+  // Only update fields that were explicitly provided
+  // forUsers: undefined = don't change, null = clear, string = set
+  const forUsersProvided = params.forUsers !== undefined;
+  const [row] = forUsersProvided
+    ? await sql`
+        UPDATE public.broadcast_webhooks
+        SET title = COALESCE(${params.title ?? null}, title),
+            for_users = ${params.forUsers},
+            owner = COALESCE(${params.owner ?? null}, owner)
+        WHERE id = ${id}
+        RETURNING *
+      `
+    : await sql`
+        UPDATE public.broadcast_webhooks
+        SET title = COALESCE(${params.title ?? null}, title),
+            owner = COALESCE(${params.owner ?? null}, owner)
+        WHERE id = ${id}
+        RETURNING *
+      `;
+  return row ? mapWebhook(row) : null;
+}
+
 // Delete webhook
 export async function deleteWebhook(id: number): Promise<boolean> {
   const result = await sql`DELETE FROM public.broadcast_webhooks WHERE id = ${id}`;

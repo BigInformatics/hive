@@ -3,12 +3,13 @@ import { healthCheck, close } from "./db/client";
 import {
   sendMessage, listMessages, getMessage,
   ackMessage, ackMessages, searchMessages,
-  isValidMailbox, listAllMessages, getUnreadCounts,
+  isValidMailbox, addMailbox, removeMailbox, listAllMessages, getUnreadCounts,
   markWaiting, clearWaiting, listMyWaiting,
   listWaitingOnOthers, getWaitingCounts,
   type SendMessageInput
 } from "./db/messages";
-import { authenticate, initFromEnv, type AuthContext } from "./middleware/auth";
+import * as users from "./db/users";
+import { authenticate, initFromEnv, addToken, removeToken, type AuthContext } from "./middleware/auth";
 import { subscribe, emit, type MailboxEvent } from "./events";
 import * as broadcast from "./db/broadcast";
 import * as swarm from "./db/swarm";
@@ -683,9 +684,13 @@ function serializeMessage(msg: {
 // Extracted from logged-out /ui (the gold standard)
 
 type HeaderConfig = {
-  activeTab: 'messages' | 'buzz' | 'swarm' | 'recurring';
+  activeTab: 'messages' | 'buzz' | 'swarm' | 'recurring' | 'admin';
   loggedIn: boolean;
   key?: string;  // UI key for nav links
+  isAdmin?: boolean;  // Controls whether admin tab is shown
+  beforeTitle?: string;  // HTML inserted before the h1 (e.g. hamburger button)
+  afterTitle?: string;   // HTML appended inside the h1 (e.g. user badge)
+  useHeaderTag?: boolean; // Use <header> instead of <div> for the wrapper
 };
 
 // ── Shared CSS helpers ──────────────────────────────────────
@@ -771,14 +776,15 @@ const ICONS = {
   key: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>',
   bell: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
   recurring: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>',
+  admin: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',
 };
 
 function renderHeader(config: HeaderConfig): string {
   const { activeTab, loggedIn, key } = config;
   const keyPath = key ? '/' + key : '';
 
-  const titleIcons: Record<string, string> = { messages: ICONS.mail, buzz: ICONS.buzz, swarm: ICONS.swarm, recurring: ICONS.recurring };
-  const titleTexts: Record<string, string> = { messages: 'Messages', buzz: 'Buzz', swarm: 'Swarm', recurring: 'Recurring' };
+  const titleIcons: Record<string, string> = { messages: ICONS.mail, buzz: ICONS.buzz, swarm: ICONS.swarm, recurring: ICONS.recurring, admin: ICONS.admin };
+  const titleTexts: Record<string, string> = { messages: 'Messages', buzz: 'Buzz', swarm: 'Swarm', recurring: 'Recurring', admin: 'Admin' };
   const titleIcon = titleIcons[activeTab] || ICONS.mail;
   const titleText = titleTexts[activeTab] || 'Messages';
 
@@ -792,6 +798,10 @@ function renderHeader(config: HeaderConfig): string {
     nav += `
         <a href="/ui${keyPath}/swarm"${activeTab === 'swarm' ? ' class="active"' : ''}>Swarm</a>
         <a href="/ui${keyPath}/swarm/recurring"${activeTab === 'recurring' ? ' class="active"' : ''}>Recurring</a>`;
+    if (config.isAdmin) {
+      nav += `
+        <a href="/ui${keyPath}/admin"${activeTab === 'admin' ? ' class="active"' : ''}>Admin</a>`;
+    }
   }
 
   if (loggedIn) {
@@ -820,14 +830,15 @@ function renderHeader(config: HeaderConfig): string {
         <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">${defaultThemeIcon}</button>
       </nav>`;
 
+  const tag = config.useHeaderTag ? 'header' : 'div';
   return `
-    <div class="header">
-      <h1>
+    <${tag} class="header">
+      ${config.beforeTitle || ''}<h1>
         ${titleIcon}
-        ${titleText}
+        ${titleText}${config.afterTitle || ''}
       </h1>
 ${nav}
-    </div>
+    </${tag}>
     <div id="presenceIndicators"></div>
     <div id="statsBar" class="stats-bar"></div>`;
 }
@@ -1646,7 +1657,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
   </style>
 </head>
 <body>
-${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
+${renderHeader({ activeTab: 'messages', loggedIn: true, key, isAdmin: config.admin || false })}
 
   <div id="composePanel" class="compose collapsed">
     <div class="compose-header" onclick="toggleCompose()">
@@ -1863,34 +1874,21 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
       }
     }
 
-    async function copyMessageId(msgId) {
+    function copyMessageId(msgId) {
       const btn = event.target.closest('.copy-id-btn');
-      let success = false;
+      // Try execCommand first (synchronous, preserves user gesture)
+      const ta = document.createElement('textarea');
+      ta.value = msgId;
+      ta.style.position = 'fixed'; ta.style.left = '0'; ta.style.top = '0'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      document.body.removeChild(ta);
 
-      // Try modern clipboard API first
-      if (navigator?.clipboard?.writeText) {
-        try {
-          await navigator.clipboard.writeText(msgId);
-          success = true;
-        } catch (e) { /* fall through to legacy */ }
-      }
-
-      // Fallback: execCommand with hidden textarea
-      if (!success) {
-        const ta = document.createElement('textarea');
-        ta.value = msgId;
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        try {
-          success = document.execCommand('copy');
-        } catch (e) { /* ignore */ }
-        document.body.removeChild(ta);
-      }
-
-      // Visual feedback - show checkmark and "copied" state
-      if (success && btn) {
+      function showFeedback() {
+        if (!btn) return;
         const original = btn.innerHTML;
         btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
         btn.classList.add('copied');
@@ -1898,6 +1896,12 @@ ${renderHeader({ activeTab: 'messages', loggedIn: true, key })}
           btn.innerHTML = original;
           btn.classList.remove('copied');
         }, 1500);
+      }
+
+      if (ok) { showFeedback(); return; }
+      // Fallback to async clipboard API
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(msgId).then(() => showFeedback()).catch(() => {});
       }
     }
 
@@ -2862,6 +2866,40 @@ async function handleRequest(request: Request): Promise<Response> {
     if (path === "/ui/swarm") return handleSwarmUI();
     if (path === "/ui/swarm/stream") return handleSwarmUIStream(request);
 
+    // Admin UI routes (must be before keyed UI routes)
+    const uiKeyAdminMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/admin$/);
+    const uiKeyAdminWebhooksMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/admin\/webhooks$/);
+    const uiKeyAdminWebhookMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/admin\/webhooks\/(\d+)$/);
+    const uiKeyAdminWebhookToggleMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/admin\/webhooks\/(\d+)\/(enable|disable)$/);
+    const uiKeyAdminUsersMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/admin\/users$/);
+    const uiKeyAdminUserMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/admin\/users\/(\d+)$/);
+    const uiKeyAdminUserToggleMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/admin\/users\/(\d+)\/(enable|disable)$/);
+
+    if (method === "GET" && uiKeyAdminMatch) {
+      return handleAdminUI(uiKeyAdminMatch[1], request);
+    }
+    if (method === "POST" && uiKeyAdminWebhooksMatch) {
+      return handleAdminCreateWebhook(uiKeyAdminWebhooksMatch[1], request);
+    }
+    if (method === "PATCH" && uiKeyAdminWebhookMatch) {
+      return handleAdminUpdateWebhook(uiKeyAdminWebhookMatch[1], parseInt(uiKeyAdminWebhookMatch[2]), request);
+    }
+    if (method === "POST" && uiKeyAdminWebhookToggleMatch) {
+      return handleAdminToggleWebhook(uiKeyAdminWebhookToggleMatch[1], parseInt(uiKeyAdminWebhookToggleMatch[2]), uiKeyAdminWebhookToggleMatch[3] === "enable");
+    }
+    if (method === "DELETE" && uiKeyAdminWebhookMatch) {
+      return handleAdminDeleteWebhook(uiKeyAdminWebhookMatch[1], parseInt(uiKeyAdminWebhookMatch[2]));
+    }
+    if (method === "POST" && uiKeyAdminUsersMatch) {
+      return handleAdminCreateUser(uiKeyAdminUsersMatch[1], request);
+    }
+    if (method === "POST" && uiKeyAdminUserToggleMatch) {
+      return handleAdminToggleUser(uiKeyAdminUserToggleMatch[1], parseInt(uiKeyAdminUserToggleMatch[2]), uiKeyAdminUserToggleMatch[3] === "enable");
+    }
+    if (method === "DELETE" && uiKeyAdminUserMatch) {
+      return handleAdminDeleteUser(uiKeyAdminUserMatch[1], parseInt(uiKeyAdminUserMatch[2]));
+    }
+
     // Keyed UI with compose
     const uiKeyMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)$/);
     const uiKeySendMatch = path.match(/^\/ui\/([a-zA-Z0-9_-]+)\/send$/);
@@ -3015,6 +3053,11 @@ async function handleRequest(request: Request): Promise<Response> {
     const webhookIdMatch = path.match(/^\/broadcast\/webhooks\/(\d+)$/);
     if (method === "GET" && webhookIdMatch) {
       return requireAuth(request, (auth) => handleGetWebhook(auth, parseInt(webhookIdMatch[1])));
+    }
+
+    // Update webhook (auth required)
+    if (method === "PATCH" && webhookIdMatch) {
+      return requireAuth(request, (auth) => handleUpdateWebhookAPI(auth, parseInt(webhookIdMatch[1]), request));
     }
 
     // Enable/disable webhook (auth required)
@@ -3412,6 +3455,7 @@ async function handleWebhookIngest(appName: string, token: string, request: Requ
 // Broadcast UI page
 function renderBuzzHTML(key: string | null = null): string {
   const loggedIn = !!key;
+  const isAdmin = key ? (uiMailboxKeys[key]?.admin || false) : false;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3524,7 +3568,7 @@ function renderBuzzHTML(key: string | null = null): string {
 </head>
 <body>
   <div class="container">
-    ${renderHeader({ activeTab: 'buzz', loggedIn, key: key || undefined })}
+    ${renderHeader({ activeTab: 'buzz', loggedIn, key: key || undefined, isAdmin })}
 
     <div class="filter-bar">
       <select id="appFilter" onchange="applyFilter()">
@@ -4451,7 +4495,7 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
 </head>
 <body>
   <div class="container">
-    ${renderHeader({ activeTab: 'recurring', loggedIn: true, key })}
+    ${renderHeader({ activeTab: 'recurring', loggedIn: true, key, isAdmin: config.admin || false })}
     <button class="primary" onclick="openDrawer()" style="margin-bottom:16px;">+ New Template</button>
     <div class="template-list">${templateCards}</div>
   </div>` +
@@ -4601,8 +4645,8 @@ async function handleBroadcastUIWithKey(key: string): Promise<Response> {
 
 // Shared HTML renderer for Swarm UI
 function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[], key: string | null, identity: string | null): string {
-  const keyPath = key ? '/' + key : '';
   const authHeader = key ? ', headers: { "Authorization": "Bearer " + getToken() }' : '';
+  const swarmIsAdmin = key ? (uiMailboxKeys[key]?.admin || false) : false;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -4982,24 +5026,15 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       </div>
     </aside>
     <main class="main">
-      <header class="header">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button class="hamburger" onclick="toggleSidebar()" title="Toggle filters">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
-          <h1 style="margin:0;">${ICONS.swarm} Swarm${identity ? '<span class="user-badge">' + identity + '</span>' : ''}</h1>
-        </div>
-        <nav class="nav">
-          <a href="/ui${keyPath}">Messages</a>
-          <a href="/ui${keyPath}/buzz">Buzz</a>
-          <a href="/ui${keyPath}/swarm" class="active">Swarm</a>
-          <a href="/ui${keyPath}/swarm/recurring">Recurring</a>
-          ${key ? '<button class="logout-btn" onclick="logout()">Logout</button>' : ''}
-          <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-          </button>
-        </nav>
-      </header>
+      ${renderHeader({
+        activeTab: 'swarm',
+        loggedIn: !!key,
+        key: key || undefined,
+        isAdmin: swarmIsAdmin,
+        useHeaderTag: true,
+        beforeTitle: '<button class="hamburger" onclick="toggleSidebar()" title="Toggle filters"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>',
+        afterTitle: identity ? '<span class="user-badge">' + identity + '</span>' : '',
+      })}
       <div class="content">
         <div class="create-form" id="createForm" style="display:none;">
           <input type="text" id="newTaskTitle" placeholder="Task title..." />
@@ -5196,23 +5231,24 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
     }
 
     // Copy URL to clipboard
-    async function copyUrl(url, btn) {
-      let success = false;
-      if (navigator?.clipboard?.writeText) {
-        try { await navigator.clipboard.writeText(url); success = true; } catch {}
-      }
-      if (!success) {
-        const ta = document.createElement('textarea');
-        ta.value = url; ta.style.cssText = 'position:fixed;left:-9999px';
-        document.body.appendChild(ta); ta.select();
-        try { success = document.execCommand('copy'); } catch {}
-        document.body.removeChild(ta);
-      }
-      if (success && btn) {
+    function copyUrl(url, btn) {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed'; ta.style.left = '0'; ta.style.top = '0'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      document.body.removeChild(ta);
+      function showFeedback() {
+        if (!btn) return;
         const orig = btn.innerHTML;
         btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
         btn.style.color = '#22c55e';
         setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
+      }
+      if (ok) { showFeedback(); return; }
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).then(() => showFeedback()).catch(() => {});
       }
     }
 
@@ -5614,6 +5650,569 @@ async function handleEventsStream(auth: AuthContext, request: Request): Promise<
     },
   });
 }
+
+// ============================================================
+// ADMIN HANDLERS
+// ============================================================
+
+function requireAdmin(key: string): { config: UIKeyConfig; identity: string } | Response {
+  const config = uiMailboxKeys[key];
+  if (!config) return error("Invalid key", 404);
+  if (!config.admin) return error("Forbidden - admin access required", 403);
+  return { config, identity: config.sender };
+}
+
+// PATCH /broadcast/webhooks/:id (API)
+async function handleUpdateWebhookAPI(auth: AuthContext, id: number, request: Request): Promise<Response> {
+  const webhook = await broadcast.getWebhookById(id);
+  if (!webhook) return error("Webhook not found", 404);
+  if (webhook.owner !== auth.identity && !auth.isAdmin) return error("Forbidden", 403);
+
+  let body: { title?: string; for_users?: string | null; owner?: string };
+  try { body = await request.json(); } catch { return error("Invalid JSON", 400); }
+
+  const updated = await broadcast.updateWebhook(id, {
+    title: body.title,
+    forUsers: body.for_users,
+    owner: body.owner,
+  });
+  return json(updated);
+}
+
+// Admin page
+async function handleAdminUI(key: string, request: Request): Promise<Response> {
+  const admin = requireAdmin(key);
+  if (admin instanceof Response) return admin;
+
+  const host = request.headers.get("host") || "localhost:3100";
+  const protocol = request.headers.get("x-forwarded-proto") || "http";
+  const baseIngestUrl = `${protocol}://${host}/api/ingest`;
+
+  const webhooks = await broadcast.listWebhooks();
+  const allUsers = await users.listUsers();
+
+  const webhookRows = webhooks.map(w => `
+    <tr>
+      <td><code>${escapeHtml(w.appName)}</code></td>
+      <td>${escapeHtml(w.title)}</td>
+      <td>${escapeHtml(w.owner)}</td>
+      <td>${w.forUsers ? escapeHtml(w.forUsers) : '<span style="color:var(--muted-foreground)">All</span>'}</td>
+      <td>${w.enabled
+        ? '<span class="badge badge-green">Enabled</span>'
+        : '<span class="badge badge-red">Disabled</span>'}</td>
+      <td style="color:var(--muted-foreground);font-size:0.8rem;">${w.lastHitAt ? new Date(w.lastHitAt).toLocaleDateString() : 'Never'}</td>
+      <td class="actions-cell">
+        <button class="icon-copy-btn" onclick="copyIngestUrl('${baseIngestUrl}/${w.appName}/${w.token}', this)" title="Copy ingest URL"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <button class="action-btn" onclick="openWebhookDrawer(${w.id})">Edit</button>
+        <button class="action-btn" onclick="toggleWebhook(${w.id}, ${!w.enabled})">${w.enabled ? 'Disable' : 'Enable'}</button>
+        <button class="action-btn destructive" onclick="deleteWebhook(${w.id})">Delete</button>
+      </td>
+    </tr>`).join('');
+
+  const userRows = allUsers.map(u => `
+    <tr>
+      <td><strong>${escapeHtml(u.name)}</strong></td>
+      <td>${u.isAdmin ? '<span class="badge badge-purple">Admin</span>' : '<span style="color:var(--muted-foreground)">No</span>'}</td>
+      <td>${u.enabled
+        ? '<span class="badge badge-green">Active</span>'
+        : '<span class="badge badge-red">Disabled</span>'}</td>
+      <td style="color:var(--muted-foreground);font-size:0.8rem;">${new Date(u.createdAt).toLocaleDateString()}</td>
+      <td class="actions-cell">
+        <button class="action-btn" onclick="toggleUser(${u.id}, ${!u.enabled})">${u.enabled ? 'Disable' : 'Enable'}</button>
+        <button class="action-btn destructive" onclick="deleteUser(${u.id})">Delete</button>
+      </td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  ${renderBaseHead('Hive - Admin')}
+  <style>
+    ${renderBaseCSS()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif; background: var(--background); color: var(--foreground); padding: 20px; line-height: 1.5; max-width: 1100px; margin: 0 auto; }
+    ${renderHeaderCSS()}
+    h2 { font-size: 1.125rem; font-weight: 600; }
+    .section { margin-bottom: 32px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); color: var(--muted-foreground); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:hover { background: var(--secondary); }
+    code { background: var(--secondary); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+    .badge-green { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .badge-red { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .badge-purple { background: rgba(168,85,247,0.15); color: #a855f7; }
+    .actions-cell { white-space: nowrap; }
+    .action-btn { font-size: 0.75rem; padding: 4px 8px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--background); color: var(--foreground); cursor: pointer; margin-right: 4px; }
+    .action-btn:hover { background: var(--secondary); }
+    .action-btn.destructive { color: var(--destructive); border-color: var(--destructive); }
+    .action-btn.destructive:hover { background: rgba(239,68,68,0.1); }
+    .icon-copy-btn { background: none; border: none; cursor: pointer; color: var(--muted-foreground); padding: 4px; display: inline-flex; align-items: center; vertical-align: middle; margin-right: 4px; }
+    .icon-copy-btn:hover { color: var(--foreground); }
+    button.primary { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: var(--radius); cursor: pointer; font-size: 0.875rem; }
+    button.primary:hover { opacity: 0.9; }
+    /* Drawer */
+    .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .drawer-overlay.open { display: block; }
+    .drawer { position: fixed; top: 0; right: -450px; width: 450px; max-width: 95vw; height: 100vh; background: var(--card); border-left: 1px solid var(--border); z-index: 1001; transition: right 0.2s; display: flex; flex-direction: column; }
+    .drawer.open { right: 0; }
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .drawer-header h3 { font-size: 1rem; font-weight: 600; margin: 0; }
+    .drawer-body { flex: 1; padding: 20px; overflow-y: auto; }
+    .drawer-body label { display: block; font-size: 0.75rem; color: var(--muted-foreground); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .drawer-body input, .drawer-body select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--foreground); font-size: 0.875rem; margin-bottom: 16px; }
+    .drawer-body input[type="checkbox"] { width: auto; margin-right: 8px; }
+    .drawer-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
+    .drawer-footer button { flex: 1; padding: 10px; border-radius: var(--radius); cursor: pointer; font-size: 0.875rem; }
+    .drawer-footer .cancel-btn { background: transparent; border: 1px solid var(--border); color: var(--foreground); }
+    .drawer-footer .save-btn { background: var(--primary); color: white; border: none; }
+    /* Token modal */
+    .token-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; z-index: 1002; width: 500px; max-width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .token-modal.open { display: block; }
+    .token-modal h3 { margin-bottom: 12px; font-size: 1rem; }
+    .token-modal p { font-size: 0.875rem; color: var(--muted-foreground); margin-bottom: 12px; }
+    .token-display { background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; font-family: monospace; font-size: 0.8rem; word-break: break-all; margin-bottom: 8px; }
+    .token-modal .url-display { background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; font-family: monospace; font-size: 0.75rem; word-break: break-all; margin-bottom: 12px; color: var(--primary); }
+    .copy-btn { background: var(--secondary); border: 1px solid var(--border); color: var(--foreground); padding: 6px 12px; border-radius: var(--radius); cursor: pointer; font-size: 0.8rem; margin-right: 8px; }
+    .copy-btn:hover { background: var(--primary); color: white; }
+    body.light tr:hover { background: var(--secondary); }
+    body.light .action-btn { background: var(--card); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    ${renderHeader({ activeTab: 'admin', loggedIn: true, key, isAdmin: true })}
+
+    <div class="section">
+      <div class="section-header">
+        <h2>Webhooks</h2>
+        <button class="primary" onclick="openWebhookDrawer()">+ New Webhook</button>
+      </div>
+      <table>
+        <thead><tr><th>App Name</th><th>Title</th><th>Owner</th><th>For Users</th><th>Status</th><th>Last Hit</th><th>Actions</th></tr></thead>
+        <tbody>${webhookRows || '<tr><td colspan="7" style="text-align:center;color:var(--muted-foreground);padding:24px;">No webhooks yet</td></tr>'}</tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <h2>Users</h2>
+        <button class="primary" onclick="openUserDrawer()">+ New User</button>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Admin</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody>${userRows || '<tr><td colspan="5" style="text-align:center;color:var(--muted-foreground);padding:24px;">No DB-managed users yet</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Webhook Drawer -->
+  <div class="drawer-overlay" id="webhookOverlay" onclick="closeWebhookDrawer()"></div>
+  <div class="drawer" id="webhookDrawer">
+    <div class="drawer-header">
+      <h3 id="webhookDrawerTitle">New Webhook</h3>
+      <button onclick="closeWebhookDrawer()" style="background:none;border:none;color:var(--foreground);font-size:1.25rem;cursor:pointer;">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <input type="hidden" id="webhookId">
+      <label>App Name *</label>
+      <input type="text" id="webhookAppName" placeholder="e.g. github-events" pattern="^[a-z][a-z0-9_-]*$">
+      <label>Title *</label>
+      <input type="text" id="webhookTitle" placeholder="e.g. GitHub Push Events">
+      <label>Owner</label>
+      <input type="text" id="webhookOwner" value="${admin.identity}">
+      <label>For Users <span style="font-size:0.7rem;text-transform:none;letter-spacing:0;">(comma-separated, leave empty for all)</span></label>
+      <input type="text" id="webhookForUsers" placeholder="e.g. chris,clio">
+    </div>
+    <div class="drawer-footer">
+      <button class="cancel-btn" onclick="closeWebhookDrawer()">Cancel</button>
+      <button class="save-btn" onclick="saveWebhook()">Save</button>
+    </div>
+  </div>
+
+  <!-- User Drawer -->
+  <div class="drawer-overlay" id="userOverlay" onclick="closeUserDrawer()"></div>
+  <div class="drawer" id="userDrawer">
+    <div class="drawer-header">
+      <h3>New User</h3>
+      <button onclick="closeUserDrawer()" style="background:none;border:none;color:var(--foreground);font-size:1.25rem;cursor:pointer;">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <label>Username *</label>
+      <input type="text" id="userName" placeholder="e.g. newuser" pattern="^[a-z][a-z0-9_-]*$">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:0.875rem;color:var(--foreground);margin-top:8px;">
+        <input type="checkbox" id="userIsAdmin">
+        Admin privileges
+      </label>
+    </div>
+    <div class="drawer-footer">
+      <button class="cancel-btn" onclick="closeUserDrawer()">Cancel</button>
+      <button class="save-btn" onclick="createUser()">Create</button>
+    </div>
+  </div>
+
+  <!-- Token Modal -->
+  <div class="drawer-overlay" id="tokenOverlay"></div>
+  <div class="token-modal" id="tokenModal">
+    <h3 id="tokenModalTitle">Token Created</h3>
+    <p>Save this token now. It will not be shown again.</p>
+    <label style="font-size:0.7rem;color:var(--muted-foreground);text-transform:uppercase;margin-bottom:4px;display:block;">Token</label>
+    <div class="token-display" id="tokenDisplay"></div>
+    <div id="tokenUrlSection" style="display:none;">
+      <label style="font-size:0.7rem;color:var(--muted-foreground);text-transform:uppercase;margin-bottom:4px;display:block;margin-top:12px;">Ingest URL</label>
+      <div class="url-display" id="tokenUrlDisplay"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;">
+      <button class="copy-btn" onclick="copyToken(this)">Copy Token</button>
+      <button class="copy-btn" id="copyUrlBtn" style="display:none;" onclick="copyUrl(this)">Copy URL</button>
+      <button class="primary" onclick="closeTokenModal()" style="margin-left:auto;">Done</button>
+    </div>
+  </div>
+
+  <script>
+    const UI_KEY = "${key}";
+    const BASE_INGEST_URL = '${baseIngestUrl}';
+    const WEBHOOKS = ${JSON.stringify(webhooks)};
+
+    // Copy ingest URL (same pattern as working tasks page copyUrl)
+    function copyIngestUrl(url, btn) {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed'; ta.style.left = '0'; ta.style.top = '0'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      document.body.removeChild(ta);
+      function showFeedback() {
+        if (!btn) return;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.style.color = '#22c55e';
+        setTimeout(function() { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
+      }
+      if (ok) { showFeedback(); return; }
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).then(function() { showFeedback(); }).catch(function() {});
+      }
+    }
+
+    // Text button copy (label → "Copied!")
+    function copyText(text, btn, origLabel) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed'; ta.style.left = '0'; ta.style.top = '0'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      document.body.removeChild(ta);
+      function showFeedback() {
+        if (!btn) return;
+        btn.textContent = 'Copied!';
+        btn.style.color = '#22c55e';
+        setTimeout(function() { btn.textContent = origLabel; btn.style.color = ''; }, 1500);
+      }
+      if (ok) { showFeedback(); return; }
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).then(function() { showFeedback(); }).catch(function() {});
+      }
+    }
+
+    // Webhook drawer
+    function openWebhookDrawer(id) {
+      document.getElementById('webhookOverlay').classList.add('open');
+      document.getElementById('webhookDrawer').classList.add('open');
+      if (id) {
+        const w = WEBHOOKS.find(x => x.id === id);
+        if (!w) return;
+        document.getElementById('webhookDrawerTitle').textContent = 'Edit Webhook';
+        document.getElementById('webhookId').value = w.id;
+        document.getElementById('webhookAppName').value = w.appName;
+        document.getElementById('webhookAppName').readOnly = true;
+        document.getElementById('webhookAppName').style.opacity = '0.6';
+        document.getElementById('webhookTitle').value = w.title;
+        document.getElementById('webhookOwner').value = w.owner;
+        document.getElementById('webhookForUsers').value = w.forUsers || '';
+      } else {
+        document.getElementById('webhookDrawerTitle').textContent = 'New Webhook';
+        document.getElementById('webhookId').value = '';
+        document.getElementById('webhookAppName').value = '';
+        document.getElementById('webhookAppName').readOnly = false;
+        document.getElementById('webhookAppName').style.opacity = '1';
+        document.getElementById('webhookTitle').value = '';
+        document.getElementById('webhookOwner').value = '${admin.identity}';
+        document.getElementById('webhookForUsers').value = '';
+      }
+    }
+    function closeWebhookDrawer() {
+      document.getElementById('webhookOverlay').classList.remove('open');
+      document.getElementById('webhookDrawer').classList.remove('open');
+    }
+    async function saveWebhook() {
+      const id = document.getElementById('webhookId').value;
+      const appName = document.getElementById('webhookAppName').value.trim();
+      const title = document.getElementById('webhookTitle').value.trim();
+      const owner = document.getElementById('webhookOwner').value.trim();
+      const forUsers = document.getElementById('webhookForUsers').value.trim();
+
+      if (!appName || !title) return alert('App Name and Title are required');
+      if (!id && !/^[a-z][a-z0-9_-]*$/.test(appName)) return alert('App Name must be lowercase letters, numbers, hyphens, underscores');
+
+      const url = id
+        ? '/ui/' + UI_KEY + '/admin/webhooks/' + id
+        : '/ui/' + UI_KEY + '/admin/webhooks';
+      const method = id ? 'PATCH' : 'POST';
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ app_name: appName, title, owner, for_users: forUsers || null }),
+        });
+        const data = await res.json();
+        if (!res.ok) return alert('Error: ' + (data.error || 'Failed'));
+        closeWebhookDrawer();
+        if (!id && data.token) {
+          showTokenModal('Webhook Created', data.token, data.ingestUrl);
+        } else {
+          location.reload();
+        }
+      } catch (e) { alert('Error: ' + e.message); }
+    }
+    async function toggleWebhook(id, enable) {
+      const action = enable ? 'enable' : 'disable';
+      try {
+        const res = await fetch('/ui/' + UI_KEY + '/admin/webhooks/' + id + '/' + action, { method: 'POST' });
+        if (res.ok) location.reload();
+        else { const d = await res.json(); alert('Error: ' + d.error); }
+      } catch (e) { alert('Error: ' + e.message); }
+    }
+    async function deleteWebhook(id) {
+      if (!confirm('Delete this webhook? This will also delete all its events.')) return;
+      try {
+        const res = await fetch('/ui/' + UI_KEY + '/admin/webhooks/' + id, { method: 'DELETE' });
+        if (res.ok) location.reload();
+        else { const d = await res.json(); alert('Error: ' + d.error); }
+      } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    // User drawer
+    function openUserDrawer() {
+      document.getElementById('userOverlay').classList.add('open');
+      document.getElementById('userDrawer').classList.add('open');
+      document.getElementById('userName').value = '';
+      document.getElementById('userIsAdmin').checked = false;
+    }
+    function closeUserDrawer() {
+      document.getElementById('userOverlay').classList.remove('open');
+      document.getElementById('userDrawer').classList.remove('open');
+    }
+    async function createUser() {
+      const name = document.getElementById('userName').value.trim().toLowerCase();
+      const isAdmin = document.getElementById('userIsAdmin').checked;
+      if (!name) return alert('Username is required');
+      if (!/^[a-z][a-z0-9_-]*$/.test(name)) return alert('Username must start with a letter and contain only lowercase letters, numbers, hyphens, underscores');
+
+      try {
+        const res = await fetch('/ui/' + UI_KEY + '/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, is_admin: isAdmin }),
+        });
+        const data = await res.json();
+        if (!res.ok) return alert('Error: ' + (data.error || 'Failed'));
+        closeUserDrawer();
+        showTokenModal('User Created: ' + data.name, data.token);
+      } catch (e) { alert('Error: ' + e.message); }
+    }
+    async function toggleUser(id, enable) {
+      const action = enable ? 'enable' : 'disable';
+      try {
+        const res = await fetch('/ui/' + UI_KEY + '/admin/users/' + id + '/' + action, { method: 'POST' });
+        if (res.ok) location.reload();
+        else { const d = await res.json(); alert('Error: ' + d.error); }
+      } catch (e) { alert('Error: ' + e.message); }
+    }
+    async function deleteUser(id) {
+      if (!confirm('Delete this user? Their access token will stop working immediately.')) return;
+      try {
+        const res = await fetch('/ui/' + UI_KEY + '/admin/users/' + id, { method: 'DELETE' });
+        if (res.ok) location.reload();
+        else { const d = await res.json(); alert('Error: ' + d.error); }
+      } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    // Token modal
+    let _currentToken = '';
+    let _currentUrl = '';
+    function showTokenModal(title, token, url) {
+      _currentToken = token;
+      _currentUrl = url || '';
+      document.getElementById('tokenModalTitle').textContent = title;
+      document.getElementById('tokenDisplay').textContent = token;
+      if (url) {
+        document.getElementById('tokenUrlSection').style.display = 'block';
+        document.getElementById('tokenUrlDisplay').textContent = url;
+        document.getElementById('copyUrlBtn').style.display = '';
+      } else {
+        document.getElementById('tokenUrlSection').style.display = 'none';
+        document.getElementById('copyUrlBtn').style.display = 'none';
+      }
+      document.getElementById('tokenOverlay').classList.add('open');
+      document.getElementById('tokenModal').classList.add('open');
+    }
+    function closeTokenModal() {
+      document.getElementById('tokenOverlay').classList.remove('open');
+      document.getElementById('tokenModal').classList.remove('open');
+      location.reload();
+    }
+    function copyToken(btn) {
+      copyText(_currentToken, btn, 'Copy Token');
+    }
+    function copyUrl(btn) {
+      copyText(_currentUrl, btn, 'Copy URL');
+    }
+  </script>
+  <script>${headerJS}</script>
+</body>
+</html>`;
+
+  return new Response(html, { headers: { "Content-Type": "text/html" } });
+}
+
+// Admin webhook handlers
+async function handleAdminCreateWebhook(key: string, request: Request): Promise<Response> {
+  const admin = requireAdmin(key);
+  if (admin instanceof Response) return admin;
+
+  let body: { app_name?: string; title?: string; owner?: string; for_users?: string | null };
+  try { body = await request.json(); } catch { return error("Invalid JSON", 400); }
+
+  if (!body.app_name || !body.title) return error("app_name and title are required", 400);
+
+  const webhook = await broadcast.createWebhook({
+    appName: body.app_name,
+    title: body.title,
+    owner: body.owner || admin.identity,
+    forUsers: body.for_users || undefined,
+  });
+
+  const host = request.headers.get("host") || "localhost:3100";
+  const protocol = request.headers.get("x-forwarded-proto") || "http";
+  const ingestUrl = `${protocol}://${host}/api/ingest/${webhook.appName}/${webhook.token}`;
+
+  return json({ ...webhook, ingestUrl });
+}
+
+async function handleAdminUpdateWebhook(key: string, id: number, request: Request): Promise<Response> {
+  const admin = requireAdmin(key);
+  if (admin instanceof Response) return admin;
+
+  let body: { title?: string; for_users?: string | null; owner?: string };
+  try { body = await request.json(); } catch { return error("Invalid JSON", 400); }
+
+  const updated = await broadcast.updateWebhook(id, {
+    title: body.title,
+    forUsers: body.for_users,
+    owner: body.owner,
+  });
+  if (!updated) return error("Webhook not found", 404);
+  return json(updated);
+}
+
+async function handleAdminToggleWebhook(key: string, id: number, enable: boolean): Promise<Response> {
+  const admin = requireAdmin(key);
+  if (admin instanceof Response) return admin;
+
+  const updated = await broadcast.setWebhookEnabled(id, enable);
+  if (!updated) return error("Webhook not found", 404);
+  return json(updated);
+}
+
+async function handleAdminDeleteWebhook(key: string, id: number): Promise<Response> {
+  const admin = requireAdmin(key);
+  if (admin instanceof Response) return admin;
+
+  const deleted = await broadcast.deleteWebhook(id);
+  if (!deleted) return error("Webhook not found", 404);
+  return json({ ok: true });
+}
+
+// Admin user handlers
+async function handleAdminCreateUser(key: string, request: Request): Promise<Response> {
+  const admin = requireAdmin(key);
+  if (admin instanceof Response) return admin;
+
+  let body: { name?: string; is_admin?: boolean };
+  try { body = await request.json(); } catch { return error("Invalid JSON", 400); }
+
+  if (!body.name) return error("name is required", 400);
+  const name = body.name.toLowerCase();
+  if (!/^[a-z][a-z0-9_-]*$/.test(name)) return error("Invalid username format", 400);
+
+  try {
+    const user = await users.createUser({ name, isAdmin: body.is_admin || false });
+    // Update runtime auth
+    addToken(user.token, { identity: user.name, isAdmin: user.isAdmin });
+    addMailbox(user.name);
+    return json(user);
+  } catch (err: any) {
+    if (err.message?.includes("unique") || err.message?.includes("duplicate")) {
+      return error("Username already exists", 409);
+    }
+    throw err;
+  }
+}
+
+async function handleAdminToggleUser(key: string, id: number, enable: boolean): Promise<Response> {
+  const admin = requireAdmin(key);
+  if (admin instanceof Response) return admin;
+
+  const user = await users.getUserById(id);
+  if (!user) return error("User not found", 404);
+
+  const updated = await users.setUserEnabled(id, enable);
+  if (!updated) return error("User not found", 404);
+
+  // Update runtime auth
+  if (enable) {
+    addToken(user.token, { identity: user.name, isAdmin: user.isAdmin });
+    addMailbox(user.name);
+  } else {
+    removeToken(user.token);
+  }
+  return json({ ...updated, token: "****" + updated.token.slice(-4) });
+}
+
+async function handleAdminDeleteUser(key: string, id: number): Promise<Response> {
+  const admin = requireAdmin(key);
+  if (admin instanceof Response) return admin;
+
+  const user = await users.getUserById(id);
+  if (!user) return error("User not found", 404);
+
+  await users.deleteUser(id);
+  removeToken(user.token);
+  removeMailbox(user.name);
+  return json({ ok: true });
+}
+
+// Load DB-managed users into the auth system
+async function initDBUsers() {
+  try {
+    const dbTokens = await users.loadUserTokens();
+    for (const [token, info] of Object.entries(dbTokens)) {
+      addToken(token, { identity: info.identity, isAdmin: info.admin || false });
+      addMailbox(info.identity);
+    }
+    console.log(`[auth] Loaded ${Object.keys(dbTokens).length} user(s) from DB`);
+  } catch (err) {
+    console.error("[auth] Failed to load DB users:", err);
+  }
+}
+
+await initDBUsers();
 
 const server = Bun.serve({
   port: PORT,

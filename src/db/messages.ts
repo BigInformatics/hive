@@ -39,6 +39,14 @@ export function isValidMailbox(name: string): boolean {
   return VALID_MAILBOXES.has(name);
 }
 
+export function addMailbox(name: string) {
+  VALID_MAILBOXES.add(name);
+}
+
+export function removeMailbox(name: string) {
+  VALID_MAILBOXES.delete(name);
+}
+
 export async function sendMessage(input: SendMessageInput): Promise<Message> {
   // Use INSERT...ON CONFLICT for race-safe idempotency when dedupeKey is provided
   if (input.dedupeKey) {
