@@ -683,10 +683,85 @@ function serializeMessage(msg: {
 // Extracted from logged-out /ui (the gold standard)
 
 type HeaderConfig = {
-  activeTab: 'messages' | 'buzz' | 'swarm';
+  activeTab: 'messages' | 'buzz' | 'swarm' | 'recurring';
   loggedIn: boolean;
   key?: string;  // UI key for nav links
 };
+
+// ── Shared CSS helpers ──────────────────────────────────────
+
+function renderBaseCSS(): string {
+  return `
+    :root {
+      --background: #0a0a0a;
+      --foreground: #fafafa;
+      --card: #18181b;
+      --card-foreground: #fafafa;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #27272a;
+      --secondary-foreground: #fafafa;
+      --muted: #27272a;
+      --muted-foreground: #a1a1aa;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --destructive: #ef4444;
+      --border: #27272a;
+      --input: #27272a;
+      --ring: #71717a;
+      --radius: 8px;
+    }
+    body.light {
+      --background: #fafafa;
+      --foreground: #18181b;
+      --card: #ffffff;
+      --card-foreground: #18181b;
+      --primary: #0ea5e9;
+      --primary-foreground: #f0f9ff;
+      --secondary: #f4f4f5;
+      --secondary-foreground: #18181b;
+      --muted: #f4f4f5;
+      --muted-foreground: #71717a;
+      --accent: #0ea5e9;
+      --accent-foreground: #f0f9ff;
+      --destructive: #dc2626;
+      --border: #e4e4e7;
+      --input: #e4e4e7;
+      --ring: #a1a1aa;
+    }`;
+}
+
+function renderHeaderCSS(): string {
+  return `
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin: 0; }
+    .nav { display: flex; gap: 8px; align-items: center; }
+    .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; height: 36px; display: inline-flex; align-items: center; }
+    .nav a:hover { background: var(--secondary); color: var(--foreground); }
+    .nav a.active { background: var(--primary); color: var(--primary-foreground); }
+    .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
+    .nav .icon-btn:hover { opacity: 1; }
+    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
+    .theme-toggle { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: var(--secondary); border: none; border-radius: var(--radius); cursor: pointer; color: var(--foreground); }
+    .logout-btn { color: var(--muted-foreground); padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; background: transparent; border: 1px solid var(--border); cursor: pointer; height: 36px; display: inline-flex; align-items: center; }
+    .logout-btn:hover { background: var(--secondary); color: var(--foreground); }`;
+}
+
+function renderBaseHead(title: string): string {
+  return `
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0ea5e9">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/ui/manifest.json">
+  <link rel="icon" href="/ui/assets/icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/ui/assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <title>${title}</title>`;
+}
 
 // Icons
 const ICONS = {
@@ -695,29 +770,37 @@ const ICONS = {
   swarm: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 14l2 2 4-4"/><path d="M9 8h6"/></svg>',
   key: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>',
   bell: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+  recurring: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>',
 };
 
 function renderHeader(config: HeaderConfig): string {
   const { activeTab, loggedIn, key } = config;
   const keyPath = key ? '/' + key : '';
 
-  const titleIcon = activeTab === 'messages' ? ICONS.mail : (activeTab === 'buzz' ? ICONS.buzz : ICONS.swarm);
-  const titleText = activeTab === 'messages' ? 'Messages' : (activeTab === 'buzz' ? 'Buzz' : 'Swarm');
+  const titleIcons: Record<string, string> = { messages: ICONS.mail, buzz: ICONS.buzz, swarm: ICONS.swarm, recurring: ICONS.recurring };
+  const titleTexts: Record<string, string> = { messages: 'Messages', buzz: 'Buzz', swarm: 'Swarm', recurring: 'Recurring' };
+  const titleIcon = titleIcons[activeTab] || ICONS.mail;
+  const titleText = titleTexts[activeTab] || 'Messages';
 
-  // Build nav - uses key path when logged in
+  // Build nav tabs - show all appropriate tabs for auth state
   let nav = `
-      <div class="nav">
+      <nav class="nav">
         <a href="/ui${keyPath}"${activeTab === 'messages' ? ' class="active"' : ''}>Messages</a>
-        <a href="/ui${keyPath}/buzz"${activeTab === 'buzz' ? ' class="active"' : ''}>Buzz</a>
-        <a href="/ui${keyPath}/swarm"${activeTab === 'swarm' ? ' class="active"' : ''}>Swarm</a>`;
+        <a href="/ui${keyPath}/buzz"${activeTab === 'buzz' ? ' class="active"' : ''}>Buzz</a>`;
+
+  if (loggedIn) {
+    nav += `
+        <a href="/ui${keyPath}/swarm"${activeTab === 'swarm' ? ' class="active"' : ''}>Swarm</a>
+        <a href="/ui${keyPath}/swarm/recurring"${activeTab === 'recurring' ? ' class="active"' : ''}>Recurring</a>`;
+  }
 
   if (loggedIn) {
     // Logged in: Logout | bell | theme
     nav += `
-        <button onclick="logout()" style="color:var(--muted-foreground);padding:6px 12px;border-radius:var(--radius);font-size:0.875rem;background:transparent;border:1px solid var(--border);cursor:pointer;">Logout</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
         <button id="soundToggle" class="icon-btn" onclick="toggleSound()" title="Toggle notification sound">${ICONS.bell}</button>`;
   } else {
-    // Logged out: key | theme (matches /ui exactly)
+    // Logged out: key | theme
     nav += `
         <button id="keyBtn" class="icon-btn" onclick="toggleKeyPopover()" title="Enter mailbox key">
           ${ICONS.key}
@@ -735,7 +818,7 @@ function renderHeader(config: HeaderConfig): string {
   const defaultThemeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
   nav += `
         <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">${defaultThemeIcon}</button>
-      </div>`;
+      </nav>`;
 
   return `
     <div class="header">
@@ -814,49 +897,13 @@ async function handleUI(): Promise<Response> {
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0ea5e9">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="/ui/manifest.json">
-  <link rel="icon" href="/ui/assets/icon.png" type="image/png">
-  <link rel="apple-touch-icon" href="/ui/assets/icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <title>Hive - Messages</title>
+  ${renderBaseHead('Hive - Messages')}
   <style>
-    :root {
-      --background: #0a0a0a;
-      --foreground: #fafafa;
-      --card: #18181b;
-      --card-foreground: #fafafa;
-      --primary: #0ea5e9;
-      --primary-foreground: #f0f9ff;
-      --secondary: #27272a;
-      --secondary-foreground: #fafafa;
-      --muted: #27272a;
-      --muted-foreground: #a1a1aa;
-      --accent: #0ea5e9;
-      --accent-foreground: #f0f9ff;
-      --border: #27272a;
-      --input: #27272a;
-      --radius: 8px;
-    }
+    ${renderBaseCSS()}
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: var(--background); color: var(--foreground); min-height: 100vh; padding: 20px; }
+    body { font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif; background: var(--background); color: var(--foreground); min-height: 100vh; padding: 20px; }
     .container { max-width: 900px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-    .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin: 0; }
-    .nav { display: flex; gap: 8px; align-items: center; }
-    .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; height: 36px; display: inline-flex; align-items: center; }
-    .nav a:hover { background: var(--secondary); color: var(--foreground); }
-    .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
-    .nav .icon-btn:hover { opacity: 1; }
-    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
-    .theme-toggle { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: var(--secondary); border: none; border-radius: var(--radius); cursor: pointer; color: var(--foreground); }
+    ${renderHeaderCSS()}
     .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select, button { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; font-size: 0.875rem; transition: all 0.15s ease; }
     select:hover, button:hover { border-color: var(--ring); background: var(--secondary); }
@@ -900,24 +947,7 @@ async function handleUI(): Promise<Response> {
     .filter-label { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--muted-foreground); cursor: pointer; }
     .filter-label input { cursor: pointer; accent-color: var(--primary); }
     .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
-    /* Light mode */
-    body.light {
-      --background: #fafafa;
-      --foreground: #18181b;
-      --card: #ffffff;
-      --card-foreground: #18181b;
-      --primary: #0ea5e9;
-      --primary-foreground: #f0f9ff;
-      --secondary: #f4f4f5;
-      --secondary-foreground: #18181b;
-      --muted: #f4f4f5;
-      --muted-foreground: #71717a;
-      --accent: #0ea5e9;
-      --accent-foreground: #f0f9ff;
-      --border: #e4e4e7;
-      --input: #e4e4e7;
-      --ring: #a1a1aa;
-    }
+    /* Light mode overrides */
     body.light .message.unread { background: #f0f9ff; }
     body.light .message.selected { background: #e0f2fe; }
     body.light .badge.urgent { background: rgba(245,158,11,0.1); color: #d97706; }
@@ -929,28 +959,7 @@ async function handleUI(): Promise<Response> {
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-        Messages
-      </h1>
-      <div class="nav">
-        <a href="/ui" class="active">Messages</a>
-        <a href="/ui/buzz">Buzz</a>
-        <button id="keyBtn" class="icon-btn" onclick="toggleKeyPopover()" title="Enter mailbox key">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
-        </button>
-        <div id="keyPopover" style="display:none;position:absolute;top:50px;right:80px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-          <input id="keyInput" type="text" placeholder="Enter mailbox key" style="width:180px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);margin-bottom:8px;">
-          <div style="display:flex;gap:8px;">
-            <button onclick="submitKey()" style="flex:1;padding:6px 12px;background:var(--primary);color:white;border:none;border-radius:var(--radius);cursor:pointer;">Go</button>
-            <button onclick="toggleKeyPopover()" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--foreground);">Cancel</button>
-          </div>
-        </div>
-        <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
-      </div>
-    </div>
-    <div id="presenceIndicators"></div>
+    ${renderHeader({ activeTab: 'messages', loggedIn: false })}
   <div class="controls">
     <select id="recipient">
       <option value="">All mailboxes</option>
@@ -970,6 +979,8 @@ async function handleUI(): Promise<Response> {
   </div>
 
   <script>
+    ${headerJS}
+
     let eventSource = null;
     let lastId = null;
 
@@ -987,46 +998,6 @@ async function handleUI(): Promise<Response> {
       zumie: { bg: '#5f3a1e', fg: '#fcd34d' }
     };
 
-    // Theme toggle
-    const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
-    const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
-
-    function updateThemeIcon() {
-      const btn = document.getElementById('themeToggle');
-      if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
-    }
-
-    function toggleKeyPopover() {
-      const popover = document.getElementById('keyPopover');
-      const input = document.getElementById('keyInput');
-      if (popover.style.display === 'none') {
-        popover.style.display = 'block';
-        input.focus();
-      } else {
-        popover.style.display = 'none';
-      }
-    }
-
-    function submitKey() {
-      const input = document.getElementById('keyInput');
-      const key = input.value.trim();
-      if (key) {
-        localStorage.setItem('hive_mailbox_key', key);
-        window.location.href = '/ui/' + encodeURIComponent(key);
-      }
-    }
-
-    // Handle Enter key in input
-    document.addEventListener('DOMContentLoaded', () => {
-      const input = document.getElementById('keyInput');
-      if (input) {
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') submitKey();
-          if (e.key === 'Escape') toggleKeyPopover();
-        });
-      }
-    });
-
     // Auto-redirect if we have a stored key AND running as installed PWA
     (function() {
       const storedKey = localStorage.getItem('hive_mailbox_key');
@@ -1035,17 +1006,6 @@ async function handleUI(): Promise<Response> {
         window.location.href = '/ui/' + encodeURIComponent(storedKey);
       }
     })();
-
-    function toggleTheme() {
-      const isLight = document.body.classList.toggle('light');
-      localStorage.setItem('theme', isLight ? 'light' : 'dark');
-      updateThemeIcon();
-    }
-    // Restore theme on load
-    if (localStorage.getItem('theme') === 'light') {
-      document.body.classList.add('light');
-    }
-    updateThemeIcon();
 
     // Global /ui is a read-only admin view: sound disabled
     // Notification sound variables (kept for playNotificationSound compatibility)
@@ -1581,51 +1541,12 @@ async function handleUIWithKey(key: string): Promise<Response> {
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0ea5e9">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="/ui/manifest.json">
-  <link rel="icon" href="/ui/assets/icon.png" type="image/png">
-  <link rel="apple-touch-icon" href="/ui/assets/icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <title>Hive - Messages</title>
+  ${renderBaseHead('Hive - Messages')}
   <style>
-    :root {
-      --background: #18181b;
-      --foreground: #fafafa;
-      --card: #27272a;
-      --card-foreground: #fafafa;
-      --primary: #38bdf8;
-      --primary-foreground: #082f49;
-      --secondary: #3f3f46;
-      --secondary-foreground: #fafafa;
-      --muted: #3f3f46;
-      --muted-foreground: #a1a1aa;
-      --accent: #38bdf8;
-      --accent-foreground: #082f49;
-      --destructive: #ef4444;
-      --border: rgba(255,255,255,0.1);
-      --input: rgba(255,255,255,0.15);
-      --ring: #71717a;
-      --radius: 0.625rem;
-    }
+    ${renderBaseCSS()}
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Nunito Sans', system-ui, sans-serif; background: var(--background); color: var(--foreground); padding: 20px; line-height: 1.5; max-width: 900px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-    .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin: 0; }
-    .nav { display: flex; gap: 8px; align-items: center; }
-    .nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; height: 36px; display: inline-flex; align-items: center; }
-    .nav a:hover { background: var(--secondary); color: var(--foreground); }
-    .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
-    .nav .icon-btn:hover { opacity: 1; }
-    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
-    .theme-toggle { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: var(--secondary); border: none; border-radius: var(--radius); cursor: pointer; color: var(--foreground); }
-    h1 { margin-bottom: 16px; font-size: 1.25rem; font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
+    body { font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif; background: var(--background); color: var(--foreground); padding: 20px; line-height: 1.5; max-width: 900px; margin: 0 auto; }
+    ${renderHeaderCSS()}
     .controls { margin-bottom: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     select, button, input, textarea { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 0.875rem; transition: all 0.15s ease; }
     select:hover, button:hover { border-color: var(--ring); background: var(--secondary); }
@@ -1706,24 +1627,7 @@ async function handleUIWithKey(key: string): Promise<Response> {
     .presence-avatar .ring { position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; transition: all 0.2s ease; }
     .presence-avatar.online .ring { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.4); }
     .empty-state { text-align: center; color: var(--muted-foreground); padding: 48px 20px; }
-    /* Light mode */
-    body.light {
-      --background: #fafafa;
-      --foreground: #18181b;
-      --card: #ffffff;
-      --card-foreground: #18181b;
-      --primary: #0ea5e9;
-      --primary-foreground: #f0f9ff;
-      --secondary: #f4f4f5;
-      --secondary-foreground: #18181b;
-      --muted: #f4f4f5;
-      --muted-foreground: #71717a;
-      --accent: #0ea5e9;
-      --accent-foreground: #f0f9ff;
-      --border: #e4e4e7;
-      --input: #e4e4e7;
-      --ring: #a1a1aa;
-    }
+    /* Light mode overrides */
     body.light .compose { background: var(--card); border-color: var(--border); }
     body.light .compose-header:hover { background: var(--secondary); }
     body.light .message.unread { background: #f0f9ff; }
@@ -3506,95 +3410,24 @@ async function handleWebhookIngest(appName: string, token: string, request: Requ
 }
 
 // Broadcast UI page
-async function handleBroadcastUI(): Promise<Response> {
-  const html = `<!DOCTYPE html>
+function renderBuzzHTML(key: string | null = null): string {
+  const loggedIn = !!key;
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hive - Buzz</title>
+  ${renderBaseHead('Hive - Buzz')}
   <style>
-    :root {
-      --background: #0a0a0a;
-      --foreground: #fafafa;
-      --card: #18181b;
-      --card-foreground: #fafafa;
-      --primary: #0ea5e9;
-      --primary-foreground: #f0f9ff;
-      --secondary: #27272a;
-      --secondary-foreground: #fafafa;
-      --muted: #27272a;
-      --muted-foreground: #a1a1aa;
-      --accent: #0ea5e9;
-      --accent-foreground: #f0f9ff;
-      --border: #27272a;
-      --input: #27272a;
-      --radius: 8px;
-    }
-    body.light {
-      --background: #fafafa;
-      --foreground: #18181b;
-      --card: #ffffff;
-      --card-foreground: #18181b;
-      --primary: #0ea5e9;
-      --primary-foreground: #f0f9ff;
-      --secondary: #f4f4f5;
-      --secondary-foreground: #18181b;
-      --muted: #f4f4f5;
-      --muted-foreground: #71717a;
-      --accent: #0ea5e9;
-      --accent-foreground: #f0f9ff;
-      --border: #e4e4e7;
-      --input: #e4e4e7;
-    }
+    ${renderBaseCSS()}
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif;
       background: var(--background);
       color: var(--foreground);
       min-height: 100vh;
       padding: 20px;
     }
     .container { max-width: 900px; margin: 0 auto; }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .header h1 { font-size: 1.5rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-    .nav { display: flex; gap: 12px; align-items: center; }
-    .nav a {
-      color: var(--muted-foreground);
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: var(--radius);
-      font-size: 0.875rem;
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-    }
-    .nav a:hover { background: var(--secondary); color: var(--foreground); }
-    .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; line-height: 0; background: transparent; border: none; cursor: pointer; color: var(--foreground); opacity: 0.7; }
-    .nav .icon-btn:hover { opacity: 1; }
-    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
-    .theme-toggle {
-      width: 36px;
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      line-height: 0;
-      background: var(--secondary);
-      border: none;
-      border-radius: var(--radius);
-      cursor: pointer;
-      color: var(--foreground);
-    }
+    ${renderHeaderCSS()}
     .filter-bar {
       display: flex;
       gap: 12px;
@@ -3691,28 +3524,7 @@ async function handleBroadcastUI(): Promise<Response> {
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>
-        Buzz
-      </h1>
-      <div class="nav">
-        <a href="/ui">Messages</a>
-        <a href="/ui/buzz" class="active">Buzz</a>
-        <button id="keyBtn" class="icon-btn" onclick="toggleKeyPopover()" title="Enter mailbox key">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
-        </button>
-        <div id="keyPopover" style="display:none;position:absolute;top:50px;right:80px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-          <input id="keyInput" type="text" placeholder="Enter mailbox key" style="width:180px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);margin-bottom:8px;">
-          <div style="display:flex;gap:8px;">
-            <button onclick="submitKey()" style="flex:1;padding:6px 12px;background:var(--primary);color:white;border:none;border-radius:var(--radius);cursor:pointer;">Go</button>
-            <button onclick="toggleKeyPopover()" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--foreground);">Cancel</button>
-          </div>
-        </div>
-        <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
-      </div>
-    </div>
-    <div id="presenceIndicators"></div>
+    ${renderHeader({ activeTab: 'buzz', loggedIn, key: key || undefined })}
 
     <div class="filter-bar">
       <select id="appFilter" onchange="applyFilter()">
@@ -3731,6 +3543,8 @@ async function handleBroadcastUI(): Promise<Response> {
   </div>
 
   <script>
+    ${headerJS}
+
     let events = [];
     let eventSource = null;
     let currentFilter = '';
@@ -3740,82 +3554,6 @@ async function handleBroadcastUI(): Promise<Response> {
       expandedEventId = (expandedEventId === id) ? null : id;
       renderEvents();
     }
-
-    // Theme handling
-    const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
-    const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
-
-    function updateThemeIcon() {
-      const btn = document.getElementById('themeToggle');
-      if (btn) btn.innerHTML = document.body.classList.contains('light') ? moonIcon : sunIcon;
-    }
-
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    if (savedTheme === 'light') document.body.classList.add('light');
-    updateThemeIcon();
-
-    function toggleTheme() {
-      document.body.classList.toggle('light');
-      localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
-      updateThemeIcon();
-    }
-
-    // Check if logged in and update nav
-    const bellIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
-    const storedKey = localStorage.getItem('hive_mailbox_key');
-    if (storedKey) {
-      // Replace key button with logout + bell
-      const keyBtn = document.getElementById('keyBtn');
-      const keyPopover = document.getElementById('keyPopover');
-      if (keyBtn) {
-        // Create logout button
-        const logoutBtn = document.createElement('button');
-        logoutBtn.onclick = function() { localStorage.removeItem('hive_mailbox_key'); window.location.href = '/ui'; };
-        logoutBtn.style.cssText = 'color:var(--muted-foreground);padding:6px 12px;border-radius:var(--radius);font-size:0.875rem;background:transparent;border:1px solid var(--border);cursor:pointer;';
-        logoutBtn.textContent = 'Logout';
-
-        // Create bell button (same styling as key button)
-        const bellBtn = document.createElement('button');
-        bellBtn.id = 'soundToggle';
-        bellBtn.className = 'icon-btn';
-        bellBtn.onclick = function() {}; // No sound on Buzz page
-        bellBtn.title = 'Notifications (Messages only)';
-        bellBtn.innerHTML = bellIcon;
-
-        // Insert before key button, then remove key
-        keyBtn.parentNode.insertBefore(logoutBtn, keyBtn);
-        keyBtn.parentNode.insertBefore(bellBtn, keyBtn);
-        keyBtn.remove();
-        if (keyPopover) keyPopover.remove();
-      }
-    }
-
-    // Key popover
-    function toggleKeyPopover() {
-      const popover = document.getElementById('keyPopover');
-      const input = document.getElementById('keyInput');
-      if (popover.style.display === 'none') {
-        popover.style.display = 'block';
-        input.focus();
-      } else {
-        popover.style.display = 'none';
-      }
-    }
-
-    function submitKey() {
-      const key = document.getElementById('keyInput').value.trim();
-      if (key) {
-        localStorage.setItem('hive_mailbox_key', key);
-        window.location.href = '/ui/' + encodeURIComponent(key);
-      }
-    }
-
-    document.addEventListener('keydown', function(e) {
-      if (document.getElementById('keyPopover').style.display !== 'none') {
-        if (e.key === 'Enter') submitKey();
-        if (e.key === 'Escape') toggleKeyPopover();
-      }
-    });
 
     // Presence
     const avatarColors = {
@@ -3993,10 +3731,11 @@ async function handleBroadcastUI(): Promise<Response> {
 <!-- build: img-avatars-v3 -->
 </body>
 </html>`;
+}
 
-  return new Response(html, {
-    headers: { "Content-Type": "text/html" },
-  });
+async function handleBroadcastUI(): Promise<Response> {
+  const html = renderBuzzHTML();
+  return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
 // Broadcast SSE stream for UI
@@ -4521,6 +4260,7 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
   const startBtn = t.status === 'ready' && !t.blockedReason ? '<button class="action-btn primary" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'in_progress\')">Start</button>' : '';
   const reviewBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'review\')">Review</button>' : '';
   const holdBtn = t.status === 'in_progress' ? '<button class="action-btn" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'holding\')">Hold</button>' : '';
+  const resumeBtn = t.status === 'holding' ? '<button class="action-btn primary" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'in_progress\')">Resume</button>' : '';
   const completeBtn = t.status === 'review' ? '<button class="action-btn primary" onclick="event.stopPropagation();updateStatus(\'' + t.id + '\', \'complete\')">Complete</button>' : '';
 
   // Format dates
@@ -4581,11 +4321,11 @@ function renderTaskCard(t: swarm.SwarmTask, projects: swarm.SwarmProject[], allT
         '<div style="margin-top:8px;"><span class="task-detail-label" style="display:block;margin-bottom:4px;">Description:</span><textarea id="edit-detail-' + t.id + '" style="width:100%;min-height:80px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground);font-size:0.875rem;resize:vertical;">' + (t.detail ? escapeHtml(t.detail) : '') + '</textarea></div>' +
         '<div class="task-detail-actions" style="margin-top:12px;">' +
           '<button class="action-btn primary" onclick="saveTask(\'' + t.id + '\')">Save Changes</button>' +
-          claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn +
+          claimBtn + readyBtn + startBtn + resumeBtn + reviewBtn + holdBtn + completeBtn +
         '</div>' +
       '</div>' +
       '<div class="task-actions">' +
-        claimBtn + readyBtn + startBtn + reviewBtn + holdBtn + completeBtn +
+        claimBtn + readyBtn + startBtn + resumeBtn + reviewBtn + holdBtn + completeBtn +
       '</div>' +
     '</div>' +
   '</div>';
@@ -4672,61 +4412,49 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
         '</div>'
       ).join('');
 
-  const html = '<!DOCTYPE html>' +
-    '<html lang="en"><head>' +
-    '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-    '<title>Recurring Templates - Swarm</title>' +
-    '<style>' +
-    ':root { --background: #0a0a0a; --foreground: #fafafa; --card: #18181b; --border: #27272a; --muted-foreground: #a1a1aa; --primary: #0ea5e9; --secondary: #27272a; --radius: 6px; }' +
-    'body.light { --background: #ffffff; --foreground: #0a0a0a; --card: #f4f4f5; --border: #e4e4e7; --muted-foreground: #71717a; --secondary: #f4f4f5; }' +
-    '* { box-sizing: border-box; margin: 0; padding: 0; }' +
-    'body { font-family: system-ui, sans-serif; background: var(--background); color: var(--foreground); min-height: 100vh; }' +
-    '.container { max-width: 1000px; margin: 0 auto; padding: 24px; }' +
-    '.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }' +
-    '.header h1 { font-size: 1.5rem; }' +
-    '.nav { display: flex; gap: 8px; }' +
-    '.nav a { color: var(--muted-foreground); text-decoration: none; padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; }' +
-    '.nav a:hover { background: var(--secondary); color: var(--foreground); }' +
-    '.nav a.active { background: var(--primary); color: white; }' +
-    '.template-list { display: flex; flex-direction: column; gap: 12px; }' +
-    '.template-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; }' +
-    '.template-card:hover { border-color: var(--primary); }' +
-    '.template-title { font-weight: 600; margin-bottom: 4px; }' +
-    '.template-schedule { font-size: 0.875rem; color: var(--muted-foreground); }' +
-    '.template-meta { display: flex; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--muted-foreground); }' +
-    '.badge { padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; }' +
-    '.badge-enabled { background: rgba(34, 197, 94, 0.1); color: #22c55e; }' +
-    '.badge-disabled { background: rgba(239, 68, 68, 0.1); color: #ef4444; }' +
-    '.btn { padding: 8px 16px; border-radius: var(--radius); cursor: pointer; font-size: 0.875rem; border: 1px solid var(--border); background: var(--background); color: var(--foreground); }' +
-    '.btn:hover { background: var(--secondary); }' +
-    '.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }' +
-    '.empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }' +
-    '.drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }' +
-    '.drawer-overlay.open { display: block; }' +
-    '.drawer { position: fixed; top: 0; right: -450px; width: 450px; max-width: 95vw; height: 100vh; background: var(--card); border-left: 1px solid var(--border); z-index: 1001; transition: right 0.2s; display: flex; flex-direction: column; }' +
-    '.drawer.open { right: 0; }' +
-    '.drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }' +
-    '.drawer-body { flex: 1; padding: 20px; overflow-y: auto; }' +
-    '.drawer-body label { display: block; font-size: 0.75rem; color: var(--muted-foreground); margin-bottom: 4px; text-transform: uppercase; }' +
-    '.drawer-body input, .drawer-body select, .drawer-body textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--foreground); font-size: 0.875rem; margin-bottom: 16px; }' +
-    '.drawer-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; }' +
-    '.drawer-footer button { flex: 1; }' +
-    '.form-row { display: flex; gap: 12px; }' +
-    '.form-row > * { flex: 1; }' +
-    '</style></head><body>' +
-    '<div class="container">' +
-      '<div class="header">' +
-        '<h1>🔄 Recurring Templates</h1>' +
-        '<nav class="nav">' +
-          '<a href="/ui' + keyPath + '">Messages</a>' +
-          '<a href="/ui' + keyPath + '/buzz">Buzz</a>' +
-          '<a href="/ui' + keyPath + '/swarm">Tasks</a>' +
-          '<a href="/ui' + keyPath + '/swarm/recurring" class="active">Recurring</a>' +
-        '</nav>' +
-      '</div>' +
-      '<button class="btn btn-primary" onclick="openDrawer()" style="margin-bottom:16px;">+ New Template</button>' +
-      '<div class="template-list">' + templateCards + '</div>' +
-    '</div>' +
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  ${renderBaseHead('Recurring Templates - Swarm')}
+  <style>
+    ${renderBaseCSS()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif; background: var(--background); color: var(--foreground); min-height: 100vh; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+    ${renderHeaderCSS()}
+    .template-list { display: flex; flex-direction: column; gap: 12px; }
+    .template-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; }
+    .template-card:hover { border-color: var(--primary); }
+    .template-title { font-weight: 600; margin-bottom: 4px; }
+    .template-schedule { font-size: 0.875rem; color: var(--muted-foreground); }
+    .template-meta { display: flex; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--muted-foreground); }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; }
+    .badge-enabled { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+    .badge-disabled { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    button.primary { background: var(--primary); color: white; border-color: var(--primary); font-weight: 600; }
+    button.primary:hover { background: #0284c7; }
+    select, button, input, textarea { font-family: inherit; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 0.875rem; cursor: pointer; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }
+    .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .drawer-overlay.open { display: block; }
+    .drawer { position: fixed; top: 0; right: -450px; width: 450px; max-width: 95vw; height: 100vh; background: var(--card); border-left: 1px solid var(--border); z-index: 1001; transition: right 0.2s; display: flex; flex-direction: column; }
+    .drawer.open { right: 0; }
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .drawer-body { flex: 1; padding: 20px; overflow-y: auto; }
+    .drawer-body label { display: block; font-size: 0.75rem; color: var(--muted-foreground); margin-bottom: 4px; text-transform: uppercase; }
+    .drawer-body input, .drawer-body select, .drawer-body textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--foreground); font-size: 0.875rem; margin-bottom: 16px; }
+    .drawer-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
+    .drawer-footer button { flex: 1; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row > * { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    ${renderHeader({ activeTab: 'recurring', loggedIn: true, key })}
+    <button class="primary" onclick="openDrawer()" style="margin-bottom:16px;">+ New Template</button>
+    <div class="template-list">${templateCards}</div>
+  </div>` +
     '<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>' +
     '<div class="drawer" id="drawer">' +
       '<div class="drawer-header"><h2 id="drawerTitle">New Template</h2><button onclick="closeDrawer()" style="background:none;border:none;cursor:pointer;color:var(--muted-foreground);font-size:1.25rem;">×</button></div>' +
@@ -4747,7 +4475,7 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
         '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input type="checkbox" id="mute"> Mute notifications</label>' +
         '<div id="muteIntervalRow" style="display:none;margin-top:8px;"><label>Mute Interval</label><input type="text" id="muteInterval" placeholder="e.g. 1 hour, 30 minutes"></div>' +
       '</div>' +
-      '<div class="drawer-footer"><button class="btn" onclick="closeDrawer()">Cancel</button><button class="btn btn-primary" onclick="saveTemplate()">Save</button></div>' +
+      '<div class="drawer-footer"><button onclick="closeDrawer()">Cancel</button><button class="primary" onclick="saveTemplate()">Save</button></div>' +
     '</div>' +
     '<script>' +
       'const UI_KEY = "' + key + '";' +
@@ -4831,8 +4559,8 @@ async function handleRecurringUIWithKey(key: string): Promise<Response> {
         'const res = await fetch(url, { method, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + UI_KEY }, body: JSON.stringify(body) });' +
         'if (res.ok) { location.reload(); } else { const err = await res.json(); alert("Error: " + (err.error || "Failed to save")); }' +
       '}' +
-      'const savedTheme = localStorage.getItem("theme"); if (savedTheme === "light") document.body.classList.add("light");' +
     '</script>' +
+    '<script>' + headerJS + '</script>' +
     '</body></html>';
 
   return new Response(html, { headers: { "Content-Type": "text/html" } });
@@ -4867,9 +4595,8 @@ async function handleBroadcastUIWithKey(key: string): Promise<Response> {
     return error("Invalid key", 404);
   }
 
-  // For now, render the existing Buzz UI (public view is fine for Buzz as it's broadcast)
-  // TODO: Could add key-aware filtering here if needed
-  return handleBroadcastUI();
+  const html = renderBuzzHTML(key);
+  return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
 // Shared HTML renderer for Swarm UI
@@ -4880,46 +4607,12 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hive - Swarm</title>
+  ${renderBaseHead('Hive - Swarm')}
   <style>
-    :root {
-      --background: #0a0a0a;
-      --foreground: #fafafa;
-      --card: #18181b;
-      --card-foreground: #fafafa;
-      --primary: #0ea5e9;
-      --primary-foreground: #f0f9ff;
-      --secondary: #27272a;
-      --secondary-foreground: #fafafa;
-      --muted: #27272a;
-      --muted-foreground: #a1a1aa;
-      --accent: #0ea5e9;
-      --accent-foreground: #f0f9ff;
-      --border: #27272a;
-      --input: #27272a;
-      --radius: 8px;
-    }
-    body.light {
-      --background: #fafafa;
-      --foreground: #18181b;
-      --card: #ffffff;
-      --card-foreground: #18181b;
-      --primary: #0ea5e9;
-      --primary-foreground: #f0f9ff;
-      --secondary: #f4f4f5;
-      --secondary-foreground: #18181b;
-      --muted: #f4f4f5;
-      --muted-foreground: #71717a;
-      --accent: #0ea5e9;
-      --accent-foreground: #f0f9ff;
-      --border: #e4e4e7;
-      --input: #e4e4e7;
-    }
+    ${renderBaseCSS()}
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif;
       background: var(--background);
       color: var(--foreground);
       min-height: 100vh;
@@ -4972,42 +4665,9 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       .nav a { padding: 4px 8px; font-size: 0.8rem; }
     }
     .main { flex: 1; display: flex; flex-direction: column; }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--border);
-    }
-    .header h1 { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-    .nav { display: flex; gap: 8px; align-items: center; }
-    .nav a {
-      color: var(--muted-foreground);
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: var(--radius);
-      font-size: 0.875rem;
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-    }
-    .nav a:hover { background: var(--secondary); color: var(--foreground); }
-    .nav a.active { background: var(--primary); color: var(--primary-foreground); }
-    .nav .icon-btn {
-      width: 36px; height: 36px;
-      display: inline-flex; align-items: center; justify-content: center;
-      padding: 0; line-height: 0;
-      background: transparent; border: none;
-      cursor: pointer; color: var(--foreground); opacity: 0.7;
-    }
-    .nav .icon-btn:hover { opacity: 1; }
-    .nav .icon-btn svg, .theme-toggle svg { width: 18px; height: 18px; display: block; }
-    .theme-toggle {
-      width: 36px; height: 36px;
-      display: inline-flex; align-items: center; justify-content: center;
-      background: var(--secondary); border: none; border-radius: var(--radius);
-      cursor: pointer; color: var(--foreground);
-    }
+    ${renderHeaderCSS()}
+    /* Swarm-specific header override for sidebar layout */
+    .header { margin-bottom: 0; padding: 16px 24px; }
     .content { flex: 1; padding: 24px; overflow-y: auto; max-width: 100%; }
     .user-badge { font-size: 0.75rem; background: var(--primary); color: white; padding: 2px 8px; border-radius: 999px; margin-left: 8px; }
 
@@ -5332,10 +4992,10 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
         <nav class="nav">
           <a href="/ui${keyPath}">Messages</a>
           <a href="/ui${keyPath}/buzz">Buzz</a>
-          <a href="/ui${keyPath}/swarm" class="active">Tasks</a>
+          <a href="/ui${keyPath}/swarm" class="active">Swarm</a>
           <a href="/ui${keyPath}/swarm/recurring">Recurring</a>
-          ${key ? '<button onclick="logout()" style="color:var(--muted-foreground);padding:6px 12px;border-radius:var(--radius);font-size:0.875rem;background:transparent;border:1px solid var(--border);cursor:pointer;">Logout</button>' : ''}
-          <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+          ${key ? '<button class="logout-btn" onclick="logout()">Logout</button>' : ''}
+          <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
           </button>
         </nav>
@@ -5616,19 +5276,7 @@ function renderSwarmHTML(projects: swarm.SwarmProject[], tasks: swarm.SwarmTask[
       applyFilters();
     }
 
-    // Theme
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') document.body.classList.add('light');
-    function toggleTheme() {
-      document.body.classList.toggle('light');
-      localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
-    }
-
-    // Logout
-    function logout() {
-      localStorage.removeItem('mailboxKey');
-      window.location.href = '/ui/swarm';
-    }
+    ${headerJS}
 
     // Create form toggle
     function toggleCreateForm() {
