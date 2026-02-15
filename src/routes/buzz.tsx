@@ -49,6 +49,60 @@ function BuzzPage() {
   return <BuzzView onLogout={() => setAuthed(false)} />;
 }
 
+function BuzzCard({
+  event: evt,
+  expanded: defaultExpanded,
+}: {
+  event: BroadcastEvent;
+  expanded: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const hasBody = !!(evt.bodyText || evt.bodyJson);
+
+  return (
+    <Card
+      className={`overflow-hidden ${hasBody ? "cursor-pointer" : ""}`}
+      onClick={() => hasBody && setExpanded(!expanded)}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs shrink-0">
+                {evt.appName}
+              </Badge>
+              <span className="font-medium text-sm truncate">
+                {evt.title}
+              </span>
+              {hasBody && !expanded && (
+                <span className="text-xs text-muted-foreground">▸</span>
+              )}
+              {hasBody && expanded && (
+                <span className="text-xs text-muted-foreground">▾</span>
+              )}
+            </div>
+            {expanded && evt.bodyText && (
+              <pre className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap font-sans">
+                {evt.bodyText}
+              </pre>
+            )}
+            {expanded && evt.bodyJson && !evt.bodyText && (
+              <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/50 rounded p-2 max-h-64 overflow-auto">
+                {typeof evt.bodyJson === "object"
+                  ? JSON.stringify(evt.bodyJson, null, 2)
+                  : String(evt.bodyJson)}
+              </pre>
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground shrink-0">
+            {timeAgo(evt.receivedAt)}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function BuzzView({ onLogout }: { onLogout: () => void }) {
   const [events, setEvents] = useState<BroadcastEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -138,38 +192,8 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
               <p>No broadcast events yet</p>
             </div>
           )}
-          {events.map((evt) => (
-            <Card key={evt.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {evt.appName}
-                      </Badge>
-                      <span className="font-medium text-sm truncate">
-                        {evt.title}
-                      </span>
-                    </div>
-                    {evt.bodyText && (
-                      <pre className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap font-sans">
-                        {evt.bodyText}
-                      </pre>
-                    )}
-                    {evt.bodyJson && !evt.bodyText && (
-                      <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/50 rounded p-2">
-                        {typeof evt.bodyJson === "object"
-                          ? JSON.stringify(evt.bodyJson, null, 2)
-                          : String(evt.bodyJson)}
-                      </pre>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {timeAgo(evt.receivedAt)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+          {events.map((evt, idx) => (
+            <BuzzCard key={evt.id} event={evt} expanded={idx === 0} />
           ))}
         </div>
       </ScrollArea>
