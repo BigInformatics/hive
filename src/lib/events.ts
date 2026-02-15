@@ -13,6 +13,12 @@ export type MailboxEvent =
       type: "inbox_check";
       mailbox: string;
       action: "list" | "ack" | "search";
+    }
+  | {
+      type: "broadcast";
+      appName: string;
+      title: string;
+      eventId: number;
     };
 
 type Listener = (event: MailboxEvent) => void;

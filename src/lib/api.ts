@@ -77,4 +77,18 @@ export const api = {
     apiFetch(`/mailboxes/me/messages/search?q=${encodeURIComponent(q)}`),
 
   getPresence: () => apiFetch("/presence"),
+
+  // Broadcast
+  listBroadcastEvents: (appName?: string) => {
+    const params = appName ? `?appName=${encodeURIComponent(appName)}` : "";
+    return apiFetch(`/broadcast/events${params}`);
+  },
+
+  listWebhooks: () => apiFetch("/broadcast/webhooks"),
+
+  createWebhook: (data: { appName: string; title: string; forUsers?: string }) =>
+    apiFetch("/broadcast/webhooks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };

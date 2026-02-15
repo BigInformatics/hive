@@ -65,9 +65,55 @@ export const hiveEvents = pgTable(
 );
 
 // ============================================================
+// BROADCAST WEBHOOKS
+// ============================================================
+
+export const broadcastWebhooks = pgTable(
+  "broadcast_webhooks",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    appName: varchar("app_name", { length: 50 }).notNull(),
+    token: varchar("token", { length: 14 }).notNull().unique(),
+    title: varchar("title", { length: 255 }).notNull(),
+    owner: varchar("owner", { length: 50 }).notNull(),
+    forUsers: varchar("for_users", { length: 255 }),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastHitAt: timestamp("last_hit_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("idx_broadcast_webhooks_app_token").on(table.appName, table.token),
+  ],
+);
+
+export const broadcastEvents = pgTable(
+  "broadcast_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    webhookId: bigserial("webhook_id", { mode: "number" }).notNull(),
+    appName: varchar("app_name", { length: 50 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    forUsers: varchar("for_users", { length: 255 }),
+    receivedAt: timestamp("received_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    contentType: varchar("content_type", { length: 100 }),
+    bodyText: text("body_text"),
+    bodyJson: jsonb("body_json"),
+  },
+  (table) => [
+    index("idx_broadcast_events_app").on(table.appName, table.receivedAt),
+  ],
+);
+
+// ============================================================
 // TYPES
 // ============================================================
 
 export type MailboxMessage = typeof mailboxMessages.$inferSelect;
 export type NewMailboxMessage = typeof mailboxMessages.$inferInsert;
 export type HiveEvent = typeof hiveEvents.$inferSelect;
+export type BroadcastWebhook = typeof broadcastWebhooks.$inferSelect;
+export type BroadcastEvent = typeof broadcastEvents.$inferSelect;

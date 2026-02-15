@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { api, clearMailboxKey } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,12 +10,11 @@ import {
   Archive,
   Send,
   Search,
-  LogOut,
   CheckCheck,
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
-import { ThemeToggle } from "./theme-toggle";
+import { Nav } from "./nav";
 import { ComposeDialog } from "./compose-dialog";
 import { MessageDetail } from "./message-detail";
 
@@ -123,7 +122,6 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleLogout = () => {
-    clearMailboxKey();
     onLogout();
   };
 
@@ -132,11 +130,11 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between border-b px-4 py-3">
+      <Nav onLogout={handleLogout} />
+      <div className="flex items-center justify-between px-4 py-2 border-b">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold">🐝 Hive</h1>
           {unreadCount > 0 && (
-            <Badge variant="destructive">{unreadCount}</Badge>
+            <Badge variant="destructive">{unreadCount} unread</Badge>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -155,12 +153,8 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
           >
             <Send className="h-4 w-4" />
           </Button>
-          <ThemeToggle />
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
-          </Button>
         </div>
-      </header>
+      </div>
 
       {/* Search */}
       <div className="border-b px-4 py-2">

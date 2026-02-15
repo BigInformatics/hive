@@ -9,8 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PresenceRouteImport } from './routes/presence'
+import { Route as BuzzRouteImport } from './routes/buzz'
 import { Route as IndexRouteImport } from './routes/index'
 
+const PresenceRoute = PresenceRouteImport.update({
+  id: '/presence',
+  path: '/presence',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuzzRoute = BuzzRouteImport.update({
+  id: '/buzz',
+  path: '/buzz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +31,50 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/buzz': typeof BuzzRoute
+  '/presence': typeof PresenceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/buzz': typeof BuzzRoute
+  '/presence': typeof PresenceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/buzz': typeof BuzzRoute
+  '/presence': typeof PresenceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/buzz' | '/presence'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/buzz' | '/presence'
+  id: '__root__' | '/' | '/buzz' | '/presence'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BuzzRoute: typeof BuzzRoute
+  PresenceRoute: typeof PresenceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/presence': {
+      id: '/presence'
+      path: '/presence'
+      fullPath: '/presence'
+      preLoaderRoute: typeof PresenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/buzz': {
+      id: '/buzz'
+      path: '/buzz'
+      fullPath: '/buzz'
+      preLoaderRoute: typeof BuzzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +87,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BuzzRoute: BuzzRoute,
+  PresenceRoute: PresenceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
