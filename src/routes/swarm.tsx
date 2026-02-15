@@ -52,6 +52,7 @@ interface SwarmTask {
   creatorUserId: string;
   assigneeUserId: string | null;
   status: string;
+  mustBeDoneAfterTaskId: string | null;
   onOrAfterAt: string | null;
   nextTaskId: string | null;
   nextTaskAssigneeUserId: string | null;
@@ -545,6 +546,9 @@ function TaskCard({
         {/* Footer */}
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1.5">
+            {task.mustBeDoneAfterTaskId && (
+              <Pause className="h-3 w-3 text-muted-foreground/50" title={`Blocked by ${task.mustBeDoneAfterTaskId.slice(0, 8)}`} />
+            )}
             {task.onOrAfterAt && (
               <Clock className="h-3 w-3 text-muted-foreground/50" title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`} />
             )}
@@ -753,6 +757,7 @@ function TaskDetailDialog({
   const [issueUrl, setIssueUrl] = useState("");
   const [assignee, setAssignee] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [mustBeDoneAfter, setMustBeDoneAfter] = useState("");
   const [onOrAfter, setOnOrAfter] = useState("");
   const [nextTaskId, setNextTaskId] = useState("");
   const [nextTaskAssignee, setNextTaskAssignee] = useState("");
@@ -766,6 +771,7 @@ function TaskDetailDialog({
       setIssueUrl(task.issueUrl || "");
       setAssignee(task.assigneeUserId || "");
       setProjectId(task.projectId || "");
+      setMustBeDoneAfter(task.mustBeDoneAfterTaskId || "");
       setOnOrAfter(task.onOrAfterAt ? new Date(task.onOrAfterAt).toISOString().slice(0, 16) : "");
       setNextTaskId(task.nextTaskId || "");
       setNextTaskAssignee(task.nextTaskAssigneeUserId || "");
@@ -786,6 +792,7 @@ function TaskDetailDialog({
         issueUrl: issueUrl.trim() || null,
         assigneeUserId: assignee || null,
         projectId: projectId || null,
+        mustBeDoneAfterTaskId: mustBeDoneAfter.trim() || null,
         onOrAfterAt: onOrAfter ? new Date(onOrAfter).toISOString() : null,
         nextTaskId: nextTaskId || null,
         nextTaskAssigneeUserId: nextTaskAssignee || null,
@@ -867,6 +874,16 @@ function TaskDetailDialog({
                 ))}
               </select>
             </div>
+            {/* Dependencies */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Blocked by task (must complete first)</p>
+              <Input
+                value={mustBeDoneAfter}
+                onChange={(e) => setMustBeDoneAfter(e.target.value)}
+                placeholder="Task ID (optional)"
+              />
+            </div>
+
             {/* Scheduling */}
             <div>
               <p className="text-xs text-muted-foreground mb-1">Not before (optional)</p>
@@ -954,9 +971,15 @@ function TaskDetailDialog({
               <p className="text-sm text-muted-foreground italic">No details</p>
             )}
 
-            {/* Scheduling & chaining */}
-            {(task.onOrAfterAt || task.nextTaskId) && (
+            {/* Dependencies, scheduling & chaining */}
+            {(task.mustBeDoneAfterTaskId || task.onOrAfterAt || task.nextTaskId) && (
               <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
+                {task.mustBeDoneAfterTaskId && (
+                  <p className="flex items-center gap-1">
+                    <Pause className="h-3 w-3" />
+                    Blocked by: <strong className="font-mono">{task.mustBeDoneAfterTaskId.slice(0, 8)}</strong>
+                  </p>
+                )}
                 {task.onOrAfterAt && (
                   <p className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
@@ -1079,6 +1102,7 @@ function CreateTaskDialog({
   const [issueUrl, setIssueUrl] = useState("");
   const [projectId, setProjectId] = useState("");
   const [assignee, setAssignee] = useState("");
+  const [mustBeDoneAfter, setMustBeDoneAfter] = useState("");
   const [onOrAfter, setOnOrAfter] = useState("");
   const [nextTaskId, setNextTaskId] = useState("");
   const [nextTaskAssignee, setNextTaskAssignee] = useState("");
@@ -1090,6 +1114,7 @@ function CreateTaskDialog({
     setIssueUrl("");
     setProjectId("");
     setAssignee("");
+    setMustBeDoneAfter("");
     setOnOrAfter("");
     setNextTaskId("");
     setNextTaskAssignee("");
@@ -1107,6 +1132,7 @@ function CreateTaskDialog({
         issueUrl: issueUrl.trim() || undefined,
         projectId: projectId || undefined,
         assigneeUserId: assignee || undefined,
+        mustBeDoneAfterTaskId: mustBeDoneAfter.trim() || undefined,
         onOrAfterAt: onOrAfter ? new Date(onOrAfter).toISOString() : undefined,
         nextTaskId: nextTaskId.trim() || undefined,
         nextTaskAssigneeUserId: nextTaskAssignee || undefined,
@@ -1173,6 +1199,16 @@ function CreateTaskDialog({
               ))}
             </select>
           </div>
+          {/* Dependencies */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Blocked by task (must complete first)</p>
+            <Input
+              value={mustBeDoneAfter}
+              onChange={(e) => setMustBeDoneAfter(e.target.value)}
+              placeholder="Task ID (optional)"
+            />
+          </div>
+
           {/* Scheduling */}
           <div>
             <p className="text-xs text-muted-foreground mb-1">Not before (optional)</p>

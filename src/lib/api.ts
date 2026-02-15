@@ -159,6 +159,7 @@ export const api = {
     issueUrl?: string;
     assigneeUserId?: string;
     status?: string;
+    mustBeDoneAfterTaskId?: string;
     onOrAfterAt?: string;
     nextTaskId?: string;
     nextTaskAssigneeUserId?: string;
