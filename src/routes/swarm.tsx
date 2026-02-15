@@ -39,6 +39,7 @@ interface SwarmTask {
   projectId: string | null;
   title: string;
   detail: string | null;
+  issueUrl: string | null;
   creatorUserId: string;
   assigneeUserId: string | null;
   status: string;
@@ -485,6 +486,18 @@ function TaskCard({
 
         <p className="text-sm font-medium leading-snug">{task.title}</p>
 
+        {task.issueUrl && (
+          <a
+            href={task.issueUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-sky-500 hover:underline truncate block mt-0.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {task.issueUrl.replace(/^https?:\/\//, "").slice(0, 50)}
+          </a>
+        )}
+
         {task.detail && (
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
             {task.detail}
@@ -693,6 +706,7 @@ function TaskDetailDialog({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
+  const [issueUrl, setIssueUrl] = useState("");
   const [assignee, setAssignee] = useState("");
   const [projectId, setProjectId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -701,6 +715,7 @@ function TaskDetailDialog({
     if (task) {
       setTitle(task.title);
       setDetail(task.detail || "");
+      setIssueUrl(task.issueUrl || "");
       setAssignee(task.assigneeUserId || "");
       setProjectId(task.projectId || "");
       setEditing(false);
@@ -717,6 +732,7 @@ function TaskDetailDialog({
       await api.updateTask(task.id, {
         title: title.trim(),
         detail: detail.trim() || null,
+        issueUrl: issueUrl.trim() || null,
         assigneeUserId: assignee || null,
         projectId: projectId || null,
       });
@@ -754,6 +770,12 @@ function TaskDetailDialog({
               onChange={(e) => setDetail(e.target.value)}
               placeholder="Details"
               rows={4}
+            />
+            <Input
+              value={issueUrl}
+              onChange={(e) => setIssueUrl(e.target.value)}
+              placeholder="Issue URL (optional)"
+              type="url"
             />
             <div className="flex gap-2">
               <select
@@ -808,6 +830,18 @@ function TaskDetailDialog({
                 {config?.label || task.status}
               </Badge>
             </div>
+
+            {/* Issue URL */}
+            {task.issueUrl && (
+              <a
+                href={task.issueUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-sky-500 hover:underline block"
+              >
+                🔗 {task.issueUrl.replace(/^https?:\/\//, "").slice(0, 60)}
+              </a>
+            )}
 
             {/* Detail */}
             {task.detail ? (
@@ -877,6 +911,7 @@ function CreateTaskDialog({
 }) {
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
+  const [issueUrl, setIssueUrl] = useState("");
   const [projectId, setProjectId] = useState("");
   const [assignee, setAssignee] = useState("");
   const [sending, setSending] = useState(false);
@@ -884,6 +919,7 @@ function CreateTaskDialog({
   const reset = () => {
     setTitle("");
     setDetail("");
+    setIssueUrl("");
     setProjectId("");
     setAssignee("");
   };
@@ -897,6 +933,7 @@ function CreateTaskDialog({
       await api.createTask({
         title: title.trim(),
         detail: detail.trim() || undefined,
+        issueUrl: issueUrl.trim() || undefined,
         projectId: projectId || undefined,
         assigneeUserId: assignee || undefined,
       });
@@ -929,6 +966,12 @@ function CreateTaskDialog({
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             rows={3}
+          />
+          <Input
+            placeholder="Issue URL (optional)"
+            value={issueUrl}
+            onChange={(e) => setIssueUrl(e.target.value)}
+            type="url"
           />
           <div className="flex gap-2">
             <select

@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, Radio, Plus, Copy, Check } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { RefreshCw, Radio, Copy, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -127,7 +126,6 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
   const [apps, setApps] = useState<string[]>([]);
   const [webhooksOpen, setWebhooksOpen] = useState(false);
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
-  const [createWebhookOpen, setCreateWebhookOpen] = useState(false);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -245,28 +243,11 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
               <WebhookCard key={wh.id} webhook={wh} />
             ))}
           </div>
-          <Button
-            className="w-full"
-            onClick={() => {
-              setWebhooksOpen(false);
-              setCreateWebhookOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-1" /> Create Webhook
-          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            Manage webhooks in Admin → Webhooks
+          </p>
         </DialogContent>
       </Dialog>
-
-      {/* Create webhook dialog */}
-      <CreateWebhookDialog
-        open={createWebhookOpen}
-        onOpenChange={setCreateWebhookOpen}
-        onCreated={async () => {
-          const res = await api.listWebhooks();
-          setWebhooks(res.webhooks || []);
-          setWebhooksOpen(true);
-        }}
-      />
     </div>
   );
 }
@@ -317,97 +298,3 @@ function WebhookCard({ webhook }: { webhook: Webhook }) {
   );
 }
 
-function CreateWebhookDialog({
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onCreated: () => void;
-}) {
-  const [appName, setAppName] = useState("");
-  const [title, setTitle] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
-
-  const reset = () => {
-    setAppName("");
-    setTitle("");
-    setError("");
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!appName.trim() || !title.trim()) return;
-
-    // Validate app name format
-    if (!/^[a-z][a-z0-9_-]*$/.test(appName.trim())) {
-      setError("App name must be lowercase, start with a letter, and contain only a-z, 0-9, _ or -");
-      return;
-    }
-
-    setSending(true);
-    setError("");
-    try {
-      await api.createWebhook({
-        appName: appName.trim(),
-        title: title.trim(),
-      });
-      reset();
-      onOpenChange(false);
-      onCreated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create Webhook</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleCreate} className="space-y-4">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">App Name</p>
-            <Input
-              placeholder="my-app-name"
-              value={appName}
-              onChange={(e) => setAppName(e.target.value.toLowerCase())}
-              required
-              autoFocus
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Used in the webhook URL. Lowercase, no spaces.
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Display Title</p>
-            <Input
-              placeholder="My App Updates"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={sending || !appName.trim() || !title.trim()}>
-              {sending ? "Creating..." : "Create"}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}

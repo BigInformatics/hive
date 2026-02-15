@@ -25,9 +25,12 @@ export default defineEventHandler(async (event) => {
     projectId: body.projectId,
     title: body.title,
     detail: body.detail,
+    issueUrl: body.issueUrl,
     assigneeUserId: body.assigneeUserId,
     onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : body.onOrAfterAt,
     mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
+    nextTaskId: body.nextTaskId,
+    nextTaskAssigneeUserId: body.nextTaskAssigneeUserId,
   });
 
   if (!task) {

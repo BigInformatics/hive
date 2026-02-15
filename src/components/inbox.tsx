@@ -30,6 +30,9 @@ interface Message {
   viewedAt: string | null;
   threadId: string | null;
   replyToMessageId: number | null;
+  responseWaiting: boolean;
+  waitingResponder: string | null;
+  waitingSince: string | null;
 }
 
 function timeAgo(date: string): string {
@@ -51,14 +54,19 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
 
-  const fetchMessages = useCallback(async (status?: string) => {
+  const fetchMessages = useCallback(async (currentTab?: string) => {
     setLoading(true);
     try {
-      const result = await api.listMessages({
-        status: status || undefined,
-        limit: 50,
-      });
-      setMessages(result.messages || []);
+      if (currentTab === "sent") {
+        const result = await api.listSentMessages({ limit: 50 });
+        setMessages(result.messages || []);
+      } else {
+        const result = await api.listMessages({
+          status: currentTab === "all" ? undefined : currentTab,
+          limit: 50,
+        });
+        setMessages(result.messages || []);
+      }
     } catch (err) {
       console.error("Failed to fetch messages:", err);
     } finally {
@@ -82,7 +90,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     if (tab !== "search") {
-      fetchMessages(tab === "all" ? undefined : tab);
+      fetchMessages(tab);
     }
   }, [tab, fetchMessages]);
 
@@ -90,7 +98,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     const interval = setInterval(() => {
       if (tab !== "search") {
-        fetchMessages(tab === "all" ? undefined : tab);
+        fetchMessages(tab);
       }
     }, 30000);
     return () => clearInterval(interval);
@@ -197,6 +205,9 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
               <TabsTrigger value="read">
                 <Archive className="mr-1 h-3.5 w-3.5" /> Read
               </TabsTrigger>
+              <TabsTrigger value="sent">
+                <Send className="mr-1 h-3.5 w-3.5" /> Sent
+              </TabsTrigger>
               <TabsTrigger value="all">All</TabsTrigger>
             </TabsList>
 
@@ -245,9 +256,14 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                           {timeAgo(msg.createdAt)}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        from {msg.sender}
-                      </p>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">
+                          {tab === "sent" ? `to ${msg.recipient}` : `from ${msg.sender}`}
+                        </span>
+                        {msg.responseWaiting && (
+                          <span className="text-[10px] text-amber-500 font-medium">⏳ pending</span>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -264,7 +280,27 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
               onAck={() => handleAck(selectedMessage.id)}
               onReply={async (body) => {
                 await api.replyToMessage(selectedMessage.id, body);
-                fetchMessages(tab === "all" ? undefined : tab);
+                // Auto-ack on reply
+                if (selectedMessage.status === "unread") {
+                  await api.ackMessage(selectedMessage.id);
+                  setSelectedMessage({ ...selectedMessage, status: "read" });
+                }
+                fetchMessages(tab);
+              }}
+              onTogglePending={async () => {
+                if (selectedMessage.responseWaiting) {
+                  const updated = await api.clearPending(selectedMessage.id);
+                  setSelectedMessage({ ...selectedMessage, responseWaiting: false, waitingResponder: null, waitingSince: null });
+                } else {
+                  const updated = await api.markPending(selectedMessage.id);
+                  setSelectedMessage({ ...selectedMessage, responseWaiting: true, waitingResponder: "me", waitingSince: new Date().toISOString() });
+                }
+                fetchMessages(tab);
+              }}
+              onAutoRead={() => {
+                if (selectedMessage.status === "unread") {
+                  handleAck(selectedMessage.id);
+                }
               }}
             />
           ) : (

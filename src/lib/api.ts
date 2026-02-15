@@ -76,6 +76,17 @@ export const api = {
   searchMessages: (q: string) =>
     apiFetch(`/mailboxes/me/messages/search?q=${encodeURIComponent(q)}`),
 
+  listSentMessages: (params?: { limit?: number }) => {
+    const qs = params?.limit ? `?limit=${params.limit}` : "";
+    return apiFetch(`/mailboxes/me/sent${qs}`);
+  },
+
+  markPending: (id: number) =>
+    apiFetch(`/mailboxes/me/messages/${id}/pending`, { method: "POST" }),
+
+  clearPending: (id: number) =>
+    apiFetch(`/mailboxes/me/messages/${id}/pending`, { method: "DELETE" }),
+
   getPresence: () => apiFetch("/presence"),
 
   // Broadcast
@@ -127,6 +138,7 @@ export const api = {
     title: string;
     projectId?: string;
     detail?: string;
+    issueUrl?: string;
     assigneeUserId?: string;
     status?: string;
   }) =>

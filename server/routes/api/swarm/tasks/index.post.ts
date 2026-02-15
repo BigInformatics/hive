@@ -24,11 +24,14 @@ export default defineEventHandler(async (event) => {
     projectId: body.projectId,
     title: body.title,
     detail: body.detail,
+    issueUrl: body.issueUrl,
     creatorUserId: auth.identity,
     assigneeUserId: body.assigneeUserId,
     status: body.status,
     onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : undefined,
     mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
+    nextTaskId: body.nextTaskId,
+    nextTaskAssigneeUserId: body.nextTaskAssigneeUserId,
   });
 
   emit("__swarm__", {

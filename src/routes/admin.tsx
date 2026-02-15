@@ -361,16 +361,65 @@ function WebhooksPanel({
     setTimeout(() => setCopied(null), 2000);
   };
 
-  if (webhooks.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No webhooks configured. Create one from the Buzz page.
-      </p>
-    );
-  }
+  const [newAppName, setNewAppName] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAppName.trim() || !newTitle.trim()) return;
+    setCreating(true);
+    try {
+      await api.createWebhook({ appName: newAppName.trim(), title: newTitle.trim() });
+      setNewAppName("");
+      setNewTitle("");
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to create webhook:", err);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
+      {/* Inline create form */}
+      <Card>
+        <CardContent className="p-3">
+          <form onSubmit={handleCreate} className="flex items-end gap-2">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">App name (slug)</p>
+              <input
+                className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
+                placeholder="e.g. onedev"
+                value={newAppName}
+                onChange={(e) => setNewAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                required
+              />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Title</p>
+              <input
+                className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
+                placeholder="e.g. OneDev Notifications"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" size="sm" disabled={creating}>
+              {creating ? "Creating..." : "Create"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {webhooks.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No webhooks configured yet.
+        </p>
+      )}
+
       {webhooks.map((wh) => (
         <Card key={wh.id}>
           <CardContent className="p-3">

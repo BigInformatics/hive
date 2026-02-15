@@ -125,6 +125,10 @@ export const swarmProjects = pgTable("swarm_projects", {
   developerLeadUserId: varchar("developer_lead_user_id", {
     length: 50,
   }).notNull(),
+  workHoursStart: text("work_hours_start"),
+  workHoursEnd: text("work_hours_end"),
+  workHoursTimezone: text("work_hours_timezone").default("America/Chicago"),
+  blockingMode: boolean("blocking_mode").default(false),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
@@ -150,9 +154,14 @@ export const swarmTasks = pgTable(
     creatorUserId: varchar("creator_user_id", { length: 50 }).notNull(),
     assigneeUserId: varchar("assignee_user_id", { length: 50 }),
     status: varchar("status", { length: 20 }).notNull().default("queued"),
+    issueUrl: text("issue_url"),
     onOrAfterAt: timestamp("on_or_after_at", { withTimezone: true }),
     mustBeDoneAfterTaskId: text("must_be_done_after_task_id"),
     sortKey: bigserial("sort_key", { mode: "number" }),
+    nextTaskId: text("next_task_id"),
+    nextTaskAssigneeUserId: varchar("next_task_assignee_user_id", { length: 50 }),
+    recurringTemplateId: text("recurring_template_id"),
+    recurringInstanceAt: timestamp("recurring_instance_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
