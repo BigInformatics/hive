@@ -66,7 +66,7 @@ function PresenceDots() {
   });
 
   return (
-    <div className="flex items-center -space-x-1">
+    <div className="flex items-center gap-1.5">
       {users.map(({ name, info }) => {
         const borderColor = getBorderColor(info.online, info.lastSeen);
         const avatar = AVATARS[name];
