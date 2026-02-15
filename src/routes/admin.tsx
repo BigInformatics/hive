@@ -622,6 +622,29 @@ function RecurringPanel({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
+                        onClick={async () => {
+                          try {
+                            await api.createRecurringTemplate({
+                              title: t.title,
+                              detail: t.detail || undefined,
+                              cronExpr: t.cronExpr,
+                              timezone: t.timezone,
+                              projectId: t.projectId || undefined,
+                              initialStatus: t.initialStatus,
+                            });
+                            fetchTemplates();
+                          } catch (err) {
+                            console.error("Failed to duplicate:", err);
+                          }
+                        }}
+                        title="Duplicate (unassigned)"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
                         onClick={() => handleToggle(t.id, !t.enabled)}
                         title={t.enabled ? "Disable" : "Enable"}
                       >
