@@ -159,6 +159,9 @@ export const api = {
     issueUrl?: string;
     assigneeUserId?: string;
     status?: string;
+    onOrAfterAt?: string;
+    nextTaskId?: string;
+    nextTaskAssigneeUserId?: string;
   }) =>
     apiFetch("/swarm/tasks", {
       method: "POST",

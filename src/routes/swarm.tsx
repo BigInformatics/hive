@@ -52,6 +52,9 @@ interface SwarmTask {
   creatorUserId: string;
   assigneeUserId: string | null;
   status: string;
+  onOrAfterAt: string | null;
+  nextTaskId: string | null;
+  nextTaskAssigneeUserId: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -542,6 +545,12 @@ function TaskCard({
         {/* Footer */}
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1.5">
+            {task.onOrAfterAt && (
+              <Clock className="h-3 w-3 text-muted-foreground/50" title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`} />
+            )}
+            {task.nextTaskId && (
+              <PlayCircle className="h-3 w-3 text-muted-foreground/50" title={`Chains to ${task.nextTaskId.slice(0, 8)}`} />
+            )}
             {task.assigneeUserId && (
               AVATARS[task.assigneeUserId] ? (
                 <img
@@ -744,6 +753,9 @@ function TaskDetailDialog({
   const [issueUrl, setIssueUrl] = useState("");
   const [assignee, setAssignee] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [onOrAfter, setOnOrAfter] = useState("");
+  const [nextTaskId, setNextTaskId] = useState("");
+  const [nextTaskAssignee, setNextTaskAssignee] = useState("");
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
@@ -754,6 +766,9 @@ function TaskDetailDialog({
       setIssueUrl(task.issueUrl || "");
       setAssignee(task.assigneeUserId || "");
       setProjectId(task.projectId || "");
+      setOnOrAfter(task.onOrAfterAt ? new Date(task.onOrAfterAt).toISOString().slice(0, 16) : "");
+      setNextTaskId(task.nextTaskId || "");
+      setNextTaskAssignee(task.nextTaskAssigneeUserId || "");
       setEditing(false);
     }
   }, [task]);
@@ -771,6 +786,9 @@ function TaskDetailDialog({
         issueUrl: issueUrl.trim() || null,
         assigneeUserId: assignee || null,
         projectId: projectId || null,
+        onOrAfterAt: onOrAfter ? new Date(onOrAfter).toISOString() : null,
+        nextTaskId: nextTaskId || null,
+        nextTaskAssigneeUserId: nextTaskAssignee || null,
       });
       setEditing(false);
       onUpdated();
@@ -849,6 +867,42 @@ function TaskDetailDialog({
                 ))}
               </select>
             </div>
+            {/* Scheduling */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Not before (optional)</p>
+              <input
+                type="datetime-local"
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={onOrAfter}
+                onChange={(e) => setOnOrAfter(e.target.value)}
+              />
+            </div>
+
+            {/* Task chaining */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground mb-1">Next task</p>
+                <Input
+                  value={nextTaskId}
+                  onChange={(e) => setNextTaskId(e.target.value)}
+                  placeholder="Task ID (optional)"
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground mb-1">Next assignee</p>
+                <select
+                  className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                  value={nextTaskAssignee}
+                  onChange={(e) => setNextTaskAssignee(e.target.value)}
+                >
+                  <option value="">None</option>
+                  {KNOWN_USERS.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
               <Button onClick={handleSave} disabled={saving || !title.trim()}>
@@ -898,6 +952,27 @@ function TaskDetailDialog({
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{task.detail}</p>
             ) : (
               <p className="text-sm text-muted-foreground italic">No details</p>
+            )}
+
+            {/* Scheduling & chaining */}
+            {(task.onOrAfterAt || task.nextTaskId) && (
+              <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
+                {task.onOrAfterAt && (
+                  <p className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Not before: <strong>{new Date(task.onOrAfterAt).toLocaleString()}</strong>
+                  </p>
+                )}
+                {task.nextTaskId && (
+                  <p className="flex items-center gap-1">
+                    <PlayCircle className="h-3 w-3" />
+                    Next task: <strong className="font-mono">{task.nextTaskId.slice(0, 8)}</strong>
+                    {task.nextTaskAssigneeUserId && (
+                      <span> → assigned to <strong>{task.nextTaskAssigneeUserId}</strong></span>
+                    )}
+                  </p>
+                )}
+              </div>
             )}
 
             {/* Status actions */}
@@ -1004,6 +1079,9 @@ function CreateTaskDialog({
   const [issueUrl, setIssueUrl] = useState("");
   const [projectId, setProjectId] = useState("");
   const [assignee, setAssignee] = useState("");
+  const [onOrAfter, setOnOrAfter] = useState("");
+  const [nextTaskId, setNextTaskId] = useState("");
+  const [nextTaskAssignee, setNextTaskAssignee] = useState("");
   const [sending, setSending] = useState(false);
 
   const reset = () => {
@@ -1012,6 +1090,9 @@ function CreateTaskDialog({
     setIssueUrl("");
     setProjectId("");
     setAssignee("");
+    setOnOrAfter("");
+    setNextTaskId("");
+    setNextTaskAssignee("");
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -1026,6 +1107,9 @@ function CreateTaskDialog({
         issueUrl: issueUrl.trim() || undefined,
         projectId: projectId || undefined,
         assigneeUserId: assignee || undefined,
+        onOrAfterAt: onOrAfter ? new Date(onOrAfter).toISOString() : undefined,
+        nextTaskId: nextTaskId.trim() || undefined,
+        nextTaskAssigneeUserId: nextTaskAssignee || undefined,
       });
       reset();
       onOpenChange(false);
@@ -1089,6 +1173,42 @@ function CreateTaskDialog({
               ))}
             </select>
           </div>
+          {/* Scheduling */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Not before (optional)</p>
+            <input
+              type="datetime-local"
+              className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+              value={onOrAfter}
+              onChange={(e) => setOnOrAfter(e.target.value)}
+            />
+          </div>
+
+          {/* Task chaining */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Next task ID</p>
+              <Input
+                value={nextTaskId}
+                onChange={(e) => setNextTaskId(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Next assignee</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={nextTaskAssignee}
+                onChange={(e) => setNextTaskAssignee(e.target.value)}
+              >
+                <option value="">None</option>
+                {KNOWN_USERS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2">
             <Button
               type="button"
