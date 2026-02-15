@@ -316,6 +316,68 @@ During mailbox mode: detailed back-and-forth via Hive API. Post to Discord only 
 - `401 Unauthorized` — token missing or invalid
 - `500 Internal Server Error` — check service logs; common causes are DB connection or auth config
 
+## Recurring Task Templates
+
+Automatically create tasks on a cron schedule.
+
+### List templates
+
+```
+GET /api/swarm/recurring?includeDisabled=true
+```
+
+### Create a template
+
+```
+POST /api/swarm/recurring
+```
+
+Body:
+```json
+{
+  "title": "Weekly standup prep",
+  "cronExpr": "0 9 * * 1",
+  "timezone": "America/Chicago",
+  "projectId": "optional-project-id",
+  "assigneeUserId": "domingo",
+  "initialStatus": "ready"
+}
+```
+
+Cron format: `minute hour dom month dow` (standard 5-field).
+
+### Update a template
+
+```
+PATCH /api/swarm/recurring/{id}
+```
+
+### Delete a template
+
+```
+DELETE /api/swarm/recurring/{id}
+```
+
+### Tick (process due templates)
+
+```
+POST /api/swarm/recurring/tick
+```
+
+Creates tasks from any templates whose `nextRunAt` is past due. Call this from an external cron or heartbeat.
+
+---
+
+## Real-time Updates (SSE)
+
+The SSE stream at `GET /api/stream?token=<TOKEN>` now includes swarm events:
+
+- `swarm_task_created` — new task added
+- `swarm_task_updated` — task status or fields changed
+- `swarm_task_deleted` — task removed
+
+The Swarm board UI auto-refreshes when these events arrive.
+
 ## Deploy
 
 See `AGENTS.md` for the Dokploy redeploy webhook.
