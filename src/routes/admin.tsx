@@ -495,8 +495,8 @@ function WebhooksPanel({
                   <Button variant="ghost" size="icon" onClick={() => copyUrl(wh)}>
                     {copied === wh.id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => startEdit(wh)} title="Edit">
-                    <Settings className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" onClick={() => startEdit(wh)} title="Edit webhook">
+                    <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
