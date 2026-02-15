@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Inbox, Radio, Users, LogOut, LayoutList } from "lucide-react";
+import { Inbox, Radio, Users, LogOut, LayoutList, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./theme-toggle";
 import { clearMailboxKey, api } from "@/lib/api";
 import { useState, useEffect } from "react";
@@ -10,6 +11,7 @@ const navItems = [
   { to: "/buzz", label: "Buzz", icon: Radio },
   { to: "/swarm", label: "Swarm", icon: LayoutList },
   { to: "/presence", label: "Presence", icon: Users },
+  { to: "/admin", label: "Admin", icon: Settings },
 ] as const;
 
 const AVATARS: Record<string, string> = {
@@ -97,6 +99,18 @@ function PresenceDots() {
 
 export function Nav({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnread = () => {
+      api.listMessages({ status: "unread", limit: 1 })
+        .then((data: any) => setUnreadCount(data.total ?? data.messages?.length ?? 0))
+        .catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     clearMailboxKey();
@@ -118,10 +132,18 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
                 <Button
                   variant={isActive ? "default" : "ghost"}
                   size="sm"
-                  className="gap-1.5"
+                  className="gap-1.5 relative"
                 >
                   <item.icon className="h-3.5 w-3.5" />
                   {item.label}
+                  {item.to === "/" && unreadCount > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Badge>
+                  )}
                 </Button>
               </Link>
             );
