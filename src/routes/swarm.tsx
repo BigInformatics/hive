@@ -35,6 +35,8 @@ import {
   Code,
   ExternalLink,
   Pencil,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export const Route = createFileRoute("/swarm")({
@@ -738,6 +740,7 @@ function TaskDetailDialog({
   const [assignee, setAssignee] = useState("");
   const [projectId, setProjectId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -783,6 +786,20 @@ function TaskDetailDialog({
           <DialogTitle className="flex items-center gap-2">
             <StatusIcon className={`h-4 w-4 ${config?.color}`} />
             {editing ? "Edit Task" : task.title}
+            {!editing && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-0.5 font-mono text-xs text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer ml-1"
+                onClick={() => {
+                  navigator.clipboard.writeText(task.id);
+                  setCopiedId(true);
+                  setTimeout(() => setCopiedId(false), 1500);
+                }}
+                title="Copy task ID"
+              >
+                {copiedId ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              </button>
+            )}
           </DialogTitle>
         </DialogHeader>
 
