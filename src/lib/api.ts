@@ -103,6 +103,9 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  deleteWebhook: (id: number) =>
+    apiFetch(`/broadcast/webhooks/${id}`, { method: "DELETE" }),
+
   // Swarm
   listProjects: () => apiFetch("/swarm/projects"),
 

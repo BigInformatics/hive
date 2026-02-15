@@ -438,18 +438,35 @@ function WebhooksPanel({
                   /api/ingest/{wh.appName}/{wh.token}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                onClick={() => copyUrl(wh)}
-              >
-                {copied === wh.id ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copyUrl(wh)}
+                >
+                  {copied === wh.id ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive"
+                  onClick={async () => {
+                    if (!confirm(`Delete webhook "${wh.title}"?`)) return;
+                    try {
+                      await api.deleteWebhook(Number(wh.id));
+                      onRefresh();
+                    } catch (err) {
+                      console.error("Failed to delete webhook:", err);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
