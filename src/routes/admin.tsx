@@ -31,6 +31,8 @@ import {
   Power,
   PowerOff,
   Play,
+  Settings,
+  Pencil,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -353,6 +355,25 @@ function WebhooksPanel({
   onRefresh: () => void;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editAppName, setEditAppName] = useState("");
+
+  const startEdit = (wh: typeof webhooks[0]) => {
+    setEditingId(wh.id);
+    setEditTitle(wh.title);
+    setEditAppName(wh.appName);
+  };
+
+  const saveEdit = async (id: string) => {
+    try {
+      await api.updateWebhook(Number(id), { title: editTitle, appName: editAppName });
+      setEditingId(null);
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to update webhook:", err);
+    }
+  };
 
   const copyUrl = (wh: typeof webhooks[0]) => {
     const url = `https://messages.biginformatics.net/api/ingest/${wh.appName}/${wh.token}`;
@@ -423,51 +444,74 @@ function WebhooksPanel({
       {webhooks.map((wh) => (
         <Card key={wh.id}>
           <CardContent className="p-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-sm">{wh.title}</p>
-                  <Badge variant={wh.enabled ? "default" : "secondary"} className="text-xs">
-                    {wh.enabled ? "Active" : "Disabled"}
-                  </Badge>
+            {editingId === wh.id ? (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 rounded-md border bg-transparent px-2 py-1 text-sm"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Title"
+                  />
+                  <input
+                    className="w-32 rounded-md border bg-transparent px-2 py-1 text-sm font-mono"
+                    value={editAppName}
+                    onChange={(e) => setEditAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    placeholder="app-name"
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  App: <strong>{wh.appName}</strong> · Owner: {wh.owner} · Created: {new Date(wh.createdAt).toLocaleDateString()}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1 font-mono">
-                  /api/ingest/{wh.appName}/{wh.token}
-                </p>
+                <div className="flex justify-end gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditingId(null)}>Cancel</Button>
+                  <Button size="sm" className="h-7 text-xs" onClick={() => saveEdit(wh.id)}>Save</Button>
+                </div>
               </div>
-              <div className="flex gap-1 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => copyUrl(wh)}
-                >
-                  {copied === wh.id ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive"
-                  onClick={async () => {
-                    if (!confirm(`Delete webhook "${wh.title}"?`)) return;
-                    try {
-                      await api.deleteWebhook(Number(wh.id));
-                      onRefresh();
-                    } catch (err) {
-                      console.error("Failed to delete webhook:", err);
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+            ) : (
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm">{wh.title}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-1.5 text-[10px]"
+                      onClick={async () => {
+                        await api.updateWebhook(Number(wh.id), { enabled: !wh.enabled });
+                        onRefresh();
+                      }}
+                    >
+                      <Badge variant={wh.enabled ? "default" : "secondary"} className="text-xs cursor-pointer">
+                        {wh.enabled ? "Active" : "Disabled"}
+                      </Badge>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    App: <strong>{wh.appName}</strong> · Owner: {wh.owner} · Created: {new Date(wh.createdAt).toLocaleDateString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 font-mono">
+                    /api/ingest/{wh.appName}/{wh.token}
+                  </p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => copyUrl(wh)}>
+                    {copied === wh.id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => startEdit(wh)} title="Edit">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive"
+                    onClick={async () => {
+                      if (!confirm(`Delete webhook "${wh.title}"?`)) return;
+                      try { await api.deleteWebhook(Number(wh.id)); onRefresh(); } catch {}
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       ))}

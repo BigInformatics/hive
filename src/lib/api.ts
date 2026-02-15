@@ -103,6 +103,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  updateWebhook: (id: number, data: Record<string, unknown>) =>
+    apiFetch(`/broadcast/webhooks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   deleteWebhook: (id: number) =>
     apiFetch(`/broadcast/webhooks/${id}`, { method: "DELETE" }),
 
