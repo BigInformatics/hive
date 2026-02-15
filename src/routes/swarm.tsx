@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TaskCombobox } from "@/components/task-combobox";
 import {
   Dialog,
   DialogContent,
@@ -447,6 +448,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         open={createOpen}
         onOpenChange={setCreateOpen}
         projects={projects}
+        tasks={tasks}
         onCreated={fetchData}
       />
 
@@ -466,6 +468,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         task={editTask}
         project={editTask?.projectId ? projectMap.get(editTask.projectId) : undefined}
         projects={projects}
+        tasks={tasks}
         onClose={() => setEditTask(null)}
         onUpdated={fetchData}
         onStatusChange={handleStatusChange}
@@ -740,6 +743,7 @@ function TaskDetailDialog({
   task,
   project,
   projects,
+  tasks,
   onClose,
   onUpdated,
   onStatusChange,
@@ -747,6 +751,7 @@ function TaskDetailDialog({
   task: SwarmTask | null;
   project?: SwarmProject;
   projects: SwarmProject[];
+  tasks: SwarmTask[];
   onClose: () => void;
   onUpdated: () => void;
   onStatusChange: (id: string, status: string) => void;
@@ -877,10 +882,13 @@ function TaskDetailDialog({
             {/* Dependencies */}
             <div>
               <p className="text-xs text-muted-foreground mb-1">Blocked by task (must complete first)</p>
-              <Input
+              <TaskCombobox
                 value={mustBeDoneAfter}
-                onChange={(e) => setMustBeDoneAfter(e.target.value)}
-                placeholder="Task ID (optional)"
+                onChange={setMustBeDoneAfter}
+                tasks={tasks}
+                projectId={projectId || undefined}
+                excludeId={task?.id}
+                placeholder="Search tasks..."
               />
             </div>
 
@@ -899,10 +907,13 @@ function TaskDetailDialog({
             <div className="flex gap-2">
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground mb-1">Next task</p>
-                <Input
+                <TaskCombobox
                   value={nextTaskId}
-                  onChange={(e) => setNextTaskId(e.target.value)}
-                  placeholder="Task ID (optional)"
+                  onChange={setNextTaskId}
+                  tasks={tasks}
+                  projectId={projectId || undefined}
+                  excludeId={task?.id}
+                  placeholder="Search tasks..."
                 />
               </div>
               <div className="flex-1">
@@ -1090,11 +1101,13 @@ function CreateTaskDialog({
   open,
   onOpenChange,
   projects,
+  tasks,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projects: SwarmProject[];
+  tasks: SwarmTask[];
   onCreated: () => void;
 }) {
   const [title, setTitle] = useState("");
@@ -1202,10 +1215,12 @@ function CreateTaskDialog({
           {/* Dependencies */}
           <div>
             <p className="text-xs text-muted-foreground mb-1">Blocked by task (must complete first)</p>
-            <Input
+            <TaskCombobox
               value={mustBeDoneAfter}
-              onChange={(e) => setMustBeDoneAfter(e.target.value)}
-              placeholder="Task ID (optional)"
+              onChange={setMustBeDoneAfter}
+              tasks={tasks}
+              projectId={projectId || undefined}
+              placeholder="Search tasks..."
             />
           </div>
 
@@ -1223,11 +1238,13 @@ function CreateTaskDialog({
           {/* Task chaining */}
           <div className="flex gap-2">
             <div className="flex-1">
-              <p className="text-xs text-muted-foreground mb-1">Next task ID</p>
-              <Input
+              <p className="text-xs text-muted-foreground mb-1">Next task</p>
+              <TaskCombobox
                 value={nextTaskId}
-                onChange={(e) => setNextTaskId(e.target.value)}
-                placeholder="Optional"
+                onChange={setNextTaskId}
+                tasks={tasks}
+                projectId={projectId || undefined}
+                placeholder="Search tasks..."
               />
             </div>
             <div className="flex-1">
