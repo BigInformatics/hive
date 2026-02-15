@@ -20,9 +20,10 @@ export function LoginGate({
     setLoading(true);
     setError("");
 
-    // Test the key by hitting presence
+    // Verify the key
     try {
-      const res = await fetch("/api/presence", {
+      const res = await fetch("/api/auth/verify", {
+        method: "POST",
         headers: { Authorization: `Bearer ${key.trim()}` },
       });
       if (!res.ok) throw new Error("Invalid key");
