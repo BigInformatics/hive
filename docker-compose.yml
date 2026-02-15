@@ -1,16 +1,15 @@
-version: "3.8"
-
 services:
   hive:
     build: .
     container_name: hive
     restart: unless-stopped
     ports:
-      - "3100:3100"
+      - "3100:3000"
     environment:
-      - PORT=3100
+      - NODE_ENV=production
+      - PORT=3000
       - HOST=0.0.0.0
-      - PGHOST=${PGHOST}
+      - PGHOST=${PGHOST:-data.biginformatics.net}
       - PGPORT=${PGPORT:-5432}
       - PGUSER=${PGUSER}
       - PGPASSWORD=${PGPASSWORD}
@@ -20,32 +19,28 @@ services:
       - MAILBOX_TOKEN_ZUMIE=${MAILBOX_TOKEN_ZUMIE}
       - MAILBOX_TOKEN_CHRIS=${MAILBOX_TOKEN_CHRIS}
       - MAILBOX_ADMIN_TOKEN=${MAILBOX_ADMIN_TOKEN}
-      - UI_MAILBOX_KEYS=${UI_MAILBOX_KEYS:-SET_ME}
     networks:
       - dokploy-network
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
-      # Service
-      - "traefik.http.services.hive.loadbalancer.server.port=3100"
-      # Router 1: /ui paths
-      - "traefik.http.routers.hive-ui.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/ui`)"
-      - "traefik.http.routers.hive-ui.entrypoints=websecure"
-      - "traefik.http.routers.hive-ui.tls.certresolver=step-ca"
-      - "traefik.http.routers.hive-ui.service=hive"
-      - "traefik.http.routers.hive-ui.priority=100"
-      # Router 2: /api paths
-      - "traefik.http.routers.hive-route.rule=Host(`c2.biginformatics.net`) && PathPrefix(`/api`)"
+      - "traefik.http.services.hive.loadbalancer.server.port=3000"
+      # Main route — serves both UI and API
+      - "traefik.http.routers.hive-route.rule=Host(`messages.biginformatics.net`)"
       - "traefik.http.routers.hive-route.entrypoints=websecure"
-      - "traefik.http.routers.hive-route.tls.certresolver=step-ca"
+      - "traefik.http.routers.hive-route.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hive-route.service=hive"
-      - "traefik.http.routers.hive-route.priority=100"
+      # Legacy c2 route
+      - "traefik.http.routers.hive-c2.rule=Host(`c2.biginformatics.net`)"
+      - "traefik.http.routers.hive-c2.entrypoints=websecure"
+      - "traefik.http.routers.hive-c2.tls.certresolver=step-ca"
+      - "traefik.http.routers.hive-c2.service=hive"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3100/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 3s
       retries: 3
-      start_period: 5s
+      start_period: 10s
 
 networks:
   dokploy-network:

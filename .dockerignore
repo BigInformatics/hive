@@ -1,7 +1,8 @@
 node_modules
 .output
-.vinxi
+.git
 drizzle
+*.md
 .env
-.env.local
-*.log
+.env.*
+!.env.example

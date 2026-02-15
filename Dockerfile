@@ -1,30 +1,22 @@
-FROM oven/bun:1.3 AS base
-WORKDIR /app
+FROM oven/bun:1-slim AS base
 
 # Install dependencies
 FROM base AS deps
-COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile --production
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
-# Production image
+# Build
+FROM base AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN bun run build
+
+# Production
 FROM base AS runner
 WORKDIR /app
-
 ENV NODE_ENV=production
-ENV PORT=3100
-
-# Copy dependencies and source
-COPY --from=deps /app/node_modules ./node_modules
-COPY src ./src
-COPY assets ./assets
-COPY package.json ./
-COPY SKILL.md ./
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3100/healthz || exit 1
-
-EXPOSE 3100
-
-USER bun
-CMD ["bun", "run", "src/index.ts"]
+COPY --from=build /app/.output ./.output
+EXPOSE 3000
+CMD ["bun", "run", ".output/server/index.mjs"]
