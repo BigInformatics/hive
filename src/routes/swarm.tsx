@@ -501,18 +501,23 @@ function TaskCard({
       onClick={onClick}
     >
       <CardContent className="p-3">
-        {/* Project indicator */}
-        {project && (
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span
-              className="h-2 w-2 rounded-full shrink-0"
-              style={{ backgroundColor: project.color }}
-            />
-            <span className="text-[11px] text-muted-foreground truncate">
-              {project.title}
-            </span>
-          </div>
-        )}
+        {/* Project indicator + task ID */}
+        <div className="flex items-center justify-between mb-1.5">
+          {project ? (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: project.color }}
+              />
+              <span className="text-[11px] text-muted-foreground truncate">
+                {project.title}
+              </span>
+            </div>
+          ) : <div />}
+          <span className="text-[10px] font-mono text-muted-foreground/40 select-all">
+            {task.id.slice(0, 8)}
+          </span>
+        </div>
 
         <p className="text-sm font-medium leading-snug">{task.title}</p>
 
