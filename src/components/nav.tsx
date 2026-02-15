@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Inbox, Radio, Users, LogOut } from "lucide-react";
+import { Inbox, Radio, Users, LogOut, LayoutList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { clearMailboxKey } from "@/lib/api";
@@ -7,6 +7,7 @@ import { clearMailboxKey } from "@/lib/api";
 const navItems = [
   { to: "/", label: "Inbox", icon: Inbox },
   { to: "/buzz", label: "Buzz", icon: Radio },
+  { to: "/swarm", label: "Swarm", icon: LayoutList },
   { to: "/presence", label: "Presence", icon: Users },
 ] as const;
 

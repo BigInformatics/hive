@@ -91,4 +91,59 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  // Swarm
+  listProjects: () => apiFetch("/swarm/projects"),
+
+  createProject: (data: {
+    title: string;
+    color: string;
+    description?: string;
+    projectLeadUserId?: string;
+    developerLeadUserId?: string;
+  }) =>
+    apiFetch("/swarm/projects", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  listTasks: (params?: {
+    statuses?: string;
+    assignee?: string;
+    projectId?: string;
+    includeCompleted?: boolean;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.statuses) searchParams.set("statuses", params.statuses);
+    if (params?.assignee) searchParams.set("assignee", params.assignee);
+    if (params?.projectId) searchParams.set("projectId", params.projectId);
+    if (params?.includeCompleted)
+      searchParams.set("includeCompleted", "true");
+    const qs = searchParams.toString();
+    return apiFetch(`/swarm/tasks${qs ? `?${qs}` : ""}`);
+  },
+
+  createTask: (data: {
+    title: string;
+    projectId?: string;
+    detail?: string;
+    assigneeUserId?: string;
+    status?: string;
+  }) =>
+    apiFetch("/swarm/tasks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateTaskStatus: (id: string, status: string) =>
+    apiFetch(`/swarm/tasks/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+
+  updateTask: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/swarm/tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };

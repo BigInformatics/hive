@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SwarmRouteImport } from './routes/swarm'
 import { Route as PresenceRouteImport } from './routes/presence'
 import { Route as BuzzRouteImport } from './routes/buzz'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SwarmRoute = SwarmRouteImport.update({
+  id: '/swarm',
+  path: '/swarm',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PresenceRoute = PresenceRouteImport.update({
   id: '/presence',
   path: '/presence',
@@ -33,34 +39,45 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/buzz': typeof BuzzRoute
   '/presence': typeof PresenceRoute
+  '/swarm': typeof SwarmRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/buzz': typeof BuzzRoute
   '/presence': typeof PresenceRoute
+  '/swarm': typeof SwarmRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/buzz': typeof BuzzRoute
   '/presence': typeof PresenceRoute
+  '/swarm': typeof SwarmRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/buzz' | '/presence'
+  fullPaths: '/' | '/buzz' | '/presence' | '/swarm'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/buzz' | '/presence'
-  id: '__root__' | '/' | '/buzz' | '/presence'
+  to: '/' | '/buzz' | '/presence' | '/swarm'
+  id: '__root__' | '/' | '/buzz' | '/presence' | '/swarm'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BuzzRoute: typeof BuzzRoute
   PresenceRoute: typeof PresenceRoute
+  SwarmRoute: typeof SwarmRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/swarm': {
+      id: '/swarm'
+      path: '/swarm'
+      fullPath: '/swarm'
+      preLoaderRoute: typeof SwarmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/presence': {
       id: '/presence'
       path: '/presence'
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BuzzRoute: BuzzRoute,
   PresenceRoute: PresenceRoute,
+  SwarmRoute: SwarmRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
