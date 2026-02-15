@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, getRouterParam } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { updateTask } from "@/lib/swarm";
+import { emit } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
   const auth = authenticateEvent(event);
@@ -35,6 +36,14 @@ export default defineEventHandler(async (event) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  emit("__swarm__", {
+    type: "swarm_task_updated",
+    taskId: task.id,
+    title: task.title,
+    status: task.status,
+    actor: auth.identity,
+  });
 
   return task;
 });

@@ -53,6 +53,11 @@ export default defineEventHandler(async (event) => {
         send("broadcast", evt);
       });
 
+      // Subscribe to swarm events (global channel)
+      const unsubSwarm = subscribe("__swarm__", (evt) => {
+        send(evt.type, evt);
+      });
+
       // Heartbeat every 30s
       const heartbeat = setInterval(() => {
         try {
@@ -67,6 +72,7 @@ export default defineEventHandler(async (event) => {
       event.node?.req?.on?.("close", () => {
         unsub();
         unsubBroadcast();
+        unsubSwarm();
         clearInterval(heartbeat);
         try {
           controller.close();

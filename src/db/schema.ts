@@ -193,6 +193,39 @@ export const swarmTaskEvents = pgTable(
 );
 
 // ============================================================
+// RECURRING TASK TEMPLATES
+// ============================================================
+
+export const recurringTemplates = pgTable("recurring_templates", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  projectId: text("project_id"),
+  title: text("title").notNull(),
+  detail: text("detail"),
+  assigneeUserId: varchar("assignee_user_id", { length: 50 }),
+  creatorUserId: varchar("creator_user_id", { length: 50 }).notNull(),
+
+  // Schedule: cron expression (e.g. "0 9 * * 1" = every Monday 9am)
+  cronExpr: varchar("cron_expr", { length: 100 }).notNull(),
+  timezone: varchar("timezone", { length: 50 }).notNull().default("America/Chicago"),
+
+  // What status to create the task in
+  initialStatus: varchar("initial_status", { length: 20 }).notNull().default("ready"),
+
+  enabled: boolean("enabled").notNull().default(true),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -204,3 +237,4 @@ export type BroadcastEvent = typeof broadcastEvents.$inferSelect;
 export type SwarmProject = typeof swarmProjects.$inferSelect;
 export type SwarmTask = typeof swarmTasks.$inferSelect;
 export type SwarmTaskEvent = typeof swarmTaskEvents.$inferSelect;
+export type RecurringTemplate = typeof recurringTemplates.$inferSelect;

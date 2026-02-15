@@ -1,4 +1,4 @@
-// Simple pub-sub for real-time mailbox events
+// Simple pub-sub for real-time events
 
 export type MailboxEvent =
   | {
@@ -19,6 +19,26 @@ export type MailboxEvent =
       appName: string;
       title: string;
       eventId: number;
+    }
+  | {
+      type: "swarm_task_created";
+      taskId: string;
+      title: string;
+      status: string;
+      actor: string;
+    }
+  | {
+      type: "swarm_task_updated";
+      taskId: string;
+      title: string;
+      status: string;
+      previousStatus?: string;
+      actor: string;
+    }
+  | {
+      type: "swarm_task_deleted";
+      taskId: string;
+      actor: string;
     };
 
 type Listener = (event: MailboxEvent) => void;

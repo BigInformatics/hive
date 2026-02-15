@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getMailboxKey, api } from "@/lib/api";
+import { useSwarmSSE } from "@/lib/use-swarm-sse";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
@@ -167,6 +168,11 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Live updates via SSE
+  useSwarmSSE(useCallback(() => {
+    fetchData();
+  }, [fetchData]));
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     // Optimistic update

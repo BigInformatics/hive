@@ -146,4 +146,34 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  // Recurring templates
+  listRecurringTemplates: (includeDisabled = false) =>
+    apiFetch(`/swarm/recurring${includeDisabled ? "?includeDisabled=true" : ""}`),
+
+  createRecurringTemplate: (data: {
+    title: string;
+    cronExpr: string;
+    projectId?: string;
+    detail?: string;
+    assigneeUserId?: string;
+    timezone?: string;
+    initialStatus?: string;
+  }) =>
+    apiFetch("/swarm/recurring", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateRecurringTemplate: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/swarm/recurring/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteRecurringTemplate: (id: string) =>
+    apiFetch(`/swarm/recurring/${id}`, { method: "DELETE" }),
+
+  tickRecurring: () =>
+    apiFetch("/swarm/recurring/tick", { method: "POST" }),
 };

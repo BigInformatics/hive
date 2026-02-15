@@ -7,6 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   RefreshCw,
   Activity,
@@ -18,6 +26,11 @@ import {
   Copy,
   Check,
   Trash2,
+  Timer,
+  Plus,
+  Power,
+  PowerOff,
+  Play,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -151,6 +164,9 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
             <TabsTrigger value="tasks" className="gap-1.5">
               <LayoutList className="h-3.5 w-3.5" /> Tasks
             </TabsTrigger>
+            <TabsTrigger value="recurring" className="gap-1.5">
+              <Timer className="h-3.5 w-3.5" /> Recurring
+            </TabsTrigger>
             <TabsTrigger value="webhooks" className="gap-1.5">
               <Webhook className="h-3.5 w-3.5" /> Webhooks
             </TabsTrigger>
@@ -165,6 +181,10 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
               taskCounts={stats?.taskCounts || {}}
               projects={stats?.projects || []}
             />
+          </TabsContent>
+
+          <TabsContent value="recurring" className="mt-4">
+            <RecurringPanel projects={stats?.projects || []} />
           </TabsContent>
 
           <TabsContent value="webhooks" className="mt-4">
@@ -386,5 +406,354 @@ function WebhooksPanel({
         </Card>
       ))}
     </div>
+  );
+}
+
+/* ─── Recurring Templates Panel ─── */
+
+interface RecurringTemplate {
+  id: string;
+  projectId: string | null;
+  title: string;
+  detail: string | null;
+  assigneeUserId: string | null;
+  creatorUserId: string;
+  cronExpr: string;
+  timezone: string;
+  initialStatus: string;
+  enabled: boolean;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  createdAt: string;
+}
+
+const CRON_PRESETS = [
+  { label: "Every day 9 AM", value: "0 9 * * *" },
+  { label: "Every Monday 9 AM", value: "0 9 * * 1" },
+  { label: "Every weekday 9 AM", value: "0 9 * * 1-5" },
+  { label: "Every 1st of month", value: "0 9 1 * *" },
+  { label: "Every Friday 4 PM", value: "0 16 * * 5" },
+];
+
+const KNOWN_USERS = ["chris", "clio", "domingo", "zumie"];
+
+function RecurringPanel({
+  projects,
+}: {
+  projects: Array<{ id: string; title: string; color: string }>;
+}) {
+  const [templates, setTemplates] = useState<RecurringTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const fetchTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.listRecurringTemplates(true);
+      setTemplates(res.templates || []);
+    } catch (err) {
+      console.error("Failed to fetch templates:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
+
+  const handleToggle = async (id: string, enabled: boolean) => {
+    try {
+      await api.updateRecurringTemplate(id, { enabled });
+      fetchTemplates();
+    } catch (err) {
+      console.error("Failed to toggle template:", err);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this recurring template?")) return;
+    try {
+      await api.deleteRecurringTemplate(id);
+      fetchTemplates();
+    } catch (err) {
+      console.error("Failed to delete template:", err);
+    }
+  };
+
+  const handleTick = async () => {
+    try {
+      const result = await api.tickRecurring();
+      alert(`Tick complete: ${result.created} tasks created, ${result.errors} errors`);
+      fetchTemplates();
+    } catch (err) {
+      console.error("Failed to tick:", err);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Recurring templates automatically create tasks on a schedule.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleTick} title="Run tick now — creates any due tasks">
+            <Play className="h-3.5 w-3.5 mr-1" /> Tick Now
+          </Button>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> New Template
+          </Button>
+        </div>
+      </div>
+
+      {templates.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No recurring templates yet.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {templates.map((t) => {
+            const project = projects.find((p) => p.id === t.projectId);
+            return (
+              <Card key={t.id} className={!t.enabled ? "opacity-60" : ""}>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm">{t.title}</p>
+                        <Badge variant={t.enabled ? "default" : "secondary"} className="text-xs">
+                          {t.enabled ? "Active" : "Disabled"}
+                        </Badge>
+                        {project && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
+                            {project.title}
+                          </Badge>
+                        )}
+                        {t.assigneeUserId && (
+                          <Badge variant="outline" className="text-xs">
+                            → {t.assigneeUserId}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span className="font-mono">{t.cronExpr}</span>
+                        <span>→ {t.initialStatus}</span>
+                        <span>{t.timezone}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                        {t.lastRunAt && (
+                          <span>Last: {new Date(t.lastRunAt).toLocaleString()}</span>
+                        )}
+                        {t.nextRunAt && (
+                          <span>Next: {new Date(t.nextRunAt).toLocaleString()}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleToggle(t.id, !t.enabled)}
+                        title={t.enabled ? "Disable" : "Enable"}
+                      >
+                        {t.enabled ? (
+                          <Power className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <PowerOff className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => handleDelete(t.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <CreateRecurringDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        projects={projects}
+        onCreated={fetchTemplates}
+      />
+    </div>
+  );
+}
+
+function CreateRecurringDialog({
+  open,
+  onOpenChange,
+  projects,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  projects: Array<{ id: string; title: string; color: string }>;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [detail, setDetail] = useState("");
+  const [cronExpr, setCronExpr] = useState("0 9 * * 1");
+  const [projectId, setProjectId] = useState("");
+  const [assignee, setAssignee] = useState("");
+  const [initialStatus, setInitialStatus] = useState("ready");
+  const [sending, setSending] = useState(false);
+
+  const ALL_STATUSES = [
+    { value: "queued", label: "Queued" },
+    { value: "ready", label: "Ready" },
+    { value: "in_progress", label: "In Progress" },
+  ];
+
+  const reset = () => {
+    setTitle("");
+    setDetail("");
+    setCronExpr("0 9 * * 1");
+    setProjectId("");
+    setAssignee("");
+    setInitialStatus("ready");
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !cronExpr.trim()) return;
+
+    setSending(true);
+    try {
+      await api.createRecurringTemplate({
+        title: title.trim(),
+        detail: detail.trim() || undefined,
+        cronExpr: cronExpr.trim(),
+        projectId: projectId || undefined,
+        assigneeUserId: assignee || undefined,
+        initialStatus: initialStatus || undefined,
+      });
+      reset();
+      onOpenChange(false);
+      onCreated();
+    } catch (err) {
+      console.error("Failed to create template:", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle>New Recurring Template</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleCreate} className="space-y-4">
+          <Input
+            placeholder="Task title (created each time)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            autoFocus
+          />
+          <Textarea
+            placeholder="Details (optional)"
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            rows={2}
+          />
+
+          {/* Cron expression */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Schedule (cron)</p>
+            <Input
+              placeholder="0 9 * * 1"
+              value={cronExpr}
+              onChange={(e) => setCronExpr(e.target.value)}
+              className="font-mono"
+              required
+            />
+            <div className="flex gap-1 mt-1.5 flex-wrap">
+              {CRON_PRESETS.map((p) => (
+                <Button
+                  key={p.value}
+                  type="button"
+                  variant={cronExpr === p.value ? "secondary" : "outline"}
+                  size="sm"
+                  className="text-xs h-6"
+                  onClick={() => setCronExpr(p.value)}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Project</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+              >
+                <option value="">No project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Assignee</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+              >
+                <option value="">Unassigned</option>
+                {KNOWN_USERS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Initial status</p>
+            <div className="flex gap-1">
+              {ALL_STATUSES.map((s) => (
+                <Button
+                  key={s.value}
+                  type="button"
+                  variant={initialStatus === s.value ? "secondary" : "outline"}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setInitialStatus(s.value)}
+                >
+                  {s.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={sending || !title.trim() || !cronExpr.trim()}>
+              {sending ? "Creating..." : "Create Template"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,7 +1,6 @@
 import { defineEventHandler, readBody, getRouterParam } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { getTask, updateTaskStatus } from "@/lib/swarm";
-import { emit } from "@/lib/events";
+import { updateRecurringTemplate } from "@/lib/recurring";
 
 export default defineEventHandler(async (event) => {
   const auth = authenticateEvent(event);
@@ -21,30 +20,23 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event);
-  if (!body?.status) {
-    return new Response(JSON.stringify({ error: "status required" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  const template = await updateRecurringTemplate(id, {
+    projectId: body.projectId,
+    title: body.title,
+    detail: body.detail,
+    assigneeUserId: body.assigneeUserId,
+    cronExpr: body.cronExpr,
+    timezone: body.timezone,
+    initialStatus: body.initialStatus,
+    enabled: body.enabled,
+  });
 
-  const before = await getTask(id);
-  const task = await updateTaskStatus(id, body.status, auth.identity);
-  if (!task) {
-    return new Response(JSON.stringify({ error: "Task not found" }), {
+  if (!template) {
+    return new Response(JSON.stringify({ error: "Template not found" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  emit("__swarm__", {
-    type: "swarm_task_updated",
-    taskId: task.id,
-    title: task.title,
-    status: task.status,
-    previousStatus: before?.status,
-    actor: auth.identity,
-  });
-
-  return task;
+  return template;
 });

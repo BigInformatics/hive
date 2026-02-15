@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { createTask } from "@/lib/swarm";
+import { emit } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
   const auth = authenticateEvent(event);
@@ -28,6 +29,14 @@ export default defineEventHandler(async (event) => {
     status: body.status,
     onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : undefined,
     mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
+  });
+
+  emit("__swarm__", {
+    type: "swarm_task_created",
+    taskId: task.id,
+    title: task.title,
+    status: task.status,
+    actor: auth.identity,
   });
 
   return task;
