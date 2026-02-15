@@ -2,7 +2,8 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { Inbox, Radio, Users, LogOut, LayoutList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
-import { clearMailboxKey } from "@/lib/api";
+import { clearMailboxKey, api } from "@/lib/api";
+import { useState, useEffect } from "react";
 
 const navItems = [
   { to: "/", label: "Inbox", icon: Inbox },
@@ -10,6 +11,89 @@ const navItems = [
   { to: "/swarm", label: "Swarm", icon: LayoutList },
   { to: "/presence", label: "Presence", icon: Users },
 ] as const;
+
+const AVATARS: Record<string, string> = {
+  chris: "/avatars/chris.jpg",
+  clio: "/avatars/clio.png",
+  domingo: "/avatars/domingo.jpg",
+  zumie: "/avatars/zumie.png",
+};
+
+const ALL_USERS = ["chris", "clio", "domingo", "zumie"];
+
+interface UserPresence {
+  online: boolean;
+  lastSeen: string | null;
+  source: string | null;
+  unread: number;
+}
+
+function getTimeSince(date: string | null): number {
+  if (!date) return Infinity;
+  return (Date.now() - new Date(date).getTime()) / 1000;
+}
+
+function getBorderColor(online: boolean, lastSeen: string | null): string {
+  if (online) return "rgba(34, 197, 94, 1)";
+  const seconds = getTimeSince(lastSeen);
+  if (seconds < 300) return "rgba(34, 197, 94, 0.8)";
+  if (seconds < 900) return "rgba(34, 197, 94, 0.6)";
+  if (seconds < 3600) return "rgba(34, 197, 94, 0.4)";
+  if (seconds < 86400) return "rgba(34, 197, 94, 0.25)";
+  return "rgba(34, 197, 94, 0.15)";
+}
+
+function PresenceDots() {
+  const [presence, setPresence] = useState<Record<string, UserPresence>>({});
+
+  useEffect(() => {
+    api.getPresence().then(setPresence).catch(() => {});
+    const interval = setInterval(() => {
+      api.getPresence().then(setPresence).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Sort: online first, then by last seen
+  const users = ALL_USERS.map((name) => ({
+    name,
+    info: presence[name] || { online: false, lastSeen: null, source: null, unread: 0 },
+  })).sort((a, b) => {
+    if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
+    const aTime = a.info.lastSeen ? new Date(a.info.lastSeen).getTime() : 0;
+    const bTime = b.info.lastSeen ? new Date(b.info.lastSeen).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  return (
+    <div className="flex items-center -space-x-1">
+      {users.map(({ name, info }) => {
+        const borderColor = getBorderColor(info.online, info.lastSeen);
+        const avatar = AVATARS[name];
+        return (
+          <div
+            key={name}
+            className="rounded-full transition-all duration-500"
+            style={{ boxShadow: `0 0 0 2px ${borderColor}`, padding: "1.5px" }}
+            title={`${name}${info.online ? " (online)" : ""}`}
+          >
+            {avatar ? (
+              <img
+                src={avatar}
+                alt={name}
+                className="h-6 w-6 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold uppercase text-muted-foreground">
+                {name[0]}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Nav({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
@@ -43,6 +127,7 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
             );
           })}
         </nav>
+        <PresenceDots />
       </div>
       <div className="flex items-center gap-1">
         <ThemeToggle />
