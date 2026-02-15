@@ -19,5 +19,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=build /app/.output ./.output
+COPY --from=build /app/SKILL.md ./SKILL.md
 EXPOSE 3000
 CMD ["bun", "run", ".output/server/index.mjs"]
