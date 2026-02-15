@@ -7,13 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, Radio, Copy, Check } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { RefreshCw, Radio } from "lucide-react";
 
 export const Route = createFileRoute("/buzz")({
   component: BuzzPage,
@@ -109,23 +103,12 @@ function BuzzCard({
   );
 }
 
-interface Webhook {
-  id: number;
-  appName: string;
-  token: string;
-  title: string;
-  owner: string;
-  enabled: boolean;
-  lastHitAt: string | null;
-}
 
 function BuzzView({ onLogout }: { onLogout: () => void }) {
   const [events, setEvents] = useState<BroadcastEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [appFilter, setAppFilter] = useState<string | null>(null);
   const [apps, setApps] = useState<string[]>([]);
-  const [webhooksOpen, setWebhooksOpen] = useState(false);
-  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -192,17 +175,6 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
             </div>
           )}
           <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              const res = await api.listWebhooks();
-              setWebhooks(res.webhooks || []);
-              setWebhooksOpen(true);
-            }}
-          >
-            Webhooks
-          </Button>
-          <Button
             variant="ghost"
             size="icon"
             onClick={fetchEvents}
@@ -227,74 +199,8 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
         </div>
       </ScrollArea>
 
-      {/* Webhooks list dialog */}
-      <Dialog open={webhooksOpen} onOpenChange={setWebhooksOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Broadcast Webhooks</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 max-h-80 overflow-auto">
-            {webhooks.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No webhooks yet
-              </p>
-            )}
-            {webhooks.map((wh) => (
-              <WebhookCard key={wh.id} webhook={wh} />
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground text-center">
-            Manage webhooks in Admin → Webhooks
-          </p>
-        </DialogContent>
-      </Dialog>
+      {/* Webhooks managed in Admin → Webhooks */}
     </div>
-  );
-}
-
-function WebhookCard({ webhook }: { webhook: Webhook }) {
-  const [copied, setCopied] = useState(false);
-  const ingestUrl = `https://messages.biginformatics.net/api/ingest/${webhook.appName}/${webhook.token}`;
-
-  const copyUrl = () => {
-    navigator.clipboard.writeText(ingestUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-sm">{webhook.title}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              App: <strong>{webhook.appName}</strong> · Owner: {webhook.owner}
-            </p>
-            <div className="flex items-center gap-1 mt-1.5">
-              <code className="text-xs bg-muted px-1.5 py-0.5 rounded truncate block max-w-xs">
-                {ingestUrl}
-              </code>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 shrink-0"
-                onClick={copyUrl}
-              >
-                {copied ? (
-                  <Check className="h-3 w-3 text-green-500" />
-                ) : (
-                  <Copy className="h-3 w-3" />
-                )}
-              </Button>
-            </div>
-          </div>
-          <Badge variant={webhook.enabled ? "default" : "secondary"}>
-            {webhook.enabled ? "Active" : "Disabled"}
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
