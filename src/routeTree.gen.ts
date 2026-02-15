@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SwarmRouteImport } from './routes/swarm'
 import { Route as PresenceRouteImport } from './routes/presence'
 import { Route as BuzzRouteImport } from './routes/buzz'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
 const SwarmRoute = SwarmRouteImport.update({
@@ -29,6 +30,11 @@ const BuzzRoute = BuzzRouteImport.update({
   path: '/buzz',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +43,14 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/buzz': typeof BuzzRoute
   '/presence': typeof PresenceRoute
   '/swarm': typeof SwarmRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/buzz': typeof BuzzRoute
   '/presence': typeof PresenceRoute
   '/swarm': typeof SwarmRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/buzz': typeof BuzzRoute
   '/presence': typeof PresenceRoute
   '/swarm': typeof SwarmRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/buzz' | '/presence' | '/swarm'
+  fullPaths: '/' | '/admin' | '/buzz' | '/presence' | '/swarm'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/buzz' | '/presence' | '/swarm'
-  id: '__root__' | '/' | '/buzz' | '/presence' | '/swarm'
+  to: '/' | '/admin' | '/buzz' | '/presence' | '/swarm'
+  id: '__root__' | '/' | '/admin' | '/buzz' | '/presence' | '/swarm'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   BuzzRoute: typeof BuzzRoute
   PresenceRoute: typeof PresenceRoute
   SwarmRoute: typeof SwarmRoute
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BuzzRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   BuzzRoute: BuzzRoute,
   PresenceRoute: PresenceRoute,
   SwarmRoute: SwarmRoute,
