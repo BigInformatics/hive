@@ -31,8 +31,8 @@ export async function createProject(input: {
   onedevUrl?: string;
   githubUrl?: string;
   dokployDeployUrl?: string;
-  workHoursStart?: string;
-  workHoursEnd?: string;
+  workHoursStart?: number;
+  workHoursEnd?: number;
   workHoursTimezone?: string;
   blockingMode?: boolean;
 }): Promise<SwarmProject> {
@@ -90,8 +90,8 @@ export async function updateProject(
     onedevUrl: string | null;
     githubUrl: string | null;
     dokployDeployUrl: string | null;
-    workHoursStart: string | null;
-    workHoursEnd: string | null;
+    workHoursStart: number | null;
+    workHoursEnd: number | null;
     workHoursTimezone: string;
     blockingMode: boolean;
   }>,

@@ -72,6 +72,9 @@ interface SwarmProject {
   githubUrl?: string | null;
   projectLeadUserId?: string | null;
   developerLeadUserId?: string | null;
+  workHoursStart?: number | null;
+  workHoursEnd?: number | null;
+  workHoursTimezone?: string | null;
 }
 
 const STATUS_CONFIG: Record<
@@ -1471,6 +1474,9 @@ function EditProjectDialog({
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [onedevUrl, setOnedevUrl] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
+  const [workStart, setWorkStart] = useState("");
+  const [workEnd, setWorkEnd] = useState("");
+  const [workTz, setWorkTz] = useState("America/Chicago");
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
@@ -1484,6 +1490,9 @@ function EditProjectDialog({
       setWebsiteUrl(project.websiteUrl || "");
       setOnedevUrl(project.onedevUrl || "");
       setGithubUrl(project.githubUrl || "");
+      setWorkStart(project.workHoursStart != null ? String(project.workHoursStart) : "");
+      setWorkEnd(project.workHoursEnd != null ? String(project.workHoursEnd) : "");
+      setWorkTz(project.workHoursTimezone || "America/Chicago");
     }
   }, [project]);
 
@@ -1502,6 +1511,9 @@ function EditProjectDialog({
         websiteUrl: websiteUrl.trim() || null,
         onedevUrl: onedevUrl.trim() || null,
         githubUrl: githubUrl.trim() || null,
+        workHoursStart: workStart ? Number(workStart) : null,
+        workHoursEnd: workEnd ? Number(workEnd) : null,
+        workHoursTimezone: workTz || "America/Chicago",
       });
       onClose();
       onUpdated();
@@ -1596,6 +1608,43 @@ function EditProjectDialog({
               value={githubUrl}
               onChange={(e) => setGithubUrl(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Work Hours (optional)</p>
+            <div className="flex gap-2 items-center">
+              <div className="flex-1">
+                <Input
+                  type="number"
+                  min={0}
+                  max={23}
+                  placeholder="Start (0-23)"
+                  value={workStart}
+                  onChange={(e) => setWorkStart(e.target.value)}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">to</span>
+              <div className="flex-1">
+                <Input
+                  type="number"
+                  min={0}
+                  max={23}
+                  placeholder="End (0-23)"
+                  value={workEnd}
+                  onChange={(e) => setWorkEnd(e.target.value)}
+                />
+              </div>
+            </div>
+            <select
+              className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+              value={workTz}
+              onChange={(e) => setWorkTz(e.target.value)}
+            >
+              <option value="America/Chicago">America/Chicago (CST)</option>
+              <option value="America/New_York">America/New_York (EST)</option>
+              <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+              <option value="UTC">UTC</option>
+            </select>
           </div>
 
           <div className="flex items-center justify-between">

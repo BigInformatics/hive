@@ -2,6 +2,7 @@ import {
   bigserial,
   boolean,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -127,8 +128,8 @@ export const swarmProjects = pgTable("swarm_projects", {
   developerLeadUserId: varchar("developer_lead_user_id", {
     length: 50,
   }).notNull(),
-  workHoursStart: text("work_hours_start"),
-  workHoursEnd: text("work_hours_end"),
+  workHoursStart: integer("work_hours_start"),
+  workHoursEnd: integer("work_hours_end"),
   workHoursTimezone: text("work_hours_timezone").default("America/Chicago"),
   blockingMode: boolean("blocking_mode").default(false),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
