@@ -19,6 +19,7 @@ services:
       - MAILBOX_TOKEN_ZUMIE=${MAILBOX_TOKEN_ZUMIE}
       - MAILBOX_TOKEN_CHRIS=${MAILBOX_TOKEN_CHRIS}
       - MAILBOX_ADMIN_TOKEN=${MAILBOX_ADMIN_TOKEN}
+      - UI_MAILBOX_KEYS=${UI_MAILBOX_KEYS:-}
     networks:
       - dokploy-network
     labels:

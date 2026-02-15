@@ -53,6 +53,26 @@ export function initAuth() {
     }
   }
 
+  // UI_MAILBOX_KEYS format: {"key1":{"sender":"chris","admin":true},...}
+  if (process.env.UI_MAILBOX_KEYS) {
+    try {
+      const parsed = JSON.parse(process.env.UI_MAILBOX_KEYS) as Record<
+        string,
+        { sender: string; admin?: boolean }
+      >;
+      for (const [key, info] of Object.entries(parsed)) {
+        tokens.set(key, {
+          identity: info.sender.toLowerCase(),
+          isAdmin: info.admin || false,
+        });
+        validMailboxes.add(info.sender.toLowerCase());
+      }
+      console.log(`[auth] Loaded ${Object.keys(parsed).length} UI mailbox key(s)`);
+    } catch (err) {
+      console.error("[auth] Failed to parse UI_MAILBOX_KEYS:", err);
+    }
+  }
+
   // Bare MAILBOX_TOKEN fallback for local dev
   if (process.env.MAILBOX_TOKEN && tokens.size === 0) {
     const identity = process.env.USER?.toLowerCase() || "unknown";
