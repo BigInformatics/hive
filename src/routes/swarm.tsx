@@ -123,6 +123,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [loading, setLoading] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [filterProject, setFilterProject] = useState<string | null>(null);
 
@@ -186,6 +187,13 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" /> New Task
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCreateProjectOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> New Project
           </Button>
 
           {/* Assignee filter */}
@@ -402,6 +410,13 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         projects={projects}
         onCreated={fetchData}
       />
+
+      {/* Create project dialog */}
+      <CreateProjectDialog
+        open={createProjectOpen}
+        onOpenChange={setCreateProjectOpen}
+        onCreated={fetchData}
+      />
     </div>
   );
 }
@@ -456,7 +471,7 @@ function CreateTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle>New Task</DialogTitle>
         </DialogHeader>
@@ -510,6 +525,146 @@ function CreateTaskDialog({
             </Button>
             <Button type="submit" disabled={sending || !title.trim()}>
               {sending ? "Creating..." : "Create"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const PROJECT_COLORS = [
+  "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4",
+  "#3b82f6", "#8b5cf6", "#ec4899", "#6366f1", "#14b8a6",
+];
+
+function CreateProjectDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [color, setColor] = useState(PROJECT_COLORS[0]);
+  const [lead, setLead] = useState("");
+  const [devLead, setDevLead] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const KNOWN_USERS = ["chris", "clio", "domingo", "zumie"];
+
+  const reset = () => {
+    setTitle("");
+    setDescription("");
+    setColor(PROJECT_COLORS[0]);
+    setLead("");
+    setDevLead("");
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+
+    setSending(true);
+    try {
+      await api.createProject({
+        title: title.trim(),
+        color,
+        description: description.trim() || undefined,
+        projectLeadUserId: lead || undefined,
+        developerLeadUserId: devLead || undefined,
+      });
+      reset();
+      onOpenChange(false);
+      onCreated();
+    } catch (err) {
+      console.error("Failed to create project:", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle>New Project</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleCreate} className="space-y-4">
+          <Input
+            placeholder="Project name"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            autoFocus
+          />
+          <Textarea
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+          />
+
+          {/* Color picker */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Color</p>
+            <div className="flex gap-2 flex-wrap">
+              {PROJECT_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`h-8 w-8 rounded-full transition-transform ${
+                    color === c ? "ring-2 ring-offset-2 ring-primary scale-110" : ""
+                  }`}
+                  style={{ backgroundColor: c }}
+                  onClick={() => setColor(c)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Project Lead</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={lead}
+                onChange={(e) => setLead(e.target.value)}
+              >
+                <option value="">Select...</option>
+                {KNOWN_USERS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Dev Lead</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={devLead}
+                onChange={(e) => setDevLead(e.target.value)}
+              >
+                <option value="">Select...</option>
+                {KNOWN_USERS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={sending || !title.trim()}>
+              {sending ? "Creating..." : "Create Project"}
             </Button>
           </div>
         </form>

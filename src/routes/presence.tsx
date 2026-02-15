@@ -4,9 +4,8 @@ import { getMailboxKey, api } from "@/lib/api";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Circle } from "lucide-react";
+import { RefreshCw, Mail, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/presence")({
   component: PresencePage,
@@ -19,15 +18,38 @@ interface UserPresence {
   unread: number;
 }
 
-function timeAgo(date: string | null): string {
-  if (!date) return "never";
-  const seconds = Math.floor(
-    (Date.now() - new Date(date).getTime()) / 1000,
-  );
-  if (seconds < 60) return "just now";
+const AVATARS: Record<string, string> = {
+  chris: "/avatars/chris.jpg",
+  clio: "/avatars/clio.png",
+  domingo: "/avatars/domingo.jpg",
+  zumie: "/avatars/zumie.png",
+};
+
+const ALL_USERS = ["chris", "clio", "domingo", "zumie"];
+
+function getTimeSince(date: string | null): number {
+  if (!date) return Infinity;
+  return (Date.now() - new Date(date).getTime()) / 1000;
+}
+
+function formatLastSeen(date: string | null): string {
+  if (!date) return "Never seen";
+  const seconds = getTimeSince(date);
+  if (seconds < 60) return "Just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+/** Returns opacity 1.0 (just seen) → 0.2 (long gone). Online = always 1.0 */
+function getBorderOpacity(online: boolean, lastSeen: string | null): number {
+  if (online) return 1.0;
+  const seconds = getTimeSince(lastSeen);
+  if (seconds < 300) return 0.8; // < 5 min
+  if (seconds < 900) return 0.6; // < 15 min
+  if (seconds < 3600) return 0.4; // < 1 hour
+  if (seconds < 86400) return 0.25; // < 1 day
+  return 0.15;
 }
 
 function PresencePage() {
@@ -71,10 +93,24 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
     return () => clearInterval(interval);
   }, [fetchPresence]);
 
-  const users = Object.entries(presence).sort(([, a], [, b]) => {
-    // Online first, then by unread count
-    if (a.online !== b.online) return a.online ? -1 : 1;
-    return b.unread - a.unread;
+  // Sort: online first, then by last seen
+  const users = ALL_USERS.map((name) => ({
+    name,
+    info: presence[name] || {
+      online: false,
+      lastSeen: null,
+      source: null,
+      unread: 0,
+    },
+  })).sort((a, b) => {
+    if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
+    const aTime = a.info.lastSeen
+      ? new Date(a.info.lastSeen).getTime()
+      : 0;
+    const bTime = b.info.lastSeen
+      ? new Date(b.info.lastSeen).getTime()
+      : 0;
+    return bTime - aTime;
   });
 
   return (
@@ -89,45 +125,84 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
           onClick={fetchPresence}
           disabled={loading}
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
-        <div className="grid gap-3 max-w-lg mx-auto">
-          {users.length === 0 && !loading && (
-            <p className="text-center text-muted-foreground py-8">
-              No presence data yet
-            </p>
-          )}
-          {users.map(([name, info]) => (
-            <Card key={name}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <Circle
-                    className={`h-3 w-3 ${
-                      info.online
-                        ? "fill-green-500 text-green-500"
-                        : "fill-muted text-muted"
-                    }`}
-                  />
-                  <div>
-                    <p className="font-medium capitalize">{name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {info.online
-                        ? `Online via ${info.source || "api"}`
-                        : `Last seen ${timeAgo(info.lastSeen)}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {info.unread > 0 && (
-                    <Badge variant="destructive">{info.unread}</Badge>
+      <div className="flex-1 overflow-auto p-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
+          {users.map(({ name, info }) => {
+            const borderOpacity = getBorderOpacity(info.online, info.lastSeen);
+            const avatar = AVATARS[name];
+
+            return (
+              <div
+                key={name}
+                className="flex flex-col items-center gap-3 p-4 rounded-xl"
+              >
+                {/* Avatar with green border */}
+                <div
+                  className="relative rounded-full p-1 transition-all duration-500"
+                  style={{
+                    boxShadow: `0 0 0 3px rgba(34, 197, 94, ${borderOpacity})`,
+                  }}
+                >
+                  {avatar ? (
+                    <img
+                      src={avatar}
+                      alt={name}
+                      className="h-20 w-20 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-2xl font-bold uppercase text-muted-foreground">
+                      {name[0]}
+                    </div>
+                  )}
+
+                  {/* Online dot */}
+                  {info.online && (
+                    <span className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-green-500 border-2 border-background" />
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                {/* Name */}
+                <p className="font-semibold capitalize text-sm">{name}</p>
+
+                {/* Status line */}
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  {info.online ? (
+                    <>
+                      <span className="text-green-500">●</span>
+                      Online
+                      {info.source && (
+                        <span className="text-muted-foreground/60">
+                          via {info.source}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-3 w-3" />
+                      {formatLastSeen(info.lastSeen)}
+                    </>
+                  )}
+                </p>
+
+                {/* Unread badge */}
+                {info.unread > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="flex items-center gap-1"
+                  >
+                    <Mail className="h-3 w-3" />
+                    {info.unread}
+                  </Badge>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
