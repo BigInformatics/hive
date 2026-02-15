@@ -34,6 +34,7 @@ import {
   Crown,
   Code,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 
 export const Route = createFileRoute("/swarm")({
@@ -158,6 +159,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [editTask, setEditTask] = useState<SwarmTask | null>(null);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [filterProject, setFilterProject] = useState<string | null>(null);
+  const [editingProject, setEditingProject] = useState<SwarmProject | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
@@ -295,21 +297,30 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                 All projects
               </Button>
               {projects.map((p) => (
-                <Button
-                  key={p.id}
-                  variant={filterProject === p.id ? "secondary" : "ghost"}
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() =>
-                    setFilterProject(filterProject === p.id ? null : p.id)
-                  }
-                >
-                  <span
-                    className="h-2 w-2 rounded-full mr-1"
-                    style={{ backgroundColor: p.color }}
-                  />
-                  {p.title}
-                </Button>
+                <div key={p.id} className="flex items-center">
+                  <Button
+                    variant={filterProject === p.id ? "secondary" : "ghost"}
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() =>
+                      setFilterProject(filterProject === p.id ? null : p.id)
+                    }
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full mr-1"
+                      style={{ backgroundColor: p.color }}
+                    />
+                    {p.title}
+                  </Button>
+                  <button
+                    type="button"
+                    className="ml-0.5 p-0.5 text-muted-foreground/40 hover:text-foreground transition-colors"
+                    onClick={() => setEditingProject(p)}
+                    title={`Edit ${p.title}`}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -437,6 +448,12 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         open={createProjectOpen}
         onOpenChange={setCreateProjectOpen}
         onCreated={fetchData}
+      />
+
+      <EditProjectDialog
+        project={editingProject}
+        onClose={() => setEditingProject(null)}
+        onUpdated={fetchData}
       />
 
       <TaskDetailDialog
@@ -1227,6 +1244,170 @@ function CreateProjectDialog({
             </Button>
             <Button type="submit" disabled={sending || !title.trim()}>
               {sending ? "Creating..." : "Create Project"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── Edit Project Dialog ─── */
+
+const PROJECT_COLORS_EDIT = [
+  "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4",
+  "#3b82f6", "#8b5cf6", "#ec4899", "#6366f1", "#14b8a6",
+];
+
+function EditProjectDialog({
+  project,
+  onClose,
+  onUpdated,
+}: {
+  project: SwarmProject | null;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [color, setColor] = useState("");
+  const [lead, setLead] = useState("");
+  const [devLead, setDevLead] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [onedevUrl, setOnedevUrl] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (project) {
+      setTitle(project.title);
+      setDescription(project.description || "");
+      setColor(project.color);
+      setLead(project.projectLeadUserId || "");
+      setDevLead(project.developerLeadUserId || "");
+      setWebsiteUrl(project.websiteUrl || "");
+      setOnedevUrl(project.onedevUrl || "");
+      setGithubUrl(project.githubUrl || "");
+    }
+  }, [project]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!project || !title.trim()) return;
+
+    setSaving(true);
+    try {
+      await api.updateProject(project.id, {
+        title: title.trim(),
+        color,
+        description: description.trim() || null,
+        projectLeadUserId: lead || undefined,
+        developerLeadUserId: devLead || undefined,
+        websiteUrl: websiteUrl.trim() || null,
+        onedevUrl: onedevUrl.trim() || null,
+        githubUrl: githubUrl.trim() || null,
+      });
+      onClose();
+      onUpdated();
+    } catch (err) {
+      console.error("Failed to update project:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!project} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle>Edit Project</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSave} className="space-y-4">
+          <Input
+            placeholder="Project name"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            autoFocus
+          />
+          <Textarea
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+          />
+
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Color</p>
+            <div className="flex gap-2 flex-wrap">
+              {PROJECT_COLORS_EDIT.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`h-8 w-8 rounded-full transition-transform ${
+                    color === c ? "ring-2 ring-offset-2 ring-primary scale-110" : ""
+                  }`}
+                  style={{ backgroundColor: c }}
+                  onClick={() => setColor(c)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Project Lead</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={lead}
+                onChange={(e) => setLead(e.target.value)}
+              >
+                <option value="">Select...</option>
+                {KNOWN_USERS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Dev Lead</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={devLead}
+                onChange={(e) => setDevLead(e.target.value)}
+              >
+                <option value="">Select...</option>
+                {KNOWN_USERS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Links</p>
+            <Input
+              placeholder="Website URL"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+            />
+            <Input
+              placeholder="OneDev URL"
+              value={onedevUrl}
+              onChange={(e) => setOnedevUrl(e.target.value)}
+            />
+            <Input
+              placeholder="GitHub URL"
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || !title.trim()}>
+              {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </form>

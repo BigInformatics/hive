@@ -130,6 +130,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  updateProject: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/swarm/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   listTasks: (params?: {
     statuses?: string;
     assignee?: string;
