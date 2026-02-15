@@ -28,7 +28,7 @@ services:
       # Main route — serves both UI and API
       - "traefik.http.routers.hive-route.rule=Host(`messages.biginformatics.net`)"
       - "traefik.http.routers.hive-route.entrypoints=websecure"
-      - "traefik.http.routers.hive-route.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.hive-route.tls.certresolver=step-ca"
       - "traefik.http.routers.hive-route.service=hive"
       # Legacy c2 route
       - "traefik.http.routers.hive-c2.rule=Host(`c2.biginformatics.net`)"
