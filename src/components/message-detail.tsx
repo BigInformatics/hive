@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCheck, Reply, AlertTriangle, Clock, Hourglass } from "lucide-react";
+import { CheckCheck, Reply, AlertTriangle, Clock, Hourglass, Copy, Check } from "lucide-react";
 
 interface Message {
   id: number;
@@ -35,6 +35,7 @@ export function MessageDetail({
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
   const [showReply, setShowReply] = useState(false);
+  const [copied, setCopied] = useState(false);
   const autoReadRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Auto-read after 5 seconds of viewing
@@ -78,6 +79,19 @@ export function MessageDetail({
               <h2 className="text-lg font-semibold">{message.title}</h2>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer"
+                onClick={() => {
+                  navigator.clipboard.writeText(String(message.id));
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }}
+                title="Copy message ID"
+              >
+                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                #{message.id}
+              </button>
               <span>From: <strong>{message.sender}</strong></span>
               <span>→</span>
               <span><strong>{message.recipient}</strong></span>
