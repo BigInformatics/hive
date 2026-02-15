@@ -28,6 +28,12 @@ import {
   GripVertical,
   Columns3,
   List,
+  Globe,
+  GitBranch,
+  Github,
+  Crown,
+  Code,
+  ExternalLink,
 } from "lucide-react";
 
 export const Route = createFileRoute("/swarm")({
@@ -53,6 +59,11 @@ interface SwarmProject {
   title: string;
   color: string;
   description: string | null;
+  websiteUrl?: string | null;
+  onedevUrl?: string | null;
+  githubUrl?: string | null;
+  projectLeadUserId?: string | null;
+  developerLeadUserId?: string | null;
 }
 
 const STATUS_CONFIG: Record<
@@ -874,6 +885,22 @@ function TaskDetailDialog({
               })}
             </div>
 
+            {/* Project leads */}
+            {project && (project.projectLeadUserId || project.developerLeadUserId) && (
+              <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
+                {project.projectLeadUserId && (
+                  <span className="flex items-center gap-1">
+                    <Crown className="h-3 w-3" /> Lead: <strong>{project.projectLeadUserId}</strong>
+                  </span>
+                )}
+                {project.developerLeadUserId && (
+                  <span className="flex items-center gap-1">
+                    <Code className="h-3 w-3" /> Dev: <strong>{project.developerLeadUserId}</strong>
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Timestamps */}
             <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
               <p>Created: {new Date(task.createdAt).toLocaleString()}</p>
@@ -882,6 +909,30 @@ function TaskDetailDialog({
                 <p>Completed: {new Date(task.completedAt).toLocaleString()}</p>
               )}
             </div>
+
+            {/* Project links */}
+            {project && (project.websiteUrl || project.onedevUrl || project.githubUrl) && (
+              <div className="flex gap-2 pt-2 border-t">
+                {project.websiteUrl && (
+                  <a href={project.websiteUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <Globe className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {project.onedevUrl && (
+                  <a href={project.onedevUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <GitBranch className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {project.githubUrl && (
+                  <a href={project.githubUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <Github className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* Edit button */}
             <div className="flex justify-end">
@@ -1038,6 +1089,9 @@ function CreateProjectDialog({
   const [color, setColor] = useState(PROJECT_COLORS[0]);
   const [lead, setLead] = useState("");
   const [devLead, setDevLead] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [onedevUrl, setOnedevUrl] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
   const [sending, setSending] = useState(false);
 
   const reset = () => {
@@ -1046,6 +1100,9 @@ function CreateProjectDialog({
     setColor(PROJECT_COLORS[0]);
     setLead("");
     setDevLead("");
+    setWebsiteUrl("");
+    setOnedevUrl("");
+    setGithubUrl("");
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -1060,6 +1117,9 @@ function CreateProjectDialog({
         description: description.trim() || undefined,
         projectLeadUserId: lead || undefined,
         developerLeadUserId: devLead || undefined,
+        websiteUrl: websiteUrl.trim() || undefined,
+        onedevUrl: onedevUrl.trim() || undefined,
+        githubUrl: githubUrl.trim() || undefined,
       });
       reset();
       onOpenChange(false);
@@ -1136,6 +1196,25 @@ function CreateProjectDialog({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Links (optional)</p>
+            <Input
+              placeholder="Website URL"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+            />
+            <Input
+              placeholder="OneDev URL"
+              value={onedevUrl}
+              onChange={(e) => setOnedevUrl(e.target.value)}
+            />
+            <Input
+              placeholder="GitHub URL"
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+            />
           </div>
 
           <div className="flex justify-end gap-2">

@@ -27,7 +27,9 @@ export async function createProject(input: {
   color: string;
   projectLeadUserId: string;
   developerLeadUserId: string;
+  websiteUrl?: string;
   onedevUrl?: string;
+  githubUrl?: string;
   dokployDeployUrl?: string;
   workHoursStart?: string;
   workHoursEnd?: string;
@@ -42,7 +44,9 @@ export async function createProject(input: {
       color: input.color,
       projectLeadUserId: input.projectLeadUserId,
       developerLeadUserId: input.developerLeadUserId,
+      websiteUrl: input.websiteUrl || null,
       onedevUrl: input.onedevUrl || null,
+      githubUrl: input.githubUrl || null,
       dokployDeployUrl: input.dokployDeployUrl || null,
       workHoursStart: input.workHoursStart || null,
       workHoursEnd: input.workHoursEnd || null,
@@ -82,7 +86,9 @@ export async function updateProject(
     color: string;
     projectLeadUserId: string;
     developerLeadUserId: string;
+    websiteUrl: string | null;
     onedevUrl: string | null;
+    githubUrl: string | null;
     dokployDeployUrl: string | null;
     workHoursStart: string | null;
     workHoursEnd: string | null;

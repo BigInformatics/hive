@@ -121,6 +121,9 @@ export const api = {
     description?: string;
     projectLeadUserId?: string;
     developerLeadUserId?: string;
+    websiteUrl?: string;
+    onedevUrl?: string;
+    githubUrl?: string;
   }) =>
     apiFetch("/swarm/projects", {
       method: "POST",

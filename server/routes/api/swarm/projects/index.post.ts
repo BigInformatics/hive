@@ -25,7 +25,9 @@ export default defineEventHandler(async (event) => {
     color: body.color,
     projectLeadUserId: body.projectLeadUserId || auth.identity,
     developerLeadUserId: body.developerLeadUserId || auth.identity,
+    websiteUrl: body.websiteUrl,
     onedevUrl: body.onedevUrl,
+    githubUrl: body.githubUrl,
     dokployDeployUrl: body.dokployDeployUrl,
   });
 
