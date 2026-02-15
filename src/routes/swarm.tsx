@@ -1472,6 +1472,7 @@ function EditProjectDialog({
   const [onedevUrl, setOnedevUrl] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -1597,13 +1598,36 @@ function EditProjectDialog({
             />
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={archiving}
+              onClick={async () => {
+                if (!project || !confirm(`Archive "${project.title}"? It will be hidden from the board but tasks will keep their project link.`)) return;
+                setArchiving(true);
+                try {
+                  await api.archiveProject(project.id);
+                  onClose();
+                  onUpdated();
+                } catch (err) {
+                  console.error("Failed to archive:", err);
+                } finally {
+                  setArchiving(false);
+                }
+              }}
+            >
+              {archiving ? "Archiving..." : "Archive Project"}
             </Button>
-            <Button type="submit" disabled={saving || !title.trim()}>
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving || !title.trim()}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

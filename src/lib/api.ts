@@ -136,6 +136,11 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  archiveProject: (id: string) =>
+    apiFetch(`/swarm/projects/${id}/archive`, {
+      method: "POST",
+    }),
+
   listTasks: (params?: {
     statuses?: string;
     assignee?: string;
