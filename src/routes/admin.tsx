@@ -555,6 +555,7 @@ function RecurringPanel({
   const [templates, setTemplates] = useState<RecurringTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<RecurringTemplate | null>(null);
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -666,6 +667,15 @@ function RecurringPanel({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
+                        onClick={() => setEditingTemplate(t)}
+                        title="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
                         onClick={async () => {
                           try {
                             await api.createRecurringTemplate({
@@ -720,6 +730,13 @@ function RecurringPanel({
         onOpenChange={setCreateOpen}
         projects={projects}
         onCreated={fetchTemplates}
+      />
+
+      <EditRecurringDialog
+        template={editingTemplate}
+        onClose={() => setEditingTemplate(null)}
+        projects={projects}
+        onUpdated={fetchTemplates}
       />
     </div>
   );
@@ -883,6 +900,174 @@ function CreateRecurringDialog({
             </Button>
             <Button type="submit" disabled={sending || !title.trim() || !cronExpr.trim()}>
               {sending ? "Creating..." : "Create Template"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditRecurringDialog({
+  template,
+  onClose,
+  projects,
+  onUpdated,
+}: {
+  template: RecurringTemplate | null;
+  onClose: () => void;
+  projects: Array<{ id: string; title: string; color: string }>;
+  onUpdated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [detail, setDetail] = useState("");
+  const [cronExpr, setCronExpr] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [assignee, setAssignee] = useState("");
+  const [initialStatus, setInitialStatus] = useState("ready");
+  const [saving, setSaving] = useState(false);
+
+  const ALL_STATUSES = [
+    { value: "queued", label: "Queued" },
+    { value: "ready", label: "Ready" },
+    { value: "in_progress", label: "In Progress" },
+  ];
+
+  useEffect(() => {
+    if (template) {
+      setTitle(template.title);
+      setDetail(template.detail || "");
+      setCronExpr(template.cronExpr);
+      setProjectId(template.projectId || "");
+      setAssignee(template.assigneeUserId || "");
+      setInitialStatus(template.initialStatus);
+    }
+  }, [template]);
+
+  if (!template) return null;
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !cronExpr.trim()) return;
+
+    setSaving(true);
+    try {
+      await api.updateRecurringTemplate(template.id, {
+        title: title.trim(),
+        detail: detail.trim() || null,
+        cronExpr: cronExpr.trim(),
+        projectId: projectId || null,
+        assigneeUserId: assignee || null,
+        initialStatus,
+      });
+      onClose();
+      onUpdated();
+    } catch (err) {
+      console.error("Failed to update template:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!template} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle>Edit Recurring Template</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSave} className="space-y-4">
+          <Input
+            placeholder="Task title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            autoFocus
+          />
+          <Textarea
+            placeholder="Details (optional)"
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            rows={2}
+          />
+
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Schedule (cron)</p>
+            <Input
+              placeholder="0 9 * * 1"
+              value={cronExpr}
+              onChange={(e) => setCronExpr(e.target.value)}
+              className="font-mono"
+              required
+            />
+            <div className="flex gap-1 mt-1.5 flex-wrap">
+              {CRON_PRESETS.map((p) => (
+                <Button
+                  key={p.value}
+                  type="button"
+                  variant={cronExpr === p.value ? "secondary" : "outline"}
+                  size="sm"
+                  className="text-xs h-6"
+                  onClick={() => setCronExpr(p.value)}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Project</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+              >
+                <option value="">No project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Assignee</p>
+              <select
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+              >
+                <option value="">Unassigned</option>
+                {KNOWN_USERS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Initial status</p>
+            <div className="flex gap-1">
+              {ALL_STATUSES.map((s) => (
+                <Button
+                  key={s.value}
+                  type="button"
+                  variant={initialStatus === s.value ? "secondary" : "outline"}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setInitialStatus(s.value)}
+                >
+                  {s.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || !title.trim() || !cronExpr.trim()}>
+              {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </form>
