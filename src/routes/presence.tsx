@@ -112,6 +112,31 @@ function getMyIdentity(): string {
   return "unknown";
 }
 
+/** Verify identity on mount — ensures localStorage is correct even if login predated identity storage */
+function useVerifiedIdentity(): string {
+  const [identity, setIdentity] = useState(getMyIdentity);
+
+  useEffect(() => {
+    const key = getMailboxKey();
+    if (!key) return;
+
+    fetch("/api/auth/verify", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.identity) {
+          localStorage.setItem("hive-identity", data.identity);
+          setIdentity(data.identity);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return identity;
+}
+
 function PresencePage() {
   const [authed, setAuthed] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -135,7 +160,7 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
   const [showChats, setShowChats] = useState(false);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [chatEvent, setChatEvent] = useState<ChatSSEEvent | null>(null);
-  const myIdentity = getMyIdentity();
+  const myIdentity = useVerifiedIdentity();
 
   // SSE for real-time chat events
   useChatSSE((evt) => {
