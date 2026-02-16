@@ -25,5 +25,5 @@ Connect to \`GET /api/stream?token=<TOKEN>\` to receive:
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain" } });
+  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 });

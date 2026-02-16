@@ -32,6 +32,6 @@ Hive provides per-section skill docs for agents to learn specific features:
 
 export default defineEventHandler(() => {
   return new Response(skillDoc + DISCOVERY, {
-    headers: { "Content-Type": "text/plain" },
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 });

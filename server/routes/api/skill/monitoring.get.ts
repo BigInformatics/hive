@@ -97,5 +97,5 @@ Message: "Check Hive inbox: fetch unread messages from https://messages.biginfor
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain" } });
+  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 });

@@ -46,5 +46,5 @@ Call this from an external cron job or heartbeat (recommended: every 5 min).
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain" } });
+  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 });

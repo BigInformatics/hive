@@ -111,6 +111,6 @@ Existing env var tokens (\`MAILBOX_TOKEN_*\`, \`UI_MAILBOX_KEYS\`, etc.) continu
 
 export default defineEventHandler(() => {
   return new Response(DOC, {
-    headers: { "Content-Type": "text/plain" },
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 });

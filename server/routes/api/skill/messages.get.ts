@@ -60,5 +60,5 @@ Returns: \`{"ok": true, "sender": "your-name"}\`
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain" } });
+  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 });
