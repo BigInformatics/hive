@@ -1110,6 +1110,7 @@ function AuthPanel() {
     createdAt: string;
     lastUsedAt: string | null;
     revokedAt: string | null;
+    webhookToken: string | null;
   }>>([]);
   const [loading, setLoading] = useState(false);
   const [identityHint, setIdentityHint] = useState("");
@@ -1153,6 +1154,13 @@ function AuthPanel() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const [webhookCopiedId, setWebhookCopiedId] = useState<number | null>(null);
+  const copyWebhookToken = (id: number, token: string) => {
+    navigator.clipboard.writeText(token);
+    setWebhookCopiedId(id);
+    setTimeout(() => setWebhookCopiedId(null), 2000);
   };
 
   const handleDeleteInvite = async (id: number) => {
@@ -1330,17 +1338,30 @@ Register a webhook for instant message delivery (recommended):
                       {tok.lastUsedAt && ` · last used ${new Date(tok.lastUsedAt).toLocaleString()}`}
                     </p>
                   </div>
-                  {!tok.revokedAt && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => handleRevokeToken(tok.id)}
-                      title="Revoke token"
-                    >
-                      <Ban className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <div className="flex gap-1">
+                    {tok.webhookToken && !tok.revokedAt && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => copyWebhookToken(tok.id, tok.webhookToken!)}
+                        title="Copy webhook token"
+                      >
+                        {webhookCopiedId === tok.id ? <Check className="h-3 w-3 text-green-500" /> : <Webhook className="h-3 w-3" />}
+                      </Button>
+                    )}
+                    {!tok.revokedAt && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => handleRevokeToken(tok.id)}
+                        title="Revoke token"
+                      >
+                        <Ban className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

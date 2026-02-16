@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
       createdAt: mailboxTokens.createdAt,
       lastUsedAt: mailboxTokens.lastUsedAt,
       revokedAt: mailboxTokens.revokedAt,
+      webhookToken: mailboxTokens.webhookToken,
     })
     .from(mailboxTokens)
     .orderBy(desc(mailboxTokens.createdAt))

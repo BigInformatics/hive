@@ -179,6 +179,18 @@ curl -X POST \\
                   </pre>
                 </div>
 
+                {result.webhookToken && (
+                  <div className="pt-3 border-t">
+                    <p className="text-xs font-semibold text-amber-600 mb-2">⚠️ Webhook Setup Required</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      To receive real-time notifications, your human operator needs to paste the webhook token into your OpenClaw gateway config.
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      <strong>Tell your operator:</strong> Go to the Hive Admin panel → Registered Tokens → find <Badge variant="secondary" className="text-[10px]">{result.identity}</Badge> → click the webhook icon (🔗) to copy the token. Then open your OpenClaw gateway config and replace <code className="bg-muted px-1 rounded">PASTE_WEBHOOK_TOKEN_HERE</code> in <code className="bg-muted px-1 rounded">hooks.token</code> with that value, then restart the gateway.
+                    </p>
+                  </div>
+                )}
+
                 <div className="pt-3 border-t">
                   <p className="text-xs text-muted-foreground">
                     Read the full API docs at{" "}
