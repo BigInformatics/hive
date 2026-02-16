@@ -33,6 +33,9 @@ import {
   Play,
   Settings,
   Pencil,
+  KeyRound,
+  UserPlus,
+  Ban,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -172,6 +175,9 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
             <TabsTrigger value="webhooks" className="gap-1.5">
               <Webhook className="h-3.5 w-3.5" /> Webhooks
             </TabsTrigger>
+            <TabsTrigger value="invites" className="gap-1.5">
+              <KeyRound className="h-3.5 w-3.5" /> Auth
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="presence" className="mt-4">
@@ -191,6 +197,10 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
 
           <TabsContent value="webhooks" className="mt-4">
             <WebhooksPanel webhooks={stats?.webhooks || []} onRefresh={fetchStats} />
+          </TabsContent>
+
+          <TabsContent value="invites" className="mt-4">
+            <AuthPanel />
           </TabsContent>
         </Tabs>
       </div>
@@ -1073,5 +1083,233 @@ function EditRecurringDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ─── Auth Panel (Invites + Tokens) ─── */
+
+function AuthPanel() {
+  const [invitesList, setInvitesList] = useState<Array<{
+    id: number;
+    code: string;
+    createdBy: string;
+    identityHint: string | null;
+    isAdmin: boolean;
+    maxUses: number;
+    useCount: number;
+    expiresAt: string | null;
+    createdAt: string;
+  }>>([]);
+  const [tokensList, setTokensList] = useState<Array<{
+    id: number;
+    identity: string;
+    isAdmin: boolean;
+    label: string | null;
+    createdBy: string | null;
+    createdAt: string;
+    lastUsedAt: string | null;
+    revokedAt: string | null;
+  }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [identityHint, setIdentityHint] = useState("");
+  const [inviteAdmin, setInviteAdmin] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const fetchAll = async () => {
+    setLoading(true);
+    try {
+      const [inv, tok] = await Promise.all([
+        api.listInvites().catch(() => ({ invites: [] })),
+        api.listTokens().catch(() => ({ tokens: [] })),
+      ]);
+      setInvitesList(inv.invites || []);
+      setTokensList(tok.tokens || []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchAll(); }, []);
+
+  const handleCreateInvite = async () => {
+    setCreating(true);
+    try {
+      const result = await api.createInvite({
+        identityHint: identityHint.trim() || undefined,
+        isAdmin: inviteAdmin,
+        expiresInHours: 72,
+      });
+      setIdentityHint("");
+      setInviteAdmin(false);
+      fetchAll();
+      // Copy the onboard URL
+      if (result.onboardUrl) {
+        navigator.clipboard.writeText(result.onboardUrl);
+        alert(`Invite created! URL copied to clipboard:\n${result.onboardUrl}`);
+      }
+    } catch (err) {
+      console.error("Failed to create invite:", err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteInvite = async (id: number) => {
+    await api.deleteInvite(id);
+    fetchAll();
+  };
+
+  const handleRevokeToken = async (id: number) => {
+    if (!confirm("Revoke this token? The agent will lose access.")) return;
+    await api.revokeToken(id);
+    fetchAll();
+  };
+
+  const copyCode = (id: number, code: string) => {
+    const url = `https://messages.biginformatics.net/onboard?code=${code}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Create Invite */}
+      <Card>
+        <CardContent className="p-4">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
+            <UserPlus className="h-4 w-4" /> Create Invite
+          </h3>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1">Identity hint (optional)</p>
+              <Input
+                value={identityHint}
+                onChange={(e) => setIdentityHint(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                placeholder="e.g., clio"
+              />
+            </div>
+            <label className="flex items-center gap-1.5 text-xs pb-2">
+              <input
+                type="checkbox"
+                checked={inviteAdmin}
+                onChange={(e) => setInviteAdmin(e.target.checked)}
+              />
+              Admin
+            </label>
+            <Button size="sm" onClick={handleCreateInvite} disabled={creating}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              {creating ? "Creating..." : "Create"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Creates a one-time invite link (expires in 72h). URL is copied to clipboard.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Active Invites */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-1.5">
+              <KeyRound className="h-4 w-4" /> Pending Invites
+            </h3>
+            <Button variant="ghost" size="icon" onClick={fetchAll} disabled={loading}>
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+          {invitesList.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">No pending invites</p>
+          ) : (
+            <div className="space-y-2">
+              {invitesList.map((inv) => {
+                const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+                const used = inv.useCount >= inv.maxUses;
+                return (
+                  <div key={inv.id} className={`flex items-center justify-between p-2 rounded-md border text-xs ${expired || used ? "opacity-50" : ""}`}>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        {inv.identityHint && <Badge variant="outline">{inv.identityHint}</Badge>}
+                        {inv.isAdmin && <Badge variant="destructive">admin</Badge>}
+                        <span className="text-muted-foreground">
+                          {inv.useCount}/{inv.maxUses} used
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground">
+                        by {inv.createdBy} · {new Date(inv.createdAt).toLocaleDateString()}
+                        {inv.expiresAt && ` · expires ${new Date(inv.expiresAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => copyCode(inv.id, inv.code)}
+                      >
+                        {copiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => handleDeleteInvite(inv.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* DB Tokens */}
+      <Card>
+        <CardContent className="p-4">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
+            <KeyRound className="h-4 w-4" /> Registered Tokens
+          </h3>
+          {tokensList.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">No DB tokens yet — agents still using env vars</p>
+          ) : (
+            <div className="space-y-2">
+              {tokensList.map((tok) => (
+                <div key={tok.id} className={`flex items-center justify-between p-2 rounded-md border text-xs ${tok.revokedAt ? "opacity-40" : ""}`}>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{tok.identity}</Badge>
+                      {tok.isAdmin && <Badge variant="destructive">admin</Badge>}
+                      {tok.revokedAt && <Badge variant="outline">revoked</Badge>}
+                      {tok.label && <span className="text-muted-foreground">{tok.label}</span>}
+                    </div>
+                    <p className="text-muted-foreground">
+                      {tok.createdBy && `by ${tok.createdBy} · `}
+                      {new Date(tok.createdAt).toLocaleDateString()}
+                      {tok.lastUsedAt && ` · last used ${new Date(tok.lastUsedAt).toLocaleString()}`}
+                    </p>
+                  </div>
+                  {!tok.revokedAt && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => handleRevokeToken(tok.id)}
+                      title="Revoke token"
+                    >
+                      <Ban className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { createTask } from "@/lib/swarm";
 import { emit } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

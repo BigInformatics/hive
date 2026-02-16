@@ -5,7 +5,7 @@ import { emit } from "@/lib/events";
 import { updatePresence } from "@/lib/presence";
 
 export default defineEventHandler(async (event) => {
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

@@ -215,4 +215,26 @@ export const api = {
 
   tickRecurring: () =>
     apiFetch("/swarm/recurring/tick", { method: "POST" }),
+
+  // Auth / Invites
+  listInvites: () => apiFetch("/auth/invites"),
+
+  createInvite: (data: {
+    identityHint?: string;
+    isAdmin?: boolean;
+    maxUses?: number;
+    expiresInHours?: number;
+  }) =>
+    apiFetch("/auth/invites", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  deleteInvite: (id: number) =>
+    apiFetch(`/auth/invites/${id}`, { method: "DELETE" }),
+
+  listTokens: () => apiFetch("/auth/tokens"),
+
+  revokeToken: (id: number) =>
+    apiFetch(`/auth/tokens/${id}/revoke`, { method: "POST" }),
 };

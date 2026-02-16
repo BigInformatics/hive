@@ -238,6 +238,39 @@ export const recurringTemplates = pgTable("recurring_templates", {
 });
 
 // ============================================================
+// AUTH: MAILBOX TOKENS
+// ============================================================
+
+export const mailboxTokens = pgTable("mailbox_tokens", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  identity: varchar("identity", { length: 50 }).notNull(),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  label: varchar("label", { length: 100 }),
+  createdBy: varchar("created_by", { length: 50 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+// ============================================================
+// AUTH: INVITES
+// ============================================================
+
+export const invites = pgTable("invites", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  code: varchar("code", { length: 64 }).notNull().unique(),
+  createdBy: varchar("created_by", { length: 50 }).notNull(),
+  identityHint: varchar("identity_hint", { length: 50 }),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  maxUses: integer("max_uses").notNull().default(1),
+  useCount: integer("use_count").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -250,3 +283,5 @@ export type SwarmProject = typeof swarmProjects.$inferSelect;
 export type SwarmTask = typeof swarmTasks.$inferSelect;
 export type SwarmTaskEvent = typeof swarmTaskEvents.$inferSelect;
 export type RecurringTemplate = typeof recurringTemplates.$inferSelect;
+export type MailboxToken = typeof mailboxTokens.$inferSelect;
+export type Invite = typeof invites.$inferSelect;

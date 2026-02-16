@@ -6,7 +6,7 @@ import { updatePresence } from "@/lib/presence";
 
 export default defineEventHandler(async (event) => {
   // Auth
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
