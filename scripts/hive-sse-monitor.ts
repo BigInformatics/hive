@@ -12,7 +12,8 @@
 //   HIVE_BASE_URL        — API base (default: https://messages.biginformatics.net/api)
 //   WEBHOOK_URL          — POST events here (e.g. OpenClaw /hooks/agent)
 //   WEBHOOK_TOKEN        — Bearer token for webhook endpoint
-//   MONITOR_EVENTS       — Comma-separated event types to forward (default: chat_message,message)
+//   MONITOR_EVENTS       — Comma-separated event types to forward
+//                          (default: chat_message,message,broadcast,swarm_task_created,swarm_task_updated,swarm_task_deleted)
 //   MONITOR_VERBOSE      — Set to "true" for debug logging
 //   MONITOR_CALLBACK     — Shell command to run on events (receives JSON on stdin)
 //
@@ -35,7 +36,7 @@ const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN;
 const CALLBACK = process.env.MONITOR_CALLBACK;
 const VERBOSE = process.env.MONITOR_VERBOSE === "true";
 const MONITORED_EVENTS = new Set(
-  (process.env.MONITOR_EVENTS ?? "chat_message,message").split(",").map((s) => s.trim()),
+  (process.env.MONITOR_EVENTS ?? "chat_message,message,broadcast,swarm_task_created,swarm_task_updated,swarm_task_deleted").split(",").map((s) => s.trim()),
 );
 
 if (!TOKEN) {
@@ -125,9 +126,26 @@ async function handleSwarmEvent(evt: SSEEvent) {
   }
 }
 
+async function handleBroadcast(evt: SSEEvent) {
+  const data = evt.data as {
+    appName?: string;
+    title?: string;
+    eventId?: number;
+  };
+
+  log(`📡 Broadcast [${data?.appName}]: "${data?.title}"`);
+
+  if (WEBHOOK_URL) {
+    await forwardToWebhook(
+      `Hive broadcast from ${data?.appName}: "${data?.title}"\n\nEvent ID: ${data?.eventId}`,
+    );
+  }
+}
+
 const EVENT_HANDLERS: Record<string, (evt: SSEEvent) => Promise<void>> = {
   chat_message: handleChatMessage,
   message: handleInboxMessage,
+  broadcast: handleBroadcast,
   swarm_task_created: handleSwarmEvent,
   swarm_task_updated: handleSwarmEvent,
   swarm_task_deleted: handleSwarmEvent,
