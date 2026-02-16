@@ -14,8 +14,8 @@ import { clearWebhookCache } from "@/lib/webhooks";
  * - token: Optional override for webhook auth token (defaults to agent's own API token)
  */
 export default defineEventHandler(async (event) => {
-  const identity = await authenticateEvent(event);
-  if (!identity) {
+  const auth = await authenticateEvent(event);
+  if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   const [row] = await db
     .select({ id: mailboxTokens.id, token: mailboxTokens.token })
     .from(mailboxTokens)
-    .where(and(eq(mailboxTokens.identity, identity), isNull(mailboxTokens.revokedAt)))
+    .where(and(eq(mailboxTokens.identity, auth.identity), isNull(mailboxTokens.revokedAt)))
     .limit(1);
 
   if (!row) {
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     ok: true,
-    identity,
+    identity: auth.identity,
     webhookUrl: url,
     message: url ? "Webhook registered" : "Webhook cleared",
   };

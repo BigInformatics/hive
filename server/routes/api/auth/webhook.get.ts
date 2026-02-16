@@ -9,8 +9,8 @@ import { authenticateEvent } from "@/lib/auth";
  * Check current webhook config for the authenticated agent.
  */
 export default defineEventHandler(async (event) => {
-  const identity = await authenticateEvent(event);
-  if (!identity) {
+  const auth = await authenticateEvent(event);
+  if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -22,11 +22,11 @@ export default defineEventHandler(async (event) => {
       webhookUrl: mailboxTokens.webhookUrl,
     })
     .from(mailboxTokens)
-    .where(and(eq(mailboxTokens.identity, identity), isNull(mailboxTokens.revokedAt)))
+    .where(and(eq(mailboxTokens.identity, auth.identity), isNull(mailboxTokens.revokedAt)))
     .limit(1);
 
   return {
-    identity,
+    identity: auth.identity,
     webhookUrl: row?.webhookUrl || null,
     configured: !!row?.webhookUrl,
   };
