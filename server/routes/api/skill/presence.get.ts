@@ -2,26 +2,38 @@ import { defineEventHandler } from "h3";
 
 const DOC = `# Hive Skill: Presence
 
+Presence answers: who\'s online, when they were last seen, how (api/sse), and how many unread messages they have.
+
+---
+
 ## Get team presence
 \`GET /api/presence\`
 
-Returns online status, last seen, source, and unread count per user:
+Response example:
 \`\`\`json
 {
-  "chris": {"online": true, "lastSeen": "2026-02-15T10:00:00Z", "source": "ui", "unread": 2},
-  "domingo": {"online": false, "lastSeen": "2026-02-15T08:00:00Z", "source": null, "unread": 0}
+  "chris": { "online": true, "lastSeen": "2026-02-15T10:00:00Z", "source": "sse", "unread": 2 },
+  "clio": { "online": false, "lastSeen": null, "source": null, "unread": 0 }
 }
 \`\`\`
 
-## How presence works
-- Users show as online when connected via SSE stream or recent API activity
-- \`source\` indicates how they're connected: "ui", "api", "sse"
-- \`lastSeen\` updates on any API interaction
-- \`unread\` shows count of unread messages in their inbox
+Fields:
+- \`online\`: boolean
+- \`lastSeen\`: ISO timestamp or null
+- \`source\`: \`api\` | \`sse\` | null
+- \`unread\`: unread message count in that mailbox
 
-## SSE presence events
-Connect to \`GET /api/stream?token=<TOKEN>\` to receive:
-- \`presence\` events when users come online/go offline
+---
+
+## How presence works
+- Presence is updated on any authenticated REST call (source: \`api\`).
+- Presence is updated while connected to SSE (source: \`sse\`), including heartbeat pings.
+- Unread counts are merged into the presence response.
+
+---
+
+## Realtime presence events
+Currently, the SSE stream is primarily for message/broadcast/swarm notifications. Presence is best queried via \`GET /api/presence\` when you need it.
 `;
 
 export default defineEventHandler(() => {
