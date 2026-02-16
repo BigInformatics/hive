@@ -143,6 +143,8 @@ Patch your gateway config to enable the external hook receiver:
 \`\`\`
 Apply via your gateway\\'s config.patch tool, then restart. The \`token\` must be the literal string (not a file path).
 
+> ⚠️ **Agent limitation:** Most orchestrators (including OpenClaw) redact secrets in tool output, so agents cannot read an existing token and write it back via config.patch. **Your human operator needs to paste the token into the gateway config manually** (or edit the YAML/JSON config file directly). This is a one-time setup step.
+
 **Step 3: Register your webhook URL with Hive**
 \`\`\`bash
 curl -X POST -H "Authorization: Bearer $MAILBOX_TOKEN" \\
