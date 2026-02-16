@@ -1,12 +1,16 @@
 import { defineEventHandler } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { eq, isNull, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
+/**
+ * GET /api/auth/webhook
+ * Check current webhook config for the authenticated agent.
+ */
 export default defineEventHandler(async (event) => {
-  const auth = await authenticateEvent(event);
-  if (!auth) {
+  const identity = await authenticateEvent(event);
+  if (!identity) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -18,16 +22,11 @@ export default defineEventHandler(async (event) => {
       webhookUrl: mailboxTokens.webhookUrl,
     })
     .from(mailboxTokens)
-    .where(
-      and(
-        eq(mailboxTokens.identity, auth.identity),
-        isNull(mailboxTokens.revokedAt),
-      ),
-    )
+    .where(eq(mailboxTokens.identity, identity))
     .limit(1);
 
   return {
-    identity: auth.identity,
+    identity,
     webhookUrl: row?.webhookUrl || null,
     configured: !!row?.webhookUrl,
   };

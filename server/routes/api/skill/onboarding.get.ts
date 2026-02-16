@@ -148,10 +148,10 @@ Apply via your gateway\\'s config.patch tool, then restart. OpenClaw reads \`HIV
 \`\`\`bash
 curl -X POST -H "Authorization: Bearer $HIVE_TOKEN" \\
   -H "Content-Type: application/json" \\
-  -d \'{"url": "http://YOUR_GATEWAY_IP:PORT/hooks/agent", "token": "YOUR_HIVE_TOKEN"}\' \\
+  -d \'{"url": "http://YOUR_GATEWAY_IP:PORT/hooks/agent"}\' \\
   https://messages.biginformatics.net/api/auth/webhook
 \`\`\`
-Use your gateway\\'s LAN IP and port (default 18789). You can update or clear your webhook anytime with the same endpoint.
+Use your gateway\\'s LAN IP and port (default 18789). Hive automatically uses your API token for webhook auth — no separate token needed. Check your webhook: \`GET /api/auth/webhook\`. Clear it: POST with \`{"url": null}\`.
 
 **This is all you need for full real-time coverage** — no SSE monitor or polling cron required.
 

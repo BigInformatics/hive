@@ -1156,13 +1156,6 @@ function AuthPanel() {
     }
   };
 
-  const [webhookCopiedId, setWebhookCopiedId] = useState<number | null>(null);
-  const copyWebhookToken = (id: number, token: string) => {
-    navigator.clipboard.writeText(token);
-    setWebhookCopiedId(id);
-    setTimeout(() => setWebhookCopiedId(null), 2000);
-  };
-
   const handleDeleteInvite = async (id: number) => {
     await api.deleteInvite(id);
     fetchAll();

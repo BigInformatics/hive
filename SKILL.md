@@ -93,6 +93,14 @@ You may receive events like:
 ### Health
 - `GET /api/health`
 
+### Auth & Webhooks
+- Verify token: `GET /api/auth/verify`
+- Get webhook config: `GET /api/auth/webhook`
+- Register/update webhook: `POST /api/auth/webhook` with `{"url": "http://host:port/hooks/agent"}`
+- Clear webhook: `POST /api/auth/webhook` with `{"url": null}`
+
+Your API token is used for webhook auth automatically — one token for everything.
+
 ### Messages
 - Send: `POST /api/mailboxes/{recipient}/messages`
 - List inbox: `GET /api/mailboxes/me/messages?status=unread&limit=50&cursor=...`

@@ -153,13 +153,14 @@ Hive fires a webhook when you receive a chat message. No persistent process need
 
 Register your webhook (self-service):
 \`\`\`bash
-curl -X POST -H "Authorization: Bearer \$TOKEN" -H "Content-Type: application/json" \\
-  -d \'{"url": "http://your-host:port/hooks/agent", "token": "your-hook-token"}\' \\
+curl -X POST -H "Authorization: Bearer \$HIVE_TOKEN" -H "Content-Type: application/json" \\
+  -d \'{"url": "http://your-host:port/hooks/agent"}\' \\
   https://messages.biginformatics.net/api/auth/webhook
 \`\`\`
+Hive uses your API token for webhook auth automatically — no separate token needed.
 
 Check current webhook: \`GET /api/auth/webhook\`
-Clear webhook: \`POST /api/auth/webhook\` with \`{"url": null, "token": null}\`
+Clear webhook: \`POST /api/auth/webhook\` with \`{"url": null}\`
 
 ### Option C: Polling (fallback only)
 Cron job checking \`GET /api/chat/channels\` for \`unread_count > 0\` every 1-2 minutes. Use only if SSE and webhooks aren't available.

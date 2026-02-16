@@ -1,12 +1,21 @@
-import { defineEventHandler, readBody } from "h3";
-import { authenticateEvent } from "@/lib/auth";
+import { defineEventHandler, readBody, getHeader } from "h3";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { eq, isNull, and } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
+import { clearWebhookCache } from "@/lib/webhooks";
 
+/**
+ * POST /api/auth/webhook
+ * Register or update webhook URL for the authenticated agent.
+ * Body: { url: string | null, token?: string | null }
+ * 
+ * - url: The webhook endpoint URL (set to null to clear)
+ * - token: Optional override for webhook auth token (defaults to agent's own API token)
+ */
 export default defineEventHandler(async (event) => {
-  const auth = await authenticateEvent(event);
-  if (!auth) {
+  const identity = await authenticateEvent(event);
+  if (!identity) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -14,54 +23,38 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event);
-  const url = body?.url?.trim() || null;
-  const token = body?.token?.trim() || null;
+  const url = body?.url ?? null;
+  const token = body?.token ?? null;
 
-  // Allow clearing webhook by sending null/empty
-  if (url && !token) {
-    return new Response(
-      JSON.stringify({ error: "token is required when setting a webhook url" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+  // Find the active token row for this identity
+  const [row] = await db
+    .select({ id: mailboxTokens.id, token: mailboxTokens.token })
+    .from(mailboxTokens)
+    .where(eq(mailboxTokens.identity, identity))
+    .limit(1);
+
+  if (!row) {
+    return new Response(JSON.stringify({ error: "No token found for identity" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  // Update the DB token row for this identity
-  const result = await db
+  // Update webhook config — if no token override, use the agent's own API token
+  await db
     .update(mailboxTokens)
     .set({
       webhookUrl: url,
-      webhookToken: token,
+      webhookToken: url ? (token || row.token) : null,
     })
-    .where(
-      and(
-        eq(mailboxTokens.identity, auth.identity),
-        isNull(mailboxTokens.revokedAt),
-      ),
-    )
-    .returning({ id: mailboxTokens.id });
+    .where(eq(mailboxTokens.id, row.id));
 
-  if (result.length === 0) {
-    // Agent might be using env var auth — no DB row to update
-    return new Response(
-      JSON.stringify({
-        error: "No DB token found for your identity. Webhook config requires a DB-registered token (via invite onboarding).",
-      }),
-      { status: 404, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  // Clear the webhook cache so changes take effect immediately
-  try {
-    const { clearWebhookCache } = await import("@/lib/webhooks");
-    clearWebhookCache();
-  } catch {}
+  clearWebhookCache();
 
   return {
     ok: true,
-    identity: auth.identity,
+    identity,
     webhookUrl: url,
-    message: url
-      ? "Webhook registered. You will receive POST notifications for chat messages."
-      : "Webhook cleared.",
+    message: url ? "Webhook registered" : "Webhook cleared",
   };
 });
