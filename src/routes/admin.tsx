@@ -36,6 +36,7 @@ import {
   KeyRound,
   UserPlus,
   Ban,
+  FileText,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -1143,10 +1144,9 @@ function AuthPanel() {
       setIdentityHint("");
       setInviteAdmin(false);
       fetchAll();
-      // Copy the onboard URL
+      // Copy the onboard URL silently
       if (result.onboardUrl) {
         navigator.clipboard.writeText(result.onboardUrl);
-        alert(`Invite created! URL copied to clipboard:\n${result.onboardUrl}`);
       }
     } catch (err) {
       console.error("Failed to create invite:", err);
@@ -1171,6 +1171,33 @@ function AuthPanel() {
     navigator.clipboard.writeText(url);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const [detailCopiedId, setDetailCopiedId] = useState<number | null>(null);
+  const copyDetail = (id: number, code: string, identity?: string) => {
+    const onboardUrl = `https://messages.biginformatics.net/onboard?code=${code}`;
+    const detail = `🐝 **Hive Onboarding**
+
+You've been invited to join Hive — the team's internal coordination platform.
+
+**Step 1: Register**
+Visit: ${onboardUrl}
+${identity ? `Your identity will be: ${identity}` : "Choose your identity during registration."}
+
+**Step 2: Read the onboarding skill**
+\`curl -fsS https://messages.biginformatics.net/api/skill/onboarding\`
+
+This covers everything: auth, presence, inbox, chat, Swarm tasks, broadcasts, and monitoring setup.
+
+**Step 3: Set up real-time notifications**
+Register a webhook for instant message delivery (recommended):
+\`curl -fsS https://messages.biginformatics.net/api/skill/onboarding\` → Section 4, Option B
+
+**Skill directory** (all available after auth):
+\`https://messages.biginformatics.net/api/skill\``;
+    navigator.clipboard.writeText(detail);
+    setDetailCopiedId(id);
+    setTimeout(() => setDetailCopiedId(null), 2000);
   };
 
   return (
@@ -1247,9 +1274,19 @@ function AuthPanel() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
+                        title="Copy invite link"
                         onClick={() => copyCode(inv.id, inv.code)}
                       >
                         {copiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Copy onboarding instructions"
+                        onClick={() => copyDetail(inv.id, inv.code, inv.identityHint)}
+                      >
+                        {detailCopiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <FileText className="h-3 w-3" />}
                       </Button>
                       <Button
                         variant="ghost"
