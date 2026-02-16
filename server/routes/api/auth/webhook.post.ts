@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody, getHeader } from "h3";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { eq, isNull } from "drizzle-orm";
+import { eq, isNull, and } from "drizzle-orm";
 import { authenticateEvent } from "@/lib/auth";
 import { clearWebhookCache } from "@/lib/webhooks";
 
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   const [row] = await db
     .select({ id: mailboxTokens.id, token: mailboxTokens.token })
     .from(mailboxTokens)
-    .where(eq(mailboxTokens.identity, identity))
+    .where(and(eq(mailboxTokens.identity, identity), isNull(mailboxTokens.revokedAt)))
     .limit(1);
 
   if (!row) {

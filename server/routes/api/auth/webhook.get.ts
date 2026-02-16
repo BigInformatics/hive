@@ -1,7 +1,7 @@
 import { defineEventHandler } from "h3";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { authenticateEvent } from "@/lib/auth";
 
 /**
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
       webhookUrl: mailboxTokens.webhookUrl,
     })
     .from(mailboxTokens)
-    .where(eq(mailboxTokens.identity, identity))
+    .where(and(eq(mailboxTokens.identity, identity), isNull(mailboxTokens.revokedAt)))
     .limit(1);
 
   return {
