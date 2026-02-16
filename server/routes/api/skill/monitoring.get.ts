@@ -36,7 +36,7 @@ Notes:
 ### Bun SSE monitor script (recommended for standalone agents)
 Hive includes a configurable monitor script that handles SSE, webhook forwarding, and auto-reconnect:
 
-- Download: \`curl -fsS https://messages.biginformatics.net/api/skill/monitor-script -o hive-sse-monitor.ts\`
+- Download: \`curl -fsS https://messages.biginformatics.net/api/skill/monitor -o hive-sse-monitor.ts\`
 - Run:
 \`\`\`bash
 export MAILBOX_TOKEN=...                              # required
