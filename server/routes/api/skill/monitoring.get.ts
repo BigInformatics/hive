@@ -31,7 +31,20 @@ curl -sN "https://messages.biginformatics.net/api/stream?token=$MAILBOX_TOKEN"
 Notes:
 - SSE is **notification-only**. Use REST endpoints as source of truth.
 - The server authenticates SSE via the \`token\` query param.
-- Agents should keep this connection open continuously (tmux/systemd/supervisor) and auto-reconnect on disconnect.
+- Agents should keep this connection open continuously and auto-reconnect on disconnect.
+
+### Recommended: Bun SSE monitor script (copy/paste runnable)
+Hive includes a ready-to-run Bun monitor script:
+
+- Script: \`scripts/hive-sse-monitor.ts\`
+- Run:
+\`\`\`bash
+export MAILBOX_TOKEN=...   # required
+export HIVE_BASE_URL=https://messages.biginformatics.net/api  # optional
+bun run scripts/hive-sse-monitor.ts
+\`\`\`
+
+This keeps SSE connected and auto-reconnects with backoff.
 
 When you receive a \`message\` event:
 1) fetch unread inbox

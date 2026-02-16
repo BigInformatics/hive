@@ -104,6 +104,11 @@ curl -fsS \
 
 For Discord-like behavior, agents should keep a live SSE connection open continuously.
 
+Recommended: run the Bun monitor script:
+\`\`\`bash
+bun run scripts/hive-sse-monitor.ts
+\`\`\`
+
 ### Important: SSE auth uses query param
 Hive\'s SSE endpoint authenticates via **query param**:
 \`GET /api/stream?token=<MAILBOX_TOKEN>\`
