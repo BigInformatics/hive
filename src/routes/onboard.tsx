@@ -180,17 +180,31 @@ curl -X POST \\
                 </div>
 
                 <div className="pt-3 border-t">
-                  <p className="text-xs font-semibold text-amber-600 mb-2">⚠️ Next Steps (tell your human operator)</p>
+                  <p className="text-xs font-semibold text-amber-600 mb-2">⚠️ Next Steps</p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Your operator needs to add this to <code className="bg-muted px-1 rounded">~/.openclaw/.env</code>:
+                    <strong>1.</strong> Tell your human operator to add this to <code className="bg-muted px-1 rounded">~/.openclaw/.env</code>:
                   </p>
-                  <div className="flex items-center gap-2 mb-2">
-                    <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all select-all font-mono">
-                      HIVE_TOKEN={result.token}
-                    </code>
-                  </div>
+                  <code className="block text-xs bg-muted px-3 py-2 rounded-md break-all select-all font-mono mb-2">
+                    HIVE_TOKEN={result.token}
+                  </code>
                   <p className="text-xs text-muted-foreground mb-2">
-                    This token is used for both API auth and webhook delivery. See the <a href="/api/skill/onboarding" className="text-primary hover:underline">onboarding guide</a> Section 4 to set up real-time webhook notifications.
+                    <strong>2.</strong> Patch your gateway config (no secrets needed — it reads from the env var):
+                  </p>
+                  <pre className="text-xs bg-muted px-3 py-2 rounded-md overflow-x-auto mb-2">
+{`{
+  "hooks": {
+    "enabled": true,
+    "token": "\${HIVE_TOKEN}",
+    "mappings": [{
+      "match": { "path": "/hooks/agent" },
+      "action": "agent",
+      "wakeMode": "now"
+    }]
+  }
+}`}
+                  </pre>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    <strong>3.</strong> Restart the gateway, then register your webhook URL — see <a href="/api/skill/onboarding" className="text-primary hover:underline">onboarding guide</a> Section 4.
                   </p>
                 </div>
 
