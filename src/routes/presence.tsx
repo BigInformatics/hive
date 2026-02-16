@@ -479,6 +479,21 @@ function ChatPanel({
       setMessages((prev) => {
         // Avoid duplicates (from optimistic add or double-delivery)
         if (prev.some((m) => m.id === msg.id)) return prev;
+        // Replace optimistic message (fake ID > 1e12) from same sender with same body
+        const optimisticIdx = prev.findIndex(
+          (m) => m.id > 1e12 && m.sender === msg.sender && m.body === msg.body
+        );
+        if (optimisticIdx !== -1) {
+          const next = [...prev];
+          next[optimisticIdx] = {
+            id: msg.id,
+            channelId,
+            sender: msg.sender,
+            body: msg.body,
+            createdAt: msg.createdAt,
+          };
+          return next;
+        }
         return [...prev, {
           id: msg.id,
           channelId,
