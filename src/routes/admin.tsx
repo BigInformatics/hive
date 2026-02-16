@@ -1338,30 +1338,17 @@ Register a webhook for instant message delivery (recommended):
                       {tok.lastUsedAt && ` · last used ${new Date(tok.lastUsedAt).toLocaleString()}`}
                     </p>
                   </div>
-                  <div className="flex gap-1">
-                    {tok.webhookToken && !tok.revokedAt && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => copyWebhookToken(tok.id, tok.webhookToken!)}
-                        title="Copy webhook token"
-                      >
-                        {webhookCopiedId === tok.id ? <Check className="h-3 w-3 text-green-500" /> : <Webhook className="h-3 w-3" />}
-                      </Button>
-                    )}
-                    {!tok.revokedAt && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => handleRevokeToken(tok.id)}
-                        title="Revoke token"
-                      >
-                        <Ban className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
+                  {!tok.revokedAt && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => handleRevokeToken(tok.id)}
+                      title="Revoke token"
+                    >
+                      <Ban className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
