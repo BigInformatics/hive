@@ -270,4 +270,7 @@ export const api = {
 
   markChatRead: (channelId: string) =>
     apiFetch(`/chat/channels/${channelId}/read`, { method: "POST" }),
+
+  sendChatTyping: (channelId: string) =>
+    apiFetch(`/chat/channels/${channelId}/typing`, { method: "POST" }),
 };

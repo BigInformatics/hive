@@ -27,8 +27,25 @@ export default defineEventHandler(async (event) => {
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
+      let closed = false;
+
+      const cleanup = () => {
+        if (closed) return;
+        closed = true;
+        unsub();
+        unsubBroadcast();
+        unsubSwarm();
+        unsubChat();
+        clearInterval(heartbeat);
+        try {
+          controller.close();
+        } catch {
+          // Already closed
+        }
+      };
 
       const send = (eventType: string, data: unknown) => {
+        if (closed) return;
         try {
           controller.enqueue(
             encoder.encode(
@@ -36,7 +53,7 @@ export default defineEventHandler(async (event) => {
             ),
           );
         } catch {
-          // Stream closed
+          cleanup();
         }
       };
 
@@ -58,28 +75,33 @@ export default defineEventHandler(async (event) => {
         send(evt.type, evt);
       });
 
+      // Subscribe to chat events (global channel for typing — messages go via per-identity)
+      const unsubChat = subscribe("__chat__", (evt) => {
+        send(evt.type, evt);
+      });
+
       // Heartbeat every 30s
       const heartbeat = setInterval(() => {
+        if (closed) {
+          clearInterval(heartbeat);
+          return;
+        }
         try {
           controller.enqueue(encoder.encode(": heartbeat\n\n"));
           updatePresence(auth.identity, "sse");
         } catch {
-          clearInterval(heartbeat);
+          cleanup();
         }
       }, 30000);
 
-      // Cleanup on close
-      event.node?.req?.on?.("close", () => {
-        unsub();
-        unsubBroadcast();
-        unsubSwarm();
-        clearInterval(heartbeat);
-        try {
-          controller.close();
-        } catch {
-          // Already closed
-        }
-      });
+      // Cleanup on close — works in both Node and Bun
+      if (event.node?.req?.on) {
+        event.node.req.on("close", cleanup);
+      }
+      // Also use AbortSignal if available (Bun)
+      if (event.node?.req?.signal) {
+        (event.node.req as any).signal.addEventListener("abort", cleanup);
+      }
     },
   });
 

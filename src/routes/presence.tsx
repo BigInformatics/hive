@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getMailboxKey, api } from "@/lib/api";
+import { useChatSSE, type ChatSSEEvent } from "@/lib/use-chat-sse";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
@@ -133,7 +134,17 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
   const [activeChannel, setActiveChannel] = useState<string | null>(null);
   const [showChats, setShowChats] = useState(false);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [chatEvent, setChatEvent] = useState<ChatSSEEvent | null>(null);
   const myIdentity = getMyIdentity();
+
+  // SSE for real-time chat events
+  useChatSSE((evt) => {
+    setChatEvent(evt);
+    // Refresh channel list on new messages (for unread counts, last message preview)
+    if (evt.type === "chat_message") {
+      fetchChannels();
+    }
+  });
 
   const fetchPresence = useCallback(async () => {
     setLoading(true);
@@ -161,11 +172,12 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
     fetchChannels();
   }, [fetchPresence, fetchChannels]);
 
+  // Reduced polling — SSE handles real-time, this is just a fallback
   useEffect(() => {
     const interval = setInterval(() => {
       fetchPresence();
       fetchChannels();
-    }, 15000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [fetchPresence, fetchChannels]);
 
@@ -363,6 +375,7 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
               myIdentity={myIdentity}
               onBack={() => setActiveChannel(null)}
               onMessageSent={fetchChannels}
+              chatEvent={chatEvent}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -396,18 +409,22 @@ function ChatPanel({
   myIdentity,
   onBack,
   onMessageSent,
+  chatEvent,
 }: {
   channelId: string;
   channels: ChatChannel[];
   myIdentity: string;
   onBack: () => void;
   onMessageSent: () => void;
+  chatEvent: ChatSSEEvent | null;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastTypingSent = useRef(0);
 
   const channel = channels.find((c) => c.id === channelId);
   const channelName = channel
@@ -428,9 +445,60 @@ function ChatPanel({
     inputRef.current?.focus();
   }, [fetchMessages]);
 
-  // Poll for new messages every 3s
+  // Handle SSE events — real-time message arrival
   useEffect(() => {
-    const interval = setInterval(fetchMessages, 3000);
+    if (!chatEvent) return;
+
+    if (chatEvent.type === "chat_message" && chatEvent.channelId === channelId) {
+      const msg = chatEvent.message;
+      setMessages((prev) => {
+        // Avoid duplicates (from optimistic add or double-delivery)
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, {
+          id: msg.id,
+          channelId,
+          sender: msg.sender,
+          body: msg.body,
+          createdAt: msg.createdAt,
+        }];
+      });
+      // Clear typing indicator for this sender
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        next.delete(msg.sender);
+        return next;
+      });
+      // Mark as read since we're looking at it
+      api.markChatRead(channelId).catch(() => {});
+    }
+
+    if (chatEvent.type === "chat_typing" && chatEvent.channelId === channelId) {
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        next.set(chatEvent.identity, Date.now());
+        return next;
+      });
+    }
+  }, [chatEvent, channelId]);
+
+  // Clear stale typing indicators every 4s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTypingUsers((prev) => {
+        const now = Date.now();
+        const next = new Map(prev);
+        for (const [user, ts] of next) {
+          if (now - ts > 4000) next.delete(user);
+        }
+        return next.size !== prev.size ? next : prev;
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fallback poll (much slower now — SSE handles real-time)
+  useEffect(() => {
+    const interval = setInterval(fetchMessages, 30000);
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
@@ -440,6 +508,15 @@ function ChatPanel({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Send typing indicator (throttled to once per 3s)
+  const sendTyping = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTypingSent.current > 3000) {
+      lastTypingSent.current = now;
+      api.sendChatTyping(channelId).catch(() => {});
+    }
+  }, [channelId]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -461,17 +538,17 @@ function ChatPanel({
 
     try {
       await api.sendChatMessage(channelId, text);
-      await fetchMessages();
       onMessageSent();
     } catch (err) {
       console.error("Failed to send:", err);
-      // Remove optimistic message on failure
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(text);
     } finally {
       setSending(false);
     }
   };
+
+  const activeTypers = [...typingUsers.keys()].filter((u) => u !== myIdentity);
 
   return (
     <>
@@ -544,12 +621,24 @@ function ChatPanel({
         })}
       </div>
 
+      {/* Typing indicator */}
+      {activeTypers.length > 0 && (
+        <div className="px-4 py-1">
+          <p className="text-xs text-muted-foreground animate-pulse capitalize">
+            {activeTypers.join(", ")} {activeTypers.length === 1 ? "is" : "are"} typing...
+          </p>
+        </div>
+      )}
+
       {/* Compose */}
       <form onSubmit={handleSend} className="border-t p-3 flex gap-2">
         <Input
           ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            if (e.target.value.trim()) sendTyping();
+          }}
           placeholder="Type a message..."
           className="flex-1"
           autoComplete="off"

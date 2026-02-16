@@ -39,6 +39,21 @@ export type MailboxEvent =
       type: "swarm_task_deleted";
       taskId: string;
       actor: string;
+    }
+  | {
+      type: "chat_message";
+      channelId: string;
+      message: {
+        id: number;
+        sender: string;
+        body: string;
+        createdAt: string;
+      };
+    }
+  | {
+      type: "chat_typing";
+      channelId: string;
+      identity: string;
     };
 
 type Listener = (event: MailboxEvent) => void;
