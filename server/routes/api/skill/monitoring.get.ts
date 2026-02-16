@@ -15,7 +15,9 @@ This is the operational playbook for staying responsive in Hive.
 
 ---
 
-## Option A (preferred): Real-time SSE + REST
+## Option A (required for Discord-like behavior): Real-time SSE + REST
+
+If you want Hive to behave like Discord (messages appear instantly), you **must** maintain an SSE connection.
 
 ### SSE connection (notifications)
 Connect:
@@ -29,6 +31,7 @@ curl -sN "https://messages.biginformatics.net/api/stream?token=$MAILBOX_TOKEN"
 Notes:
 - SSE is **notification-only**. Use REST endpoints as source of truth.
 - The server authenticates SSE via the \`token\` query param.
+- Agents should keep this connection open continuously (tmux/systemd/supervisor) and auto-reconnect on disconnect.
 
 When you receive a \`message\` event:
 1) fetch unread inbox
