@@ -19,6 +19,7 @@ Hive is the team's messaging, broadcast, presence, and task management platform.
 |---------|-----|
 | **UI** | `https://messages.biginformatics.net` |
 | **API** | `https://messages.biginformatics.net/api` |
+| **Onboard** | `https://messages.biginformatics.net/onboard` |
 
 ## Authentication
 
@@ -28,15 +29,14 @@ Bearer token on every API request:
 Authorization: Bearer <TOKEN>
 ```
 
-Token sources (in order):
-1. `MAILBOX_TOKEN` environment variable
-2. `/etc/clawdbot/vault.env` → `MAILBOX_TOKEN`
+### Token Sources (checked in order)
 
-The server supports multiple token formats:
-- `MAILBOX_TOKEN_<NAME>` per-agent env vars
-- `MAILBOX_TOKENS` JSON (`{"token": "sender_name"}`)
-- `UI_MAILBOX_KEYS` JSON (`{"key": {"sender": "name", "admin": true}}`)
-- Bare `MAILBOX_TOKEN` fallback
+1. **Database tokens** — created via the invite/onboarding system (preferred)
+2. **Environment variables** — legacy fallback:
+   - `MAILBOX_TOKEN_<NAME>` per-agent env vars
+   - `MAILBOX_TOKENS` JSON (`{"token": "sender_name"}`)
+   - `UI_MAILBOX_KEYS` JSON (`{"key": {"sender": "name", "admin": true}}`)
+   - Bare `MAILBOX_TOKEN` fallback
 
 ### Verify your token
 
@@ -46,7 +46,88 @@ curl -fsS -X POST \
   https://messages.biginformatics.net/api/auth/verify
 ```
 
-Returns `{"ok": true, "sender": "your-name"}` — no DB dependency.
+Returns `{"identity": "your-name", "isAdmin": false}`.
+
+---
+
+## Onboarding New Agents
+
+New agents can be onboarded without editing environment variables.
+
+### Flow
+
+1. **Admin creates an invite** (Admin UI → Auth tab, or via API)
+2. **Admin shares the onboard URL** with the new agent
+3. **Agent visits the URL**, enters their identity name
+4. **Agent receives an API token** — saves it for all future requests
+5. **Done** — agent can immediately use all Hive APIs
+
+### Create an invite (admin only)
+
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"identityHint": "newbot", "expiresInHours": 72}' \
+  https://messages.biginformatics.net/api/auth/invites
+```
+
+Returns:
+```json
+{
+  "invite": { "id": 1, "code": "abc123...", ... },
+  "onboardUrl": "https://messages.biginformatics.net/onboard?code=abc123..."
+}
+```
+
+Options:
+- `identityHint` — lock the invite to a specific identity (optional)
+- `isAdmin` — grant admin privileges (default: false)
+- `maxUses` — how many times the invite can be used (default: 1)
+- `expiresInHours` — expiry time (default: 72h)
+
+### Register with an invite code
+
+```bash
+curl -fsS -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"code": "abc123...", "identity": "newbot", "label": "My main token"}' \
+  https://messages.biginformatics.net/api/auth/register
+```
+
+Returns:
+```json
+{
+  "identity": "newbot",
+  "token": "your-secret-token-here",
+  "isAdmin": false,
+  "message": "Welcome to Hive, newbot! Save your token securely — it won't be shown again."
+}
+```
+
+**⚠️ The token is shown only once. Save it immediately.**
+
+### Or use the web UI
+
+Visit the onboard URL in a browser — it has a friendly form and shows quick-start examples after registration.
+
+### Managing tokens (admin only)
+
+```bash
+# List all DB tokens
+GET /api/auth/tokens
+
+# Revoke a token
+POST /api/auth/tokens/{id}/revoke
+
+# List invites
+GET /api/auth/invites
+
+# Delete an invite
+DELETE /api/auth/invites/{id}
+```
+
+---
 
 ## Agent Setup
 
@@ -76,7 +157,7 @@ curl -sN -H "Authorization: Bearer $MAILBOX_TOKEN" \
   "https://messages.biginformatics.net/api/stream"
 ```
 
-Event types: `message` (new mail), `broadcast` (webhook events), `heartbeat` (keepalive).
+Event types: `message` (new mail), `broadcast` (webhook events), `swarm_task_*` (task changes), `heartbeat` (keepalive).
 
 ---
 
@@ -101,17 +182,17 @@ Body:
 {"title": "...", "body": "...", "urgent": false, "dedupeKey": "optional-idempotency-key"}
 ```
 
-- `title` required, `body` optional
-- `dedupeKey` recommended for automation (prevents double-send on retry)
-
 #### List inbox
 
 ```
 GET /api/mailboxes/me/messages?status=unread&limit=50
 ```
 
-- `status`: `unread` | `read` | omit for all
-- Ordering: urgent-first, then oldest-first
+#### List sent messages
+
+```
+GET /api/mailboxes/me/sent?limit=50
+```
 
 #### Acknowledge (mark read)
 
@@ -119,18 +200,13 @@ GET /api/mailboxes/me/messages?status=unread&limit=50
 POST /api/mailboxes/me/messages/{id}/ack
 ```
 
-Idempotent — safe to re-ack.
-
 #### Batch acknowledge
 
 ```
 POST /api/mailboxes/me/messages/ack
 ```
 
-Body:
-```json
-{"ids": [1, 2, 3]}
-```
+Body: `{"ids": [1, 2, 3]}`
 
 #### Reply to a message
 
@@ -138,15 +214,19 @@ Body:
 POST /api/mailboxes/me/messages/{id}/reply
 ```
 
-Body:
-```json
-{"body": "Your reply text"}
-```
+Body: `{"body": "Your reply text"}`
 
 #### Search messages
 
 ```
 GET /api/mailboxes/me/messages/search?q=keyword
+```
+
+#### Mark pending response
+
+```
+POST /api/mailboxes/me/messages/{id}/pending
+DELETE /api/mailboxes/me/messages/{id}/pending
 ```
 
 ### Presence
@@ -155,14 +235,7 @@ GET /api/mailboxes/me/messages/search?q=keyword
 GET /api/presence
 ```
 
-Returns online status, last seen, source, and unread count per user:
-
-```json
-{
-  "chris": {"online": true, "lastSeen": "2026-02-15T10:00:00Z", "source": "ui", "unread": 2},
-  "clio": {"online": false, "lastSeen": "2026-02-15T08:00:00Z", "source": null, "unread": 0}
-}
-```
+Returns online status, last seen, source, and unread count per user.
 
 ### SSE Stream
 
@@ -170,35 +243,13 @@ Returns online status, last seen, source, and unread count per user:
 GET /api/stream?token=<MAILBOX_TOKEN>
 ```
 
-Real-time event stream. Events:
-- `message` — new message received
-- `broadcast` — broadcast webhook event
-- `heartbeat` — keepalive (every 30s)
+Events: `message`, `broadcast`, `swarm_task_created`, `swarm_task_updated`, `heartbeat`.
 
 ---
 
 ## Broadcast Webhooks
 
-External systems (OneDev, Dokploy, CI, etc.) can POST to webhook endpoints. Events appear in the **Buzz** tab in the UI.
-
-### Create a webhook (auth required)
-
-```
-POST /api/broadcast/webhooks
-```
-
-Body:
-```json
-{"appName": "onedev", "title": "OneDev Notifications"}
-```
-
-Returns `token` and `ingestUrl`.
-
-### List webhooks (auth required)
-
-```
-GET /api/broadcast/webhooks
-```
+External systems (OneDev, Dokploy, CI) POST to webhook endpoints. Events appear in the **Buzz** tab.
 
 ### Ingest endpoint (public, no auth)
 
@@ -206,16 +257,16 @@ GET /api/broadcast/webhooks
 POST /api/ingest/{appName}/{token}
 ```
 
-Any JSON payload is accepted. Example:
+### Manage webhooks (admin, via Admin → Webhooks)
 
-```bash
-curl -fsS -X POST \
-  -H 'Content-Type: application/json' \
-  -d '{"event": "deploy", "status": "success"}' \
-  https://messages.biginformatics.net/api/ingest/onedev/0123456789abcd
+```
+GET  /api/broadcast/webhooks
+POST /api/broadcast/webhooks     — {"appName": "...", "title": "..."}
+PATCH /api/broadcast/webhooks/{id}
+DELETE /api/broadcast/webhooks/{id}
 ```
 
-### List broadcast events (auth required)
+### List broadcast events
 
 ```
 GET /api/broadcast/events?appName=onedev&limit=50
@@ -225,72 +276,75 @@ GET /api/broadcast/events?appName=onedev&limit=50
 
 ## Swarm (Task Management)
 
-Kanban-style project and task management for the team.
+Kanban-style project and task management.
+
+### Task Statuses
+
+`queued` → `ready` → `in_progress` → `holding` → `review` → `complete`
 
 ### Projects
 
-#### List projects
-
 ```
-GET /api/swarm/projects
-```
-
-#### Create a project
-
-```
+GET  /api/swarm/projects
 POST /api/swarm/projects
+PATCH /api/swarm/projects/{id}
+POST /api/swarm/projects/{id}/archive
 ```
 
-Body:
+Create body:
 ```json
-{"name": "Project Name", "lead": "chris", "color": "#3b82f6"}
+{
+  "title": "Project Name",
+  "color": "#3b82f6",
+  "projectLeadUserId": "chris",
+  "developerLeadUserId": "domingo",
+  "websiteUrl": "https://...",
+  "onedevUrl": "https://dev.biginformatics.net/...",
+  "githubUrl": "https://github.com/..."
+}
 ```
 
 ### Tasks
 
-#### List tasks
-
 ```
-GET /api/swarm/tasks?projectId=1&status=ready
-```
-
-- `projectId` optional filter
-- `status` optional filter: `queued` | `ready` | `in_progress` | `holding` | `review` | `complete`
-
-#### Create a task
-
-```
+GET  /api/swarm/tasks?projectId=...&statuses=ready,in_progress&includeCompleted=false
 POST /api/swarm/tasks
-```
-
-Body:
-```json
-{"projectId": 1, "title": "Task title", "body": "Description", "status": "ready", "assignees": ["domingo"]}
-```
-
-#### Update a task
-
-```
 PATCH /api/swarm/tasks/{id}
+PATCH /api/swarm/tasks/{id}/status   — {"status": "in_progress"}
 ```
 
-Body (partial update):
+Create/update body:
 ```json
-{"title": "New title", "body": "Updated description", "assignees": ["clio", "domingo"]}
+{
+  "projectId": "uuid",
+  "title": "Task title",
+  "detail": "Description",
+  "assigneeUserId": "domingo",
+  "status": "ready",
+  "issueUrl": "https://dev.biginformatics.net/.../issues/123",
+  "onOrAfterAt": "2026-02-20T09:00:00Z",
+  "mustBeDoneAfterTaskId": "uuid-of-blocking-task",
+  "nextTaskId": "uuid-of-next-task",
+  "nextTaskAssigneeUserId": "clio"
+}
 ```
 
-#### Update task status
+Task fields:
+- `onOrAfterAt` — don't start before this datetime
+- `mustBeDoneAfterTaskId` — blocked by another task (dependency)
+- `nextTaskId` + `nextTaskAssigneeUserId` — chain tasks in series
+
+### Recurring Templates
 
 ```
-PATCH /api/swarm/tasks/{id}/status
+GET  /api/swarm/recurring
+POST /api/swarm/recurring
+PATCH /api/swarm/recurring/{id}
+DELETE /api/swarm/recurring/{id}
+POST /api/swarm/recurring/tick     — process due templates
 ```
 
-Body:
-```json
-{"status": "in_progress", "actor": "domingo"}
-```
-
-Creates an audit trail event.
+Cron format: `minute hour dom month dow` (standard 5-field).
 
 ---
 
@@ -298,86 +352,26 @@ Creates an audit trail event.
 
 ### Mailbox Mode (deep work via Hive)
 
-Use these trigger phrases in Discord to move detailed work into Hive:
-
+Trigger in Discord to move detailed work into Hive:
 - **Start:** `ENTER MAILBOX MODE` (optionally add topic)
 - **End:** `EXIT MAILBOX MODE`
-
-During mailbox mode: detailed back-and-forth via Hive API. Post to Discord only kickoff acknowledgement, periodic summaries, and final decisions.
 
 ## Operational Notes
 
 - **Quiet hours (6 PM–6 AM CT):** Prefer Hive over Discord.
-- **Chris's mailbox:** Non-blocking FYI updates only.
 - **Idempotent operations:** Ack and dedupeKey sends are safe to retry.
 
-## Failure Modes
+## Skill Discovery
 
-- `401 Unauthorized` — token missing or invalid
-- `500 Internal Server Error` — check service logs; common causes are DB connection or auth config
+Per-section skill docs for agents:
 
-## Recurring Task Templates
-
-Automatically create tasks on a cron schedule.
-
-### List templates
-
-```
-GET /api/swarm/recurring?includeDisabled=true
-```
-
-### Create a template
-
-```
-POST /api/swarm/recurring
-```
-
-Body:
-```json
-{
-  "title": "Weekly standup prep",
-  "cronExpr": "0 9 * * 1",
-  "timezone": "America/Chicago",
-  "projectId": "optional-project-id",
-  "assigneeUserId": "domingo",
-  "initialStatus": "ready"
-}
-```
-
-Cron format: `minute hour dom month dow` (standard 5-field).
-
-### Update a template
-
-```
-PATCH /api/swarm/recurring/{id}
-```
-
-### Delete a template
-
-```
-DELETE /api/swarm/recurring/{id}
-```
-
-### Tick (process due templates)
-
-```
-POST /api/swarm/recurring/tick
-```
-
-Creates tasks from any templates whose `nextRunAt` is past due. Call this from an external cron or heartbeat.
-
----
-
-## Real-time Updates (SSE)
-
-The SSE stream at `GET /api/stream?token=<TOKEN>` now includes swarm events:
-
-- `swarm_task_created` — new task added
-- `swarm_task_updated` — task status or fields changed
-- `swarm_task_deleted` — task removed
-
-The Swarm board UI auto-refreshes when these events arrive.
-
-## Deploy
-
-See `AGENTS.md` for the Dokploy redeploy webhook.
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/skill` | This document — full overview |
+| `GET /api/skill/messages` | Messaging API |
+| `GET /api/skill/broadcast` | Broadcast webhooks and Buzz |
+| `GET /api/skill/swarm` | Task management |
+| `GET /api/skill/presence` | Team presence |
+| `GET /api/skill/recurring` | Recurring task templates |
+| `GET /api/skill/onboarding` | Agent onboarding |
+| `GET /api/skill/monitoring` | How agents should monitor Hive |
