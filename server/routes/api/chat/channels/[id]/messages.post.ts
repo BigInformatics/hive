@@ -2,6 +2,7 @@ import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { sendChatMessage, isMember, getChannelMembers } from "@/lib/chat";
 import { emit } from "@/lib/events";
+import { notifyChatMessage } from "@/lib/webhooks";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -50,6 +51,11 @@ export default defineEventHandler(async (event) => {
         createdAt: message.createdAt,
       },
     });
+
+    // Notify agents via webhook (non-blocking, fire-and-forget)
+    if (member !== auth.identity) {
+      notifyChatMessage(member, channelId, auth.identity, message.body).catch(() => {});
+    }
   }
 
   return message;

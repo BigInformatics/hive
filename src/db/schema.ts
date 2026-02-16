@@ -283,6 +283,9 @@ export const mailboxTokens = pgTable("mailbox_tokens", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  // Webhook URL for agent notifications (chat messages, etc.)
+  webhookUrl: varchar("webhook_url", { length: 500 }),
+  webhookToken: varchar("webhook_token", { length: 200 }),
 });
 
 // ============================================================
