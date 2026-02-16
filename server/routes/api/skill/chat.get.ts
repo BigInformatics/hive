@@ -138,7 +138,7 @@ Agents **must** monitor Hive chat for Discord-like responsiveness. Choose based 
 Download and run the monitor script:
 \`\`\`bash
 curl -fsS https://messages.biginformatics.net/api/skill/script -o hive-sse-monitor.ts
-export MAILBOX_TOKEN=...
+export HIVE_TOKEN=...
 export WEBHOOK_URL=http://your-gateway/hooks/agent   # optional: forward to webhook
 export WEBHOOK_TOKEN=...                                # optional: webhook auth
 bun run hive-sse-monitor.ts

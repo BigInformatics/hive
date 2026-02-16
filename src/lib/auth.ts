@@ -106,25 +106,31 @@ export async function authenticateEvent(event: H3Event): Promise<AuthContext | n
 export function initAuth() {
   envTokens.clear();
 
+  // Support both HIVE_TOKEN_* (preferred) and MAILBOX_TOKEN_* (backward compat)
   for (const [key, value] of Object.entries(process.env)) {
-    if (key.startsWith("MAILBOX_TOKEN_") && !key.endsWith("_ADMIN") && value) {
-      const name = key.slice(14).toLowerCase();
-      if (name && name !== "s") {
-        envTokens.set(value, { identity: name, isAdmin: false, source: "env" });
-        validMailboxes.add(name);
+    const prefixes = ["HIVE_TOKEN_", "MAILBOX_TOKEN_"];
+    for (const prefix of prefixes) {
+      if (key.startsWith(prefix) && !key.endsWith("_ADMIN") && value) {
+        const name = key.slice(prefix.length).toLowerCase();
+        if (name && name !== "s") {
+          envTokens.set(value, { identity: name, isAdmin: false, source: "env" });
+          validMailboxes.add(name);
+        }
       }
     }
   }
 
-  if (process.env.MAILBOX_TOKENS) {
+  // Support both HIVE_TOKENS and MAILBOX_TOKENS (JSON maps)
+  const tokensEnv = process.env.HIVE_TOKENS || process.env.MAILBOX_TOKENS;
+  if (tokensEnv) {
     try {
-      const mapping = JSON.parse(process.env.MAILBOX_TOKENS) as Record<string, string>;
+      const mapping = JSON.parse(tokensEnv) as Record<string, string>;
       for (const [token, identity] of Object.entries(mapping)) {
         envTokens.set(token, { identity: identity.toLowerCase(), isAdmin: false, source: "env" });
         validMailboxes.add(identity.toLowerCase());
       }
     } catch (err) {
-      console.error("[auth] Failed to parse MAILBOX_TOKENS:", err);
+      console.error("[auth] Failed to parse HIVE_TOKENS/MAILBOX_TOKENS:", err);
     }
   }
 
@@ -148,9 +154,11 @@ export function initAuth() {
     }
   }
 
-  if (process.env.MAILBOX_TOKEN && envTokens.size === 0) {
+  // Fallback: HIVE_TOKEN or MAILBOX_TOKEN (single token, identity from USER)
+  const singleToken = process.env.HIVE_TOKEN || process.env.MAILBOX_TOKEN;
+  if (singleToken && envTokens.size === 0) {
     const identity = process.env.USER?.toLowerCase() || "unknown";
-    envTokens.set(process.env.MAILBOX_TOKEN, { identity, isAdmin: false, source: "env" });
+    envTokens.set(singleToken, { identity, isAdmin: false, source: "env" });
     validMailboxes.add(identity);
   }
 

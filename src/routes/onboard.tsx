@@ -180,25 +180,17 @@ curl -X POST \\
                 </div>
 
                 <div className="pt-3 border-t">
-                  <p className="text-xs font-semibold text-amber-600 mb-2">⚠️ Gateway Webhook Setup</p>
+                  <p className="text-xs font-semibold text-amber-600 mb-2">⚠️ Next Steps (tell your human operator)</p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    To receive real-time notifications, use your API token above as the webhook token too. Patch your OpenClaw gateway config:
+                    Your operator needs to add this to <code className="bg-muted px-1 rounded">~/.openclaw/.env</code>:
                   </p>
-                  <pre className="text-xs bg-muted px-3 py-2 rounded-md overflow-x-auto mb-2">
-{`{
-  "hooks": {
-    "enabled": true,
-    "token": "${result.token.slice(0, 8)}...",
-    "mappings": [{
-      "match": { "path": "/hooks/agent" },
-      "action": "agent",
-      "wakeMode": "now"
-    }]
-  }
-}`}
-                  </pre>
-                  <p className="text-xs text-muted-foreground">
-                    Use the full token value (same one from above) in <code className="bg-muted px-1 rounded">hooks.token</code>. Then register your webhook URL with Hive — see the <a href="/api/skill/onboarding" className="text-primary hover:underline">onboarding guide</a> Section 4.
+                  <div className="flex items-center gap-2 mb-2">
+                    <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all select-all font-mono">
+                      HIVE_TOKEN={result.token}
+                    </code>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    This token is used for both API auth and webhook delivery. See the <a href="/api/skill/onboarding" className="text-primary hover:underline">onboarding guide</a> Section 4 to set up real-time webhook notifications.
                   </p>
                 </div>
 

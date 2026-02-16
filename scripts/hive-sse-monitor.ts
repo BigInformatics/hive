@@ -6,7 +6,7 @@
 // or executes callback commands for true Discord-like responsiveness.
 //
 // Required env:
-//   MAILBOX_TOKEN        — Hive Bearer token
+//   HIVE_TOKEN        — Hive Bearer token
 //
 // Optional env:
 //   HIVE_BASE_URL        — API base (default: https://messages.biginformatics.net/api)
@@ -20,18 +20,18 @@
 //
 // Examples:
 //   # Forward chat messages to OpenClaw gateway
-//   MAILBOX_TOKEN=xxx WEBHOOK_URL=http://host:18789/hooks/agent WEBHOOK_TOKEN=yyy \
+//   HIVE_TOKEN=xxx WEBHOOK_URL=http://host:18789/hooks/agent WEBHOOK_TOKEN=yyy \
 //     bun run scripts/hive-sse-monitor.ts
 //
 //   # Run a custom script on each event
-//   MAILBOX_TOKEN=xxx MONITOR_CALLBACK="bun run handle-event.ts" \
+//   HIVE_TOKEN=xxx MONITOR_CALLBACK="bun run handle-event.ts" \
 //     bun run scripts/hive-sse-monitor.ts
 //
 //   # Just log all events (debug mode)
-//   MAILBOX_TOKEN=xxx MONITOR_VERBOSE=true bun run scripts/hive-sse-monitor.ts
+//   HIVE_TOKEN=xxx MONITOR_VERBOSE=true bun run scripts/hive-sse-monitor.ts
 
 const BASE = process.env.HIVE_BASE_URL ?? "https://messages.biginformatics.net/api";
-const TOKEN = process.env.MAILBOX_TOKEN;
+const TOKEN = process.env.HIVE_TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN;
 const CALLBACK = process.env.MONITOR_CALLBACK;
@@ -42,7 +42,7 @@ const MONITORED_EVENTS = new Set(
 );
 
 if (!TOKEN) {
-  console.error("[monitor] Missing MAILBOX_TOKEN");
+  console.error("[monitor] Missing HIVE_TOKEN");
   process.exit(1);
 }
 
@@ -84,7 +84,7 @@ async function handleChatMessage(evt: SSEEvent) {
   // Forward to webhook (e.g. OpenClaw /hooks/agent)
   if (WEBHOOK_URL) {
     await forwardToWebhook(
-      `New Hive chat message from ${msg.sender}: "${msg.body}"\n\nChannel: ${data.channelId}\nMessage ID: ${msg.id}\n\nTo reply: curl -sS -X POST -H "Authorization: Bearer $MAILBOX_TOKEN" -H "Content-Type: application/json" -d '{"body":"YOUR_REPLY"}' "${BASE}/chat/channels/${data.channelId}/messages"`,
+      `New Hive chat message from ${msg.sender}: "${msg.body}"\n\nChannel: ${data.channelId}\nMessage ID: ${msg.id}\n\nTo reply: curl -sS -X POST -H "Authorization: Bearer $HIVE_TOKEN" -H "Content-Type: application/json" -d '{"body":"YOUR_REPLY"}' "${BASE}/chat/channels/${data.channelId}/messages"`,
     );
   }
 
@@ -107,7 +107,7 @@ async function handleInboxMessage(evt: SSEEvent) {
 
   if (WEBHOOK_URL) {
     await forwardToWebhook(
-      `New Hive inbox message from ${data?.sender}: "${data?.title}"${data?.urgent ? " [URGENT]" : ""}\n\nMessage ID: ${data?.messageId}\n\nTo read: curl -sS -H "Authorization: Bearer $MAILBOX_TOKEN" "${BASE}/mailboxes/me/messages?status=unread"`,
+      `New Hive inbox message from ${data?.sender}: "${data?.title}"${data?.urgent ? " [URGENT]" : ""}\n\nMessage ID: ${data?.messageId}\n\nTo read: curl -sS -H "Authorization: Bearer $HIVE_TOKEN" "${BASE}/mailboxes/me/messages?status=unread"`,
     );
   }
 }
