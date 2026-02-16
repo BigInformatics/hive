@@ -1,61 +1,208 @@
+#!/usr/bin/env bun
 // Hive SSE Monitor
 //
-// Purpose: Keep a live SSE connection to Hive so agents receive realtime events
-// (Discord-like behavior). Includes auto-reconnect with exponential backoff.
+// Keep a live SSE connection to Hive so agents receive realtime events.
+// Auto-reconnects with exponential backoff. Forwards events to webhooks
+// or executes callback commands for true Discord-like responsiveness.
 //
-// Run:
-//   export MAILBOX_TOKEN=...
-//   bun run scripts/hive-sse-monitor.ts
+// Required env:
+//   MAILBOX_TOKEN        — Hive Bearer token
 //
-// Optional:
-//   export HIVE_BASE_URL=https://messages.biginformatics.net/api
+// Optional env:
+//   HIVE_BASE_URL        — API base (default: https://messages.biginformatics.net/api)
+//   WEBHOOK_URL          — POST events here (e.g. OpenClaw /hooks/agent)
+//   WEBHOOK_TOKEN        — Bearer token for webhook endpoint
+//   MONITOR_EVENTS       — Comma-separated event types to forward (default: chat_message,message)
+//   MONITOR_VERBOSE      — Set to "true" for debug logging
+//   MONITOR_CALLBACK     — Shell command to run on events (receives JSON on stdin)
 //
-// Notes:
-// - Hive SSE authenticates via query param: GET /api/stream?token=...
-// - SSE is notification-only; use REST endpoints as source of truth.
+// Examples:
+//   # Forward chat messages to OpenClaw gateway
+//   MAILBOX_TOKEN=xxx WEBHOOK_URL=http://host:18789/hooks/agent WEBHOOK_TOKEN=yyy \
+//     bun run scripts/hive-sse-monitor.ts
+//
+//   # Run a custom script on each event
+//   MAILBOX_TOKEN=xxx MONITOR_CALLBACK="bun run handle-event.ts" \
+//     bun run scripts/hive-sse-monitor.ts
+//
+//   # Just log all events (debug mode)
+//   MAILBOX_TOKEN=xxx MONITOR_VERBOSE=true bun run scripts/hive-sse-monitor.ts
 
 const BASE = process.env.HIVE_BASE_URL ?? "https://messages.biginformatics.net/api";
 const TOKEN = process.env.MAILBOX_TOKEN;
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN;
+const CALLBACK = process.env.MONITOR_CALLBACK;
+const VERBOSE = process.env.MONITOR_VERBOSE === "true";
+const MONITORED_EVENTS = new Set(
+  (process.env.MONITOR_EVENTS ?? "chat_message,message").split(",").map((s) => s.trim()),
+);
 
 if (!TOKEN) {
-  console.error("[hive-sse] Missing MAILBOX_TOKEN");
+  console.error("[monitor] Missing MAILBOX_TOKEN");
   process.exit(1);
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const log = (...args: unknown[]) => console.log(`[${new Date().toISOString()}]`, ...args);
 
-async function authFetch(path: string) {
+// ─── Auth fetch helper ───
+
+async function authFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { Authorization: `Bearer ${TOKEN}` },
+    ...init,
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      ...(init?.headers ?? {}),
+    },
   });
-  if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+  if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return res;
 }
 
-async function checkInbox() {
-  // lightweight "truth" fetch; agents can then decide what to do
-  await authFetch("/mailboxes/me/messages?status=unread&limit=20");
-  console.log("[hive] inbox checked");
+// ─── Event handlers ───
+
+interface SSEEvent {
+  type: string;
+  data: unknown;
+  raw: string;
 }
 
-async function checkChat() {
-  // lightweight "truth" fetch; agents can then decide what to do
-  await authFetch("/chat/channels");
-  console.log("[hive] chat channels checked");
+async function handleChatMessage(evt: SSEEvent) {
+  const data = evt.data as {
+    channelId?: string;
+    message?: { sender?: string; body?: string; id?: number };
+  };
+  const msg = data?.message;
+  if (!msg) return;
+
+  log(`💬 Chat from ${msg.sender}: "${msg.body?.slice(0, 80)}"`);
+
+  // Forward to webhook (e.g. OpenClaw /hooks/agent)
+  if (WEBHOOK_URL) {
+    await forwardToWebhook(
+      `New Hive chat message from ${msg.sender}: "${msg.body}"\n\nChannel: ${data.channelId}\nMessage ID: ${msg.id}\n\nTo reply: curl -sS -X POST -H "Authorization: Bearer $MAILBOX_TOKEN" -H "Content-Type: application/json" -d '{"body":"YOUR_REPLY"}' "${BASE}/chat/channels/${data.channelId}/messages"`,
+    );
+  }
+
+  // Mark as read (presence tracking)
+  if (data.channelId) {
+    authFetch(`/chat/channels/${data.channelId}/read`, { method: "POST" }).catch(() => {});
+  }
 }
 
-// Minimal SSE parser for lines:
-//   event: <type>
-//   data: <json or text>
-// blank line terminates event
+async function handleInboxMessage(evt: SSEEvent) {
+  const data = evt.data as {
+    sender?: string;
+    title?: string;
+    messageId?: number;
+    urgent?: boolean;
+  };
+
+  log(`📬 Inbox from ${data?.sender}: "${data?.title}"`);
+
+  if (WEBHOOK_URL) {
+    await forwardToWebhook(
+      `New Hive inbox message from ${data?.sender}: "${data?.title}"${data?.urgent ? " [URGENT]" : ""}\n\nMessage ID: ${data?.messageId}\n\nTo read: curl -sS -H "Authorization: Bearer $MAILBOX_TOKEN" "${BASE}/mailboxes/me/messages?status=unread"`,
+    );
+  }
+}
+
+async function handleSwarmEvent(evt: SSEEvent) {
+  const data = evt.data as {
+    taskId?: string;
+    title?: string;
+    status?: string;
+    actor?: string;
+  };
+
+  log(`📋 Swarm: ${evt.type} — "${data?.title}" (${data?.status}) by ${data?.actor}`);
+
+  if (WEBHOOK_URL) {
+    await forwardToWebhook(
+      `Swarm task update: ${evt.type}\nTask: "${data?.title}" → ${data?.status}\nBy: ${data?.actor}\nTask ID: ${data?.taskId}`,
+    );
+  }
+}
+
+const EVENT_HANDLERS: Record<string, (evt: SSEEvent) => Promise<void>> = {
+  chat_message: handleChatMessage,
+  message: handleInboxMessage,
+  swarm_task_created: handleSwarmEvent,
+  swarm_task_updated: handleSwarmEvent,
+  swarm_task_deleted: handleSwarmEvent,
+};
+
+// ─── Webhook forwarding ───
+
+async function forwardToWebhook(message: string) {
+  if (!WEBHOOK_URL) return;
+
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (WEBHOOK_TOKEN) headers.Authorization = `Bearer ${WEBHOOK_TOKEN}`;
+
+    const resp = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ message, wakeMode: "now" }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!resp.ok) {
+      log(`⚠️  Webhook failed: ${resp.status}`);
+    } else if (VERBOSE) {
+      log(`✓ Webhook delivered`);
+    }
+  } catch (err) {
+    log(`⚠️  Webhook error:`, err);
+  }
+}
+
+// ─── Callback execution ───
+
+async function runCallback(evt: SSEEvent) {
+  if (!CALLBACK) return;
+
+  try {
+    const proc = Bun.spawn(CALLBACK.split(" "), {
+      stdin: "pipe",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    proc.stdin.write(JSON.stringify(evt));
+    proc.stdin.end();
+    await proc.exited;
+  } catch (err) {
+    log(`⚠️  Callback error:`, err);
+  }
+}
+
+// ─── SSE connection ───
+
+async function dispatch(evt: SSEEvent) {
+  if (VERBOSE) log(`event=${evt.type}`, evt.data);
+
+  // Run specific handler if available
+  const handler = EVENT_HANDLERS[evt.type];
+  if (handler) {
+    await handler(evt).catch((err) => log(`⚠️  Handler error (${evt.type}):`, err));
+  }
+
+  // Run generic callback if configured
+  if (CALLBACK && MONITORED_EVENTS.has(evt.type)) {
+    await runCallback(evt).catch((err) => log(`⚠️  Callback error:`, err));
+  }
+}
+
 async function connectOnce() {
-  const url = `${BASE}/stream?token=${encodeURIComponent(TOKEN)}`;
-  console.log(`[hive-sse] connecting ${url}`);
+  const url = `${BASE}/stream?token=${encodeURIComponent(TOKEN!)}`;
+  log(`🔌 Connecting to SSE...`);
 
   const res = await fetch(url, { headers: { Accept: "text/event-stream" } });
   if (!res.ok || !res.body) throw new Error(`SSE connect failed: ${res.status}`);
+
+  log(`✅ Connected`);
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -70,60 +217,65 @@ async function connectOnce() {
 
     buf += decoder.decode(value, { stream: true });
 
-    let idx;
+    let idx: number;
     while ((idx = buf.indexOf("\n")) >= 0) {
       const line = buf.slice(0, idx).replace(/\r$/, "");
       buf = buf.slice(idx + 1);
 
-      // blank line => dispatch event
       if (line === "") {
-        if (eventType) {
-          const data = dataLines.join("\n");
-          console.log(`[hive-sse] event=${eventType}`);
-
-          // Optional: react to key events with quick truth-fetches.
-          // Agents can expand this to trigger their own workflows.
-          if (eventType === "message") {
-            checkInbox().catch((e) => console.warn("[hive] inbox check failed", e));
+        if (eventType && MONITORED_EVENTS.has(eventType)) {
+          const raw = dataLines.join("\n");
+          let data: unknown;
+          try {
+            data = JSON.parse(raw);
+          } catch {
+            data = raw;
           }
-          if (eventType === "chat_message") {
-            checkChat().catch((e) => console.warn("[hive] chat check failed", e));
-          }
-
-          // If you want to see payloads while debugging:
-          // console.log(`[hive-sse] data=${data}`);
-          void data;
+          dispatch({ type: eventType, data, raw }).catch(() => {});
+        } else if (eventType === "connected") {
+          log(`🐝 Authenticated`);
         }
-
         eventType = null;
         dataLines = [];
         continue;
       }
 
-      if (line.startsWith(":")) continue; // comment/heartbeat
-      if (line.startsWith("event:")) eventType = line.slice("event:".length).trim();
-      if (line.startsWith("data:")) dataLines.push(line.slice("data:".length).trim());
+      if (line.startsWith(":")) continue; // heartbeat
+      if (line.startsWith("event:")) eventType = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
     }
   }
 
   throw new Error("SSE stream ended");
 }
 
+// ─── Main loop with reconnect ───
+
 async function main() {
+  log(`🐝 Hive SSE Monitor starting`);
+  log(`   Base: ${BASE}`);
+  log(`   Webhook: ${WEBHOOK_URL ?? "(none)"}`);
+  log(`   Callback: ${CALLBACK ?? "(none)"}`);
+  log(`   Events: ${[...MONITORED_EVENTS].join(", ")}`);
+  log(`   Verbose: ${VERBOSE}`);
+
+  // Initial presence ping
+  await authFetch("/presence").catch(() => {});
+
   let backoffMs = 1000;
   while (true) {
     try {
       await connectOnce();
-    } catch (e) {
-      console.warn("[hive-sse] disconnected:", e);
-      console.warn(`[hive-sse] retrying in ${backoffMs}ms`);
-      await sleep(backoffMs);
-      backoffMs = Math.min(backoffMs * 2, 30_000);
+    } catch (err) {
+      log(`⚠️  Disconnected:`, err);
     }
+    log(`🔄 Reconnecting in ${backoffMs}ms...`);
+    await sleep(backoffMs);
+    backoffMs = Math.min(backoffMs * 2, 30_000);
   }
 }
 
-main().catch((e) => {
-  console.error(e);
+main().catch((err) => {
+  console.error("[monitor] Fatal:", err);
   process.exit(1);
 });
