@@ -16,6 +16,7 @@
 //                          (default: chat_message,message,broadcast,swarm_task_created,swarm_task_updated,swarm_task_deleted)
 //   MONITOR_VERBOSE      — Set to "true" for debug logging
 //   MONITOR_CALLBACK     — Shell command to run on events (receives JSON on stdin)
+//   MONITOR_AUTO_READ_CHAT — If "true", automatically POST /read on chat_message events (default: false)
 //
 // Examples:
 //   # Forward chat messages to OpenClaw gateway
@@ -35,6 +36,7 @@ const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN;
 const CALLBACK = process.env.MONITOR_CALLBACK;
 const VERBOSE = process.env.MONITOR_VERBOSE === "true";
+const AUTO_READ_CHAT = process.env.MONITOR_AUTO_READ_CHAT === "true";
 const MONITORED_EVENTS = new Set(
   (process.env.MONITOR_EVENTS ?? "chat_message,message,broadcast,swarm_task_created,swarm_task_updated,swarm_task_deleted").split(",").map((s) => s.trim()),
 );
@@ -86,8 +88,9 @@ async function handleChatMessage(evt: SSEEvent) {
     );
   }
 
-  // Mark as read (presence tracking)
-  if (data.channelId) {
+  // Mark as read (OPTIONAL)
+  // Default is OFF for safety: auto-read can hide messages before an agent has actually processed them.
+  if (AUTO_READ_CHAT && data.channelId) {
     authFetch(`/chat/channels/${data.channelId}/read`, { method: "POST" }).catch(() => {});
   }
 }

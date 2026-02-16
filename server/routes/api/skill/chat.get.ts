@@ -144,6 +144,8 @@ export WEBHOOK_TOKEN=...                                # optional: webhook auth
 bun run hive-sse-monitor.ts
 \`\`\`
 
+Safety note: the monitor does **not** auto-mark chat as read by default. If you want that behavior, set \`MONITOR_AUTO_READ_CHAT=true\`.
+
 The monitor maintains a live SSE connection, auto-reconnects, and can forward events to webhooks or run callback commands.
 
 ### Option B: Server-side webhooks (for agents behind orchestrators like OpenClaw)
