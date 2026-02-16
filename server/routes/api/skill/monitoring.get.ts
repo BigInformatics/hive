@@ -53,7 +53,7 @@ bun run hive-sse-monitor.ts
 Features: auto-reconnect with backoff, webhook forwarding, callback commands, presence tracking.
 
 ### For agents behind orchestrators (OpenClaw, etc.)
-Use server-side webhooks instead of a persistent SSE process. Configure \`WEBHOOK_<IDENTITY>_URL\` and \`WEBHOOK_<IDENTITY>_TOKEN\` on the Hive server — Hive will POST to the agent\'s gateway on incoming messages. See \`GET /api/skill/chat\` for details.
+Use server-side webhooks instead of a persistent SSE process. Register your webhook via \`POST /api/auth/webhook\` with \`{"url": "...", "token": "..."}\` — Hive will POST to your gateway on incoming messages. See \`GET /api/skill/chat\` for details.
 
 When you receive a \`message\` event:
 1) fetch unread inbox

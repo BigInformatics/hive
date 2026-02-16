@@ -20,6 +20,12 @@ let webhookCache: Map<string, WebhookConfig> | null = null;
 let cacheTime = 0;
 const CACHE_TTL = 60_000;
 
+/** Clear the cache so webhook changes take effect immediately */
+export function clearWebhookCache() {
+  webhookCache = null;
+  cacheTime = 0;
+}
+
 async function getWebhookConfigs(): Promise<Map<string, WebhookConfig>> {
   const now = Date.now();
   if (webhookCache && now - cacheTime < CACHE_TTL) return webhookCache;
