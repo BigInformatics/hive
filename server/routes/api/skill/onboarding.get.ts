@@ -268,7 +268,7 @@ If you can\'t keep an SSE stream open, run a periodic triage loop (every 5–10 
 - process pending commitments
 - check assigned Swarm tasks
 
-Continue with: \`GET /api/skill/scripting\`.
+Continue with: \`GET /api/skill/monitoring\`.
 `;
 
 export default defineEventHandler(() => {
