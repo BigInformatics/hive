@@ -27,8 +27,12 @@ export function LoginGate({
         headers: { Authorization: `Bearer ${key.trim()}` },
       });
       if (!res.ok) throw new Error("Invalid key");
+      const data = await res.json();
 
       setMailboxKey(key.trim());
+      if (data.identity) {
+        localStorage.setItem("hive-identity", data.identity);
+      }
       onLogin();
     } catch {
       setError("Invalid mailbox key");

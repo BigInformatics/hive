@@ -17,6 +17,7 @@ export function getMailboxKey(): string | null {
 
 export function clearMailboxKey() {
   localStorage.removeItem("hive-mailbox-key");
+  localStorage.removeItem("hive-identity");
 }
 
 async function apiFetch(path: string, options: RequestInit = {}) {
@@ -237,4 +238,36 @@ export const api = {
 
   revokeToken: (id: number) =>
     apiFetch(`/auth/tokens/${id}/revoke`, { method: "POST" }),
+
+  // Chat
+  listChatChannels: () => apiFetch("/chat/channels"),
+
+  openDm: (identity: string) =>
+    apiFetch("/chat/channels", {
+      method: "POST",
+      body: JSON.stringify({ identity }),
+    }),
+
+  createGroupChat: (name: string, members: string[]) =>
+    apiFetch("/chat/channels", {
+      method: "POST",
+      body: JSON.stringify({ type: "group", name, members }),
+    }),
+
+  getChatMessages: (channelId: string, params?: { limit?: number; before?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.before) qs.set("before", String(params.before));
+    const q = qs.toString();
+    return apiFetch(`/chat/channels/${channelId}/messages${q ? `?${q}` : ""}`);
+  },
+
+  sendChatMessage: (channelId: string, body: string) =>
+    apiFetch(`/chat/channels/${channelId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+
+  markChatRead: (channelId: string) =>
+    apiFetch(`/chat/channels/${channelId}/read`, { method: "POST" }),
 };

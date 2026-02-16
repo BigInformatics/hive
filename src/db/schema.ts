@@ -238,6 +238,37 @@ export const recurringTemplates = pgTable("recurring_templates", {
 });
 
 // ============================================================
+// CHAT
+// ============================================================
+
+export const chatChannels = pgTable("chat_channels", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  type: varchar("type", { length: 10 }).notNull().default("dm"),
+  name: varchar("name", { length: 100 }),
+  createdBy: varchar("created_by", { length: 50 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const chatMembers = pgTable("chat_members", {
+  channelId: text("channel_id").notNull().references(() => chatChannels.id, { onDelete: "cascade" }),
+  identity: varchar("identity", { length: 50 }).notNull(),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
+  lastReadAt: timestamp("last_read_at", { withTimezone: true }),
+});
+
+export const chatMessages = pgTable("chat_messages", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  channelId: text("channel_id").notNull().references(() => chatChannels.id, { onDelete: "cascade" }),
+  sender: varchar("sender", { length: 50 }).notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  editedAt: timestamp("edited_at", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+// ============================================================
 // AUTH: MAILBOX TOKENS
 // ============================================================
 
@@ -283,5 +314,8 @@ export type SwarmProject = typeof swarmProjects.$inferSelect;
 export type SwarmTask = typeof swarmTasks.$inferSelect;
 export type SwarmTaskEvent = typeof swarmTaskEvents.$inferSelect;
 export type RecurringTemplate = typeof recurringTemplates.$inferSelect;
+export type ChatChannel = typeof chatChannels.$inferSelect;
+export type ChatMember = typeof chatMembers.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
 export type MailboxToken = typeof mailboxTokens.$inferSelect;
 export type Invite = typeof invites.$inferSelect;
