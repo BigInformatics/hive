@@ -20,5 +20,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 ENV NODE_ENV=production
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/SKILL.md ./SKILL.md
+COPY --from=build /app/scripts ./scripts
 EXPOSE 3000
 CMD ["bun", "run", ".output/server/index.mjs"]
