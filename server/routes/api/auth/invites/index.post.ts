@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event);
   const code = randomBytes(24).toString("hex");
+  const webhookToken = randomBytes(24).toString("hex");
   const expiresIn = body?.expiresInHours ? Number(body.expiresInHours) : 72;
 
   const [row] = await db
@@ -26,11 +27,13 @@ export default defineEventHandler(async (event) => {
       isAdmin: body?.isAdmin || false,
       maxUses: body?.maxUses || 1,
       expiresAt: new Date(Date.now() + expiresIn * 3600_000),
+      webhookToken,
     })
     .returning();
 
   return {
     invite: row,
+    webhookToken,
     onboardUrl: `https://messages.biginformatics.net/onboard?code=${code}`,
   };
 });

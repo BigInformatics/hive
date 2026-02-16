@@ -302,6 +302,8 @@ export const invites = pgTable("invites", {
   useCount: integer("use_count").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  // Pre-generated webhook token — human copies this to the agent's gateway config
+  webhookToken: varchar("webhook_token", { length: 200 }),
 });
 
 // ============================================================

@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
   const token = randomBytes(32).toString("hex");
   const label = body.label || `Onboarded via invite`;
 
-  // Create the token
+  // Create the token (carry webhook token from invite if present)
   const [tokenRow] = await db
     .insert(mailboxTokens)
     .values({
@@ -70,6 +70,7 @@ export default defineEventHandler(async (event) => {
       isAdmin: invite.isAdmin,
       label,
       createdBy: invite.createdBy,
+      ...(invite.webhookToken ? { webhookToken: invite.webhookToken } : {}),
     })
     .returning();
 
@@ -87,6 +88,7 @@ export default defineEventHandler(async (event) => {
     identity: tokenRow.identity,
     token: tokenRow.token,
     isAdmin: tokenRow.isAdmin,
-    message: `Welcome to Hive, ${identity}! Save your token securely — it won't be shown again.`,
+    ...(tokenRow.webhookToken ? { webhookToken: tokenRow.webhookToken } : {}),
+    message: `Welcome to Hive, ${identity}! Save your token securely — it won't be shown again.${tokenRow.webhookToken ? " A webhook token has been pre-configured — your operator can use it for gateway webhook setup." : ""}`,
   };
 });
