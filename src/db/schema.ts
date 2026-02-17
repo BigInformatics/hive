@@ -1,4 +1,5 @@
 import {
+  bigint,
   bigserial,
   boolean,
   index,
@@ -30,9 +31,7 @@ export const mailboxMessages = pgTable(
       .notNull(),
     viewedAt: timestamp("viewed_at", { withTimezone: true }),
     threadId: varchar("thread_id", { length: 100 }),
-    replyToMessageId: bigserial("reply_to_message_id", {
-      mode: "number",
-    }),
+    replyToMessageId: bigint("reply_to_message_id", { mode: "number" }),
     dedupeKey: varchar("dedupe_key", { length: 255 }),
     metadata: jsonb("metadata"),
     responseWaiting: boolean("response_waiting").notNull().default(false),
@@ -95,7 +94,7 @@ export const broadcastEvents = pgTable(
   "broadcast_events",
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
-    webhookId: bigserial("webhook_id", { mode: "number" }).notNull(),
+    webhookId: bigint("webhook_id", { mode: "number" }).notNull(),
     appName: varchar("app_name", { length: 50 }).notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     forUsers: varchar("for_users", { length: 255 }),
@@ -164,7 +163,7 @@ export const swarmTasks = pgTable(
     issueUrl: text("issue_url"),
     onOrAfterAt: timestamp("on_or_after_at", { withTimezone: true }),
     mustBeDoneAfterTaskId: text("must_be_done_after_task_id"),
-    sortKey: bigserial("sort_key", { mode: "number" }),
+    sortKey: bigint("sort_key", { mode: "number" }),
     nextTaskId: text("next_task_id"),
     nextTaskAssigneeUserId: varchar("next_task_assignee_user_id", { length: 50 }),
     recurringTemplateId: text("recurring_template_id"),
