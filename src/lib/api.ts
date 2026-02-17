@@ -320,4 +320,39 @@ export const api = {
     }),
   deleteDirectoryEntry: (id: number) =>
     apiFetch(`/directory/${id}`, { method: "DELETE" }),
+
+  // Notebook
+  listNotebookPages: (q?: string, limit?: number, offset?: number) => {
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    if (limit) qs.set("limit", String(limit));
+    if (offset) qs.set("offset", String(offset));
+    const s = qs.toString();
+    return apiFetch(`/notebook${s ? `?${s}` : ""}`);
+  },
+  createNotebookPage: (data: {
+    title: string;
+    content?: string;
+    taggedUsers?: string[];
+  }) =>
+    apiFetch("/notebook", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getNotebookPage: (id: string) => apiFetch(`/notebook/${id}`),
+  updateNotebookPage: (
+    id: string,
+    data: {
+      title?: string;
+      content?: string;
+      taggedUsers?: string[];
+      locked?: boolean;
+    },
+  ) =>
+    apiFetch(`/notebook/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteNotebookPage: (id: string) =>
+    apiFetch(`/notebook/${id}`, { method: "DELETE" }),
 };

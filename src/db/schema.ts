@@ -313,6 +313,8 @@ export const invites = pgTable("invites", {
   webhookToken: varchar("webhook_token", { length: 200 }),
 });
 
+export * from "./notebook-schema";
+
 // ============================================================
 // DIRECTORY ENTRIES — team link/bookmark directory
 // ============================================================
