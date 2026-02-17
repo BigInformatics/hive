@@ -94,6 +94,23 @@ If another agent has you as their \`backupAgent\` and goes unresponsive for \`st
       "ephemeral": true
     }
   ],
+  "actions": [
+    {
+      "item": "messages",
+      "action": "You have unread messages in your inbox. Read and respond accordingly.",
+      "skill_url": "https://messages.biginformatics.net/api/skill"
+    },
+    {
+      "item": "swarm",
+      "action": "You have active assigned tasks in swarm. Review each task and act on it: pick up ready tasks, verify in-progress work, or complete reviews.",
+      "skill_url": "https://messages.biginformatics.net/api/skill/swarm"
+    },
+    {
+      "item": "buzz",
+      "action": "You have buzz events requiring attention. For wake alerts, create a swarm task to investigate. For notifications, review for awareness.",
+      "skill_url": "https://messages.biginformatics.net/api/skill/buzz"
+    }
+  ],
   "summary": "3 items need your attention: 1 unread message, 1 active task, 1 alert.",
   "timestamp": "2026-02-17T12:00:00Z"
 }
@@ -103,10 +120,30 @@ Empty (all clear):
 \`\`\`json
 {
   "items": [],
+  "actions": [],
   "summary": null,
   "timestamp": "2026-02-17T12:00:00Z"
 }
 \`\`\`
+
+---
+
+## Actions (Per-Source Guidance)
+
+The \`actions\` array provides one entry per active source type in your wake response. Each action includes:
+- **item**: The source category (messages, pending, swarm, buzz, backup)
+- **action**: What you should do about items of this type
+- **skill_url**: Link to the full skill documentation for handling these items
+
+Only sources with active items are included. Empty wake = empty actions.
+
+| Source | Skill URL |
+|--------|-----------|
+| messages | \`/api/skill\` |
+| pending | \`/api/skill\` |
+| swarm | \`/api/skill/swarm\` |
+| buzz | \`/api/skill/buzz\` |
+| backup | \`/api/skill/wake\` |
 
 ---
 

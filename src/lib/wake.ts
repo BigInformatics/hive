@@ -31,8 +31,15 @@ export interface WakeItem {
   staleSince?: string;
 }
 
+export interface WakeAction {
+  item: string;
+  action: string;
+  skill_url: string;
+}
+
 export interface WakePayload {
   items: WakeItem[];
+  actions: WakeAction[];
   summary: string | null;
   timestamp: string;
 }
@@ -330,8 +337,46 @@ export async function getWakeItems(
     summary = `${items.length} item${items.length > 1 ? "s" : ""} need${items.length === 1 ? "s" : ""} your attention: ${counts.join(", ")}.`;
   }
 
+  // --- Build per-source actions ---
+  const SKILL_BASE = "https://messages.biginformatics.net/api/skill";
+  const ACTION_MAP: Record<string, { item: string; action: string; skill_url: string }> = {
+    message: {
+      item: "messages",
+      action: "You have unread messages in your inbox. Read and respond accordingly.",
+      skill_url: SKILL_BASE,
+    },
+    message_pending: {
+      item: "pending",
+      action: "You have messages marked for follow-up. Deliver on your commitments or clear the pending flag.",
+      skill_url: SKILL_BASE,
+    },
+    swarm: {
+      item: "swarm",
+      action: "You have active assigned tasks in swarm. Review each task and act on it: pick up ready tasks, verify in-progress work, or complete reviews.",
+      skill_url: `${SKILL_BASE}/swarm`,
+    },
+    buzz: {
+      item: "buzz",
+      action: "You have buzz events requiring attention. For wake alerts, create a swarm task to investigate. For notifications, review for awareness.",
+      skill_url: `${SKILL_BASE}/buzz`,
+    },
+    backup: {
+      item: "backup",
+      action: "An agent you back up appears unresponsive with pending work. Check on them and notify the team if needed.",
+      skill_url: `${SKILL_BASE}/wake`,
+    },
+  };
+
+  const activeSources = new Set(items.map((i) => i.source));
+  const actions: WakeAction[] = [];
+  for (const source of activeSources) {
+    const a = ACTION_MAP[source];
+    if (a) actions.push(a);
+  }
+
   return {
     items,
+    actions,
     summary,
     timestamp: now.toISOString(),
   };
