@@ -13,6 +13,7 @@ import {
   CheckCheck,
   AlertTriangle,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
 import { Nav } from "./nav";
 import { ComposeDialog } from "./compose-dialog";
@@ -164,8 +165,8 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="border-b px-4 py-2">
+      {/* Search — hidden on mobile when viewing detail */}
+      <div className={`border-b px-3 md:px-4 py-2 ${selectedMessage ? "hidden md:block" : ""}`}>
         <div className="flex gap-2">
           <input
             type="text"
@@ -188,8 +189,8 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
 
       {/* Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Message list */}
-        <div className="flex w-full flex-col border-r md:w-96">
+        {/* Message list — hidden on mobile when viewing detail */}
+        <div className={`flex flex-col border-r md:w-96 ${selectedMessage ? "hidden md:flex" : "flex"} w-full`}>
           <Tabs
             value={tab}
             onValueChange={(v) => {
@@ -273,36 +274,43 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {/* Detail pane */}
-        <div className="hidden flex-1 md:block">
+        <div className={`flex-1 flex flex-col ${selectedMessage ? "flex" : "hidden md:flex"}`}>
           {selectedMessage ? (
-            <MessageDetail
-              message={selectedMessage}
-              onAck={() => handleAck(selectedMessage.id)}
-              onReply={async (body) => {
-                await api.replyToMessage(selectedMessage.id, body);
-                // Auto-ack on reply
-                if (selectedMessage.status === "unread") {
-                  await api.ackMessage(selectedMessage.id);
-                  setSelectedMessage({ ...selectedMessage, status: "read" });
-                }
-                fetchMessages(tab);
-              }}
-              onTogglePending={async () => {
-                if (selectedMessage.responseWaiting) {
-                  const updated = await api.clearPending(selectedMessage.id);
-                  setSelectedMessage({ ...selectedMessage, responseWaiting: false, waitingResponder: null, waitingSince: null });
-                } else {
-                  const updated = await api.markPending(selectedMessage.id);
-                  setSelectedMessage({ ...selectedMessage, responseWaiting: true, waitingResponder: "me", waitingSince: new Date().toISOString() });
-                }
-                fetchMessages(tab);
-              }}
-              onAutoRead={() => {
-                if (selectedMessage.status === "unread") {
-                  handleAck(selectedMessage.id);
-                }
-              }}
-            />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              {/* Mobile back button */}
+              <div className="flex md:hidden items-center border-b px-2 py-1.5">
+                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => setSelectedMessage(null)}>
+                  <ArrowLeft className="h-4 w-4" /> Back
+                </Button>
+              </div>
+              <MessageDetail
+                message={selectedMessage}
+                onAck={() => handleAck(selectedMessage.id)}
+                onReply={async (body) => {
+                  await api.replyToMessage(selectedMessage.id, body);
+                  if (selectedMessage.status === "unread") {
+                    await api.ackMessage(selectedMessage.id);
+                    setSelectedMessage({ ...selectedMessage, status: "read" });
+                  }
+                  fetchMessages(tab);
+                }}
+                onTogglePending={async () => {
+                  if (selectedMessage.responseWaiting) {
+                    const updated = await api.clearPending(selectedMessage.id);
+                    setSelectedMessage({ ...selectedMessage, responseWaiting: false, waitingResponder: null, waitingSince: null });
+                  } else {
+                    const updated = await api.markPending(selectedMessage.id);
+                    setSelectedMessage({ ...selectedMessage, responseWaiting: true, waitingResponder: "me", waitingSince: new Date().toISOString() });
+                  }
+                  fetchMessages(tab);
+                }}
+                onAutoRead={() => {
+                  if (selectedMessage.status === "unread") {
+                    handleAck(selectedMessage.id);
+                  }
+                }}
+              />
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <p>Select a message to read</p>
