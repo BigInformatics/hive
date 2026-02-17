@@ -1297,6 +1297,8 @@ function AuthPanel() {
   const [inviteAdmin, setInviteAdmin] = useState(false);
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [inviteTab, setInviteTab] = useState<"active" | "used">("active");
+  const [tokenTab, setTokenTab] = useState<"active" | "revoked">("active");
 
   const fetchAll = async () => {
     setLoading(true);
@@ -1417,115 +1419,180 @@ Register a webhook for instant message delivery (recommended):
         </CardContent>
       </Card>
 
-      {/* Active Invites */}
+      {/* Invites */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold flex items-center gap-1.5">
-              <KeyRound className="h-4 w-4" /> Pending Invites
+              <KeyRound className="h-4 w-4" /> Invites
             </h3>
             <Button variant="ghost" size="icon" onClick={fetchAll} disabled={loading}>
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
-          {invitesList.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No pending invites</p>
-          ) : (
-            <div className="space-y-2">
-              {invitesList.map((inv) => {
-                const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
-                const used = inv.useCount >= inv.maxUses;
-                return (
-                  <div key={inv.id} className={`flex items-center justify-between p-2 rounded-md border text-xs ${expired || used ? "opacity-50" : ""}`}>
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        {inv.identityHint && <Badge variant="outline">{inv.identityHint}</Badge>}
-                        {inv.isAdmin && <Badge variant="destructive">admin</Badge>}
-                        <span className="text-muted-foreground">
-                          {inv.useCount}/{inv.maxUses} used
-                        </span>
+          <div className="flex gap-1 mb-3">
+            <Button
+              variant={inviteTab === "active" ? "secondary" : "ghost"}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setInviteTab("active")}
+            >
+              Active
+              {(() => {
+                const count = invitesList.filter((i) => i.useCount < i.maxUses && (!i.expiresAt || new Date(i.expiresAt) > new Date())).length;
+                return count > 0 ? <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{count}</Badge> : null;
+              })()}
+            </Button>
+            <Button
+              variant={inviteTab === "used" ? "secondary" : "ghost"}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setInviteTab("used")}
+            >
+              Used / Expired
+            </Button>
+          </div>
+          {(() => {
+            const filtered = invitesList.filter((inv) => {
+              const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+              const used = inv.useCount >= inv.maxUses;
+              return inviteTab === "active" ? !expired && !used : expired || used;
+            });
+            if (filtered.length === 0) {
+              return <p className="text-xs text-muted-foreground text-center py-4">{inviteTab === "active" ? "No active invites" : "No used or expired invites"}</p>;
+            }
+            return (
+              <div className="space-y-2">
+                {filtered.map((inv) => {
+                  const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+                  const used = inv.useCount >= inv.maxUses;
+                  return (
+                    <div key={inv.id} className={`flex items-center justify-between p-2 rounded-md border text-xs ${expired || used ? "opacity-50" : ""}`}>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          {inv.identityHint && <Badge variant="outline">{inv.identityHint}</Badge>}
+                          {inv.isAdmin && <Badge variant="destructive">admin</Badge>}
+                          {used && <Badge variant="secondary">used</Badge>}
+                          {expired && !used && <Badge variant="secondary">expired</Badge>}
+                          <span className="text-muted-foreground">
+                            {inv.useCount}/{inv.maxUses} used
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground">
+                          by {inv.createdBy} · {new Date(inv.createdAt).toLocaleDateString()}
+                          {inv.expiresAt && ` · expires ${new Date(inv.expiresAt).toLocaleDateString()}`}
+                        </p>
                       </div>
-                      <p className="text-muted-foreground">
-                        by {inv.createdBy} · {new Date(inv.createdAt).toLocaleDateString()}
-                        {inv.expiresAt && ` · expires ${new Date(inv.expiresAt).toLocaleDateString()}`}
-                      </p>
+                      <div className="flex gap-1">
+                        {!used && !expired && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Copy invite link"
+                              onClick={() => copyCode(inv.id, inv.code)}
+                            >
+                              {copiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Copy onboarding instructions"
+                              onClick={() => copyDetail(inv.id, inv.code, inv.identityHint)}
+                            >
+                              {detailCopiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <FileText className="h-3 w-3" />}
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          onClick={() => handleDeleteInvite(inv.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Copy invite link"
-                        onClick={() => copyCode(inv.id, inv.code)}
-                      >
-                        {copiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Copy onboarding instructions"
-                        onClick={() => copyDetail(inv.id, inv.code, inv.identityHint)}
-                      >
-                        {detailCopiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <FileText className="h-3 w-3" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => handleDeleteInvite(inv.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
-      {/* DB Tokens */}
+      {/* Registered Tokens */}
       <Card>
         <CardContent className="p-4">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
             <KeyRound className="h-4 w-4" /> Registered Tokens
           </h3>
-          {tokensList.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No DB tokens yet — agents still using env vars</p>
-          ) : (
-            <div className="space-y-2">
-              {tokensList.map((tok) => (
-                <div key={tok.id} className={`flex items-center justify-between p-2 rounded-md border text-xs ${tok.revokedAt ? "opacity-40" : ""}`}>
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{tok.identity}</Badge>
-                      {tok.isAdmin && <Badge variant="destructive">admin</Badge>}
-                      {tok.revokedAt && <Badge variant="outline">revoked</Badge>}
-                      {tok.label && <span className="text-muted-foreground">{tok.label}</span>}
+          <div className="flex gap-1 mb-3">
+            <Button
+              variant={tokenTab === "active" ? "secondary" : "ghost"}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setTokenTab("active")}
+            >
+              Active
+              {(() => {
+                const count = tokensList.filter((t) => !t.revokedAt).length;
+                return count > 0 ? <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{count}</Badge> : null;
+              })()}
+            </Button>
+            <Button
+              variant={tokenTab === "revoked" ? "secondary" : "ghost"}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setTokenTab("revoked")}
+            >
+              Revoked
+            </Button>
+          </div>
+          {(() => {
+            const filtered = tokensList.filter((tok) =>
+              tokenTab === "active" ? !tok.revokedAt : !!tok.revokedAt,
+            );
+            if (filtered.length === 0) {
+              return <p className="text-xs text-muted-foreground text-center py-4">{tokenTab === "active" ? "No active tokens" : "No revoked tokens"}</p>;
+            }
+            return (
+              <div className="space-y-2">
+                {filtered.map((tok) => (
+                  <div key={tok.id} className={`flex items-center justify-between p-2 rounded-md border text-xs ${tok.revokedAt ? "opacity-50" : ""}`}>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{tok.identity}</Badge>
+                        {tok.isAdmin && <Badge variant="destructive">admin</Badge>}
+                        {tok.revokedAt && <Badge variant="outline">revoked</Badge>}
+                        {tok.label && <span className="text-muted-foreground">{tok.label}</span>}
+                      </div>
+                      <p className="text-muted-foreground">
+                        {tok.createdBy && `by ${tok.createdBy} · `}
+                        {new Date(tok.createdAt).toLocaleDateString()}
+                        {tok.lastUsedAt && ` · last used ${new Date(tok.lastUsedAt).toLocaleString()}`}
+                        {tok.revokedAt && ` · revoked ${new Date(tok.revokedAt).toLocaleDateString()}`}
+                      </p>
                     </div>
-                    <p className="text-muted-foreground">
-                      {tok.createdBy && `by ${tok.createdBy} · `}
-                      {new Date(tok.createdAt).toLocaleDateString()}
-                      {tok.lastUsedAt && ` · last used ${new Date(tok.lastUsedAt).toLocaleString()}`}
-                    </p>
+                    {!tok.revokedAt && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => handleRevokeToken(tok.id)}
+                        title="Revoke token"
+                      >
+                        <Ban className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
-                  {!tok.revokedAt && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => handleRevokeToken(tok.id)}
-                      title="Revoke token"
-                    >
-                      <Ban className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
