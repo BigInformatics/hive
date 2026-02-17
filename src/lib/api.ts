@@ -274,6 +274,13 @@ export const api = {
   sendChatTyping: (channelId: string) =>
     apiFetch(`/chat/channels/${channelId}/typing`, { method: "POST" }),
 
+  // Wake
+  getWake: (identity?: string) =>
+    apiFetch(identity ? `/wake/${identity}` : "/wake"),
+
+  // Admin
+  getUserStats: () => apiFetch("/admin/user-stats"),
+
   searchChatMessages: (params: {
     q: string;
     channelId?: string;

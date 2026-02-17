@@ -20,6 +20,7 @@ import {
   Activity,
   Users,
   MessageSquare,
+  Mail,
   Radio,
   LayoutList,
   Webhook,
@@ -238,11 +239,67 @@ const AVATARS: Record<string, string> = {
   zumie: "/avatars/zumie.png",
 };
 
+interface UserStats {
+  inbox: { unread: number; pending: number; read: number; total: number };
+  swarm: Record<string, number>;
+  presence: { online: boolean; lastSeen: string | null; source: string | null };
+  connection: string;
+}
+
+interface WakePayload {
+  items: Array<{
+    source: string;
+    id: string | number;
+    summary: string;
+    action: string;
+    priority: string;
+    age?: string;
+    status?: string;
+    role?: string;
+    appName?: string;
+    ephemeral: boolean;
+  }>;
+  summary: string | null;
+  timestamp: string;
+}
+
+const CONNECTION_LABELS: Record<string, { label: string; color: string }> = {
+  sse: { label: "SSE", color: "text-green-500" },
+  webhook: { label: "Webhook", color: "text-sky-500" },
+  api: { label: "API Poll", color: "text-amber-500" },
+  none: { label: "None", color: "text-muted-foreground" },
+};
+
 function PresencePanel({
   presence,
 }: {
   presence: Record<string, { online: boolean; lastSeen: string | null; unread: number }>;
 }) {
+  const [userStats, setUserStats] = useState<Record<string, UserStats> | null>(null);
+  const [wakeData, setWakeData] = useState<WakePayload | null>(null);
+  const [wakeUser, setWakeUser] = useState<string | null>(null);
+  const [wakeLoading, setWakeLoading] = useState(false);
+
+  useEffect(() => {
+    api.getUserStats().then((data: { users: Record<string, UserStats> }) => {
+      setUserStats(data.users);
+    }).catch(console.error);
+  }, []);
+
+  const openWake = async (identity: string) => {
+    setWakeUser(identity);
+    setWakeLoading(true);
+    try {
+      const data = await api.getWake(identity);
+      setWakeData(data);
+    } catch (err) {
+      console.error("Failed to fetch wake:", err);
+      setWakeData(null);
+    } finally {
+      setWakeLoading(false);
+    }
+  };
+
   const users = Object.entries(presence).sort(([, a], [, b]) => {
     if (a.online !== b.online) return a.online ? -1 : 1;
     return 0;
@@ -253,43 +310,166 @@ function PresencePanel({
   }
 
   return (
-    <div className="space-y-2">
-      {users.map(([name, info]) => (
-        <Card key={name}>
-          <CardContent className="p-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {AVATARS[name] ? (
-                <img src={AVATARS[name]} alt={name} className="h-8 w-8 rounded-full" />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold uppercase">
-                  {name[0]}
+    <>
+      <div className="space-y-2">
+        {users.map(([name, info]) => {
+          const stats = userStats?.[name];
+          const conn = stats?.connection || "none";
+          const connInfo = CONNECTION_LABELS[conn] || CONNECTION_LABELS.none;
+          const swarmTotal = stats
+            ? Object.entries(stats.swarm)
+                .filter(([s]) => s !== "complete")
+                .reduce((sum, [, c]) => sum + c, 0)
+            : 0;
+
+          return (
+            <Card key={name}>
+              <CardContent className="p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {AVATARS[name] ? (
+                      <img src={AVATARS[name]} alt={name} className="h-10 w-10 rounded-full" />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold uppercase">
+                        {name[0]}
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm capitalize">{name}</p>
+                        <Badge variant={info.online ? "default" : "secondary"} className="text-[10px] h-5">
+                          {info.online ? "Online" : "Offline"}
+                        </Badge>
+                        <span className={`text-[10px] font-medium ${connInfo.color}`}>
+                          {connInfo.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {info.online
+                          ? `Online via ${stats?.presence?.source || "unknown"}`
+                          : info.lastSeen
+                            ? `Last seen: ${new Date(info.lastSeen).toLocaleString()}`
+                            : "Never seen"}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 gap-1 shrink-0"
+                    onClick={() => openWake(name)}
+                  >
+                    <Activity className="h-3 w-3" /> Wake
+                  </Button>
                 </div>
-              )}
-              <div>
-                <p className="font-medium text-sm capitalize">{name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {info.online ? (
-                    <span className="text-green-500">● Online</span>
-                  ) : info.lastSeen ? (
-                    `Last seen: ${new Date(info.lastSeen).toLocaleString()}`
-                  ) : (
-                    "Never seen"
-                  )}
+
+                {/* Stats row */}
+                {stats && (
+                  <div className="flex gap-4 mt-2 ml-[52px] text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      <span>
+                        <strong className={stats.inbox.unread > 0 ? "text-destructive" : ""}>{stats.inbox.unread}</strong> unread
+                        {stats.inbox.pending > 0 && (
+                          <> · <strong className="text-amber-500">{stats.inbox.pending}</strong> pending</>
+                        )}
+                        {" "}· {stats.inbox.read} read
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <LayoutList className="h-3 w-3" />
+                      <span>
+                        <strong>{swarmTotal}</strong> tasks
+                        {swarmTotal > 0 && (
+                          <span className="ml-1">
+                            ({Object.entries(stats.swarm)
+                              .filter(([s]) => s !== "complete")
+                              .map(([s, c]) => `${c} ${s.replace("_", " ")}`)
+                              .join(", ")})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Wake Dialog */}
+      <Dialog open={!!wakeUser} onOpenChange={(open) => !open && setWakeUser(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="capitalize flex items-center gap-2">
+              <Activity className="h-4 w-4" /> Wake — {wakeUser}
+            </DialogTitle>
+          </DialogHeader>
+          {wakeLoading ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Loading...</p>
+          ) : wakeData ? (
+            <div className="space-y-3">
+              {wakeData.summary ? (
+                <p className="text-sm font-medium">{wakeData.summary}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  ✓ All clear — nothing needs attention.
                 </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {info.unread > 0 && (
-                <Badge variant="destructive">{info.unread} unread</Badge>
               )}
-              <Badge variant={info.online ? "default" : "secondary"}>
-                {info.online ? "Online" : "Offline"}
-              </Badge>
+              {wakeData.items.map((item) => {
+                const priorityColors: Record<string, string> = {
+                  high: "border-destructive/50 bg-destructive/5",
+                  normal: "border-border",
+                  low: "border-border bg-muted/30",
+                };
+                const sourceIcons: Record<string, string> = {
+                  message: "✉️",
+                  message_pending: "⏳",
+                  swarm: "📋",
+                  buzz: "📡",
+                  backup: "🚨",
+                };
+                return (
+                  <Card
+                    key={`${item.source}-${item.id}`}
+                    className={priorityColors[item.priority] || ""}
+                  >
+                    <CardContent className="p-3 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span>{sourceIcons[item.source] || "•"}</span>
+                          <p className="text-sm font-medium">{item.summary}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {item.age && (
+                            <span className="text-[10px] text-muted-foreground">{item.age}</span>
+                          )}
+                          {item.ephemeral && (
+                            <Badge variant="outline" className="text-[9px] h-4">ephemeral</Badge>
+                          )}
+                          {item.status && (
+                            <Badge variant="secondary" className="text-[10px] h-4">{item.status}</Badge>
+                          )}
+                          {item.role && (
+                            <Badge variant={item.role === "wake" ? "destructive" : "secondary"} className="text-[10px] h-4">
+                              {item.role}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground italic">{item.action}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+          ) : (
+            <p className="text-sm text-destructive py-4 text-center">Failed to load wake data.</p>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
