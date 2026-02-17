@@ -171,6 +171,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [filterProject, setFilterProject] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<SwarmProject | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
+  const [mobileStatus, setMobileStatus] = useState<string>("ready");
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -249,8 +250,8 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
     <div className="flex flex-col bg-background h-[100dvh] md:h-screen pb-14 md:pb-0">
       <Nav onLogout={onLogout} />
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between border-b px-4 py-2 gap-2 flex-wrap">
+      {/* Toolbar — Desktop */}
+      <div className="hidden md:flex items-center justify-between border-b px-4 py-2 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Task
@@ -379,65 +380,158 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         </div>
       </div>
 
+      {/* Toolbar — Mobile */}
+      <div className="flex md:hidden flex-col border-b">
+        {/* Actions row */}
+        <div className="flex items-center justify-between px-3 py-2">
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" className="h-8" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Task
+            </Button>
+            {/* Assignee filter as avatars */}
+            <div className="flex gap-0.5 ml-1">
+              {assignees.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  className={`rounded-full p-0.5 transition-all ${filterAssignee === a ? "ring-2 ring-primary" : "opacity-50"}`}
+                  onClick={() => setFilterAssignee(filterAssignee === a ? null : a)}
+                >
+                  {AVATARS[a] ? (
+                    <img src={AVATARS[a]} alt={a} className="h-6 w-6 rounded-full" />
+                  ) : (
+                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold uppercase">
+                      {a[0]}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+
+        {/* Status tabs — mobile */}
+        <div className="flex overflow-x-auto px-3 pb-2 gap-1 no-scrollbar">
+          {visibleStatuses.map((status) => {
+            const config = STATUS_CONFIG[status];
+            if (!config) return null;
+            const count = filteredTasks.filter((t) => t.status === status).length;
+            const StatusIcon = config.icon;
+            return (
+              <button
+                key={status}
+                type="button"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  mobileStatus === status
+                    ? `${config.bgColor} ${config.color} ring-1 ring-current`
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+                onClick={() => setMobileStatus(status)}
+              >
+                <StatusIcon className="h-3 w-3" />
+                {config.label}
+                {count > 0 && (
+                  <span className="ml-0.5 bg-foreground/10 rounded-full px-1.5 text-[10px]">
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Board or List */}
       {viewMode === "board" ? (
-        <div className="flex-1 overflow-x-auto overflow-y-hidden">
-          <div className="flex h-full gap-3 p-4" style={{ minWidth: `${visibleStatuses.length * 280}px` }}>
-            {groupedTasks.map(({ status, tasks: statusTasks }) => {
-              const config = STATUS_CONFIG[status];
-              if (!config) return null;
-              const StatusIcon = config.icon;
-              const isDropping = dropTarget === status && dragTaskId !== null;
+        <>
+          {/* Desktop board — multi-column */}
+          <div className="hidden md:flex flex-1 overflow-x-auto overflow-y-hidden">
+            <div className="flex h-full gap-3 p-4" style={{ minWidth: `${visibleStatuses.length * 280}px` }}>
+              {groupedTasks.map(({ status, tasks: statusTasks }) => {
+                const config = STATUS_CONFIG[status];
+                if (!config) return null;
+                const StatusIcon = config.icon;
+                const isDropping = dropTarget === status && dragTaskId !== null;
 
-              return (
-                <div
-                  key={status}
-                  className={`flex flex-col w-[260px] shrink-0 rounded-lg border ${config.borderColor} ${isDropping ? "ring-2 ring-primary/50" : ""} transition-shadow`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDropTarget(status);
-                  }}
-                  onDragLeave={() => setDropTarget(null)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    handleDrop(status);
-                  }}
-                >
-                  {/* Column header */}
-                  <div className={`flex items-center gap-2 px-3 py-2 border-b ${config.borderColor} ${config.bgColor} rounded-t-lg`}>
-                    <StatusIcon className={`h-4 w-4 ${config.color}`} />
-                    <span className="font-medium text-sm">{config.label}</span>
-                    <Badge variant="secondary" className="text-xs ml-auto">
-                      {statusTasks.length}
-                    </Badge>
-                  </div>
+                return (
+                  <div
+                    key={status}
+                    className={`flex flex-col w-[260px] shrink-0 rounded-lg border ${config.borderColor} ${isDropping ? "ring-2 ring-primary/50" : ""} transition-shadow`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDropTarget(status);
+                    }}
+                    onDragLeave={() => setDropTarget(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleDrop(status);
+                    }}
+                  >
+                    {/* Column header */}
+                    <div className={`flex items-center gap-2 px-3 py-2 border-b ${config.borderColor} ${config.bgColor} rounded-t-lg`}>
+                      <StatusIcon className={`h-4 w-4 ${config.color}`} />
+                      <span className="font-medium text-sm">{config.label}</span>
+                      <Badge variant="secondary" className="text-xs ml-auto">
+                        {statusTasks.length}
+                      </Badge>
+                    </div>
 
-                  {/* Cards */}
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {statusTasks.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-8">
-                        {isDropping ? "Drop here" : "No tasks"}
-                      </p>
-                    ) : (
-                      statusTasks.map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          project={task.projectId ? projectMap.get(task.projectId) : undefined}
-                          onDragStart={() => setDragTaskId(task.id)}
-                          onDragEnd={() => { setDragTaskId(null); setDropTarget(null); }}
-                          isDragging={dragTaskId === task.id}
-                          onStatusChange={handleStatusChange}
-                          onClick={() => setEditTask(task)}
-                        />
-                      ))
-                    )}
+                    {/* Cards */}
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                      {statusTasks.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-8">
+                          {isDropping ? "Drop here" : "No tasks"}
+                        </p>
+                      ) : (
+                        statusTasks.map((task) => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            project={task.projectId ? projectMap.get(task.projectId) : undefined}
+                            onDragStart={() => setDragTaskId(task.id)}
+                            onDragEnd={() => { setDragTaskId(null); setDropTarget(null); }}
+                            isDragging={dragTaskId === task.id}
+                            onStatusChange={handleStatusChange}
+                            onClick={() => setEditTask(task)}
+                          />
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+
+          {/* Mobile board — single column based on selected status */}
+          <div className="flex md:hidden flex-1 overflow-y-auto p-3 space-y-2">
+            {(() => {
+              const statusTasks = filteredTasks.filter((t) => t.status === mobileStatus);
+              if (statusTasks.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground text-center py-12">
+                    No tasks
+                  </p>
+                );
+              }
+              return statusTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  project={task.projectId ? projectMap.get(task.projectId) : undefined}
+                  onDragStart={() => {}}
+                  onDragEnd={() => {}}
+                  isDragging={false}
+                  onStatusChange={handleStatusChange}
+                  onClick={() => setEditTask(task)}
+                />
+              ));
+            })()}
+          </div>
+        </>
       ) : (
         <ListView
           groupedTasks={groupedTasks}
