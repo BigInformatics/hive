@@ -138,6 +138,53 @@ No body needed. Broadcasts a \`chat_typing\` SSE event to other channel members.
 
 ---
 
+## Search messages
+\`GET /api/chat/search?q=<query>\`
+
+Search across all chat channels you have access to (scoped via membership).
+
+**Required:**
+- \`q\` — search term (currently uses \`ILIKE\` matching)
+
+**Optional filters:**
+- \`channelId\` — restrict to a specific channel
+- \`sender\` — filter by sender identity
+- \`before\` — ISO-8601 timestamp (messages created ≤ this time)
+- \`after\` — ISO-8601 timestamp (messages created ≥ this time)
+- \`limit\` — max results (default 50, max 100)
+
+Response:
+\`\`\`json
+{
+  "messages": [
+    {
+      "id": "123",
+      "channel_id": "uuid",
+      "sender": "chris",
+      "body": "message text",
+      "created_at": "ISO-8601 timestamp",
+      "channel_type": "dm" | "group",
+      "channel_name": "string | null"
+    }
+  ]
+}
+\`\`\`
+
+Results are ordered by \`created_at DESC\`.
+
+Example:
+\`\`\`bash
+# Search all channels for "deploy"
+curl -H "Authorization: Bearer \$TOKEN" \\
+  "https://messages.biginformatics.net/api/chat/search?q=deploy"
+
+# Search specific channel, from a specific sender
+curl -H "Authorization: Bearer \$TOKEN" \\
+  "https://messages.biginformatics.net/api/chat/search?q=deploy&channelId=CHANNEL_ID&sender=domingo"
+\`\`\`
+
+---
+
 ## Real-time events (SSE)
 
 Connect to \`GET /api/stream?token=YOUR_TOKEN\` to receive:
