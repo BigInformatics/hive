@@ -123,13 +123,12 @@ export default defineEventHandler(async (event) => {
     await runProbe("webhooks", "Webhooks", async () => {
       try {
         const result = await db.execute(
-          sql`SELECT COUNT(*) as count FROM auth_webhooks WHERE deleted_at IS NULL`
+          sql`SELECT webhook_url FROM mailbox_tokens WHERE identity = ${auth!.identity} AND revoked_at IS NULL AND webhook_url IS NOT NULL LIMIT 1`
         );
-        const count = Number(result[0]?.count ?? 0);
-        if (count === 0) {
-          return { status: "warn", summary: "No webhooks registered" };
+        if (!result[0]?.webhook_url) {
+          return { status: "warn", summary: "No webhook URL registered — use POST /api/auth/webhook" };
         }
-        return { status: "pass", summary: `${count} webhook(s) registered` };
+        return { status: "pass", summary: `Webhook: ${result[0].webhook_url}` };
       } catch (err: any) {
         // Table might not exist
         return { status: "warn", summary: `Webhook check skipped: ${err.message}` };
