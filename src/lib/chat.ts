@@ -184,6 +184,66 @@ export async function isMember(
   return !!row;
 }
 
+/** Search chat messages across all channels the user is a member of */
+export async function searchChatMessages(
+  identity: string,
+  query: string,
+  options: {
+    limit?: number;
+    channelId?: string;
+    sender?: string;
+    before?: string;
+    after?: string;
+  } = {},
+) {
+  const limit = Math.min(options.limit || 50, 100);
+
+  // Build conditions array using Drizzle's sql template for safe parameterization
+  const conditions = [
+    rawSql`m.deleted_at IS NULL`,
+    rawSql`EXISTS (SELECT 1 FROM chat_members cm WHERE cm.channel_id = m.channel_id AND cm.identity = ${identity})`,
+  ];
+
+  if (query) {
+    conditions.push(rawSql`m.body ILIKE ${'%' + query + '%'}`);
+  }
+  if (options.channelId) {
+    conditions.push(rawSql`m.channel_id = ${options.channelId}`);
+  }
+  if (options.sender) {
+    conditions.push(rawSql`m.sender = ${options.sender}`);
+  }
+  if (options.after) {
+    conditions.push(rawSql`m.created_at >= ${options.after}`);
+  }
+  if (options.before) {
+    conditions.push(rawSql`m.created_at <= ${options.before}`);
+  }
+
+  // Join conditions with AND
+  const where = rawSql.join(conditions, rawSql` AND `);
+
+  const rows = await db.execute(rawSql`
+    SELECT m.id, m.channel_id, m.sender, m.body, m.created_at,
+           c.type as channel_type, c.name as channel_name
+    FROM chat_messages m
+    JOIN chat_channels c ON c.id = m.channel_id
+    WHERE ${where}
+    ORDER BY m.created_at DESC
+    LIMIT ${limit}
+  `);
+
+  return rows as unknown as Array<{
+    id: number;
+    channel_id: string;
+    sender: string;
+    body: string;
+    created_at: string;
+    channel_type: string;
+    channel_name: string | null;
+  }>;
+}
+
 /** Get channel members */
 export async function getChannelMembers(channelId: string): Promise<string[]> {
   const rows = await db
