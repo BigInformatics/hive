@@ -314,6 +314,28 @@ export const invites = pgTable("invites", {
 });
 
 // ============================================================
+// DIRECTORY ENTRIES — team link/bookmark directory
+// ============================================================
+
+export const directoryEntries = pgTable(
+  "directory_entries",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    title: varchar("title", { length: 255 }).notNull(),
+    url: text("url").notNull(),
+    description: text("description"),
+    createdBy: varchar("created_by", { length: 50 }).notNull(),
+    taggedUsers: jsonb("tagged_users").$type<string[]>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_directory_created_at").on(table.createdAt),
+  ],
+);
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -331,3 +353,4 @@ export type ChatMember = typeof chatMembers.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type MailboxToken = typeof mailboxTokens.$inferSelect;
 export type Invite = typeof invites.$inferSelect;
+export type DirectoryEntry = typeof directoryEntries.$inferSelect;

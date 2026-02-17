@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Inbox, Radio, Users, LogOut, LayoutList, Settings } from "lucide-react";
+import { Inbox, Radio, Users, LogOut, LayoutList, Settings, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./theme-toggle";
@@ -10,6 +10,7 @@ const navItems = [
   { to: "/", label: "Inbox", icon: Inbox },
   { to: "/buzz", label: "Buzz", icon: Radio },
   { to: "/swarm", label: "Swarm", icon: LayoutList },
+  { to: "/directory", label: "Directory", icon: Bookmark },
   { to: "/presence", label: "Presence", icon: Users },
   { to: "/admin", label: "Admin", icon: Settings },
 ] as const;

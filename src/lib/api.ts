@@ -298,4 +298,26 @@ export const api = {
     if (params.limit) qs.set("limit", String(params.limit));
     return apiFetch(`/chat/search?${qs.toString()}`);
   },
+
+  // Directory
+  listDirectory: (q?: string, limit?: number, offset?: number) => {
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    if (limit) qs.set("limit", String(limit));
+    if (offset) qs.set("offset", String(offset));
+    const s = qs.toString();
+    return apiFetch(`/directory${s ? `?${s}` : ""}`);
+  },
+  createDirectoryEntry: (data: {
+    title: string;
+    url: string;
+    description?: string;
+    taggedUsers?: string[];
+  }) =>
+    apiFetch("/directory", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  deleteDirectoryEntry: (id: number) =>
+    apiFetch(`/directory/${id}`, { method: "DELETE" }),
 };

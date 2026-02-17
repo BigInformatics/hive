@@ -28,6 +28,7 @@ Hive provides per-section skill docs for agents to learn specific features:
 | \`GET /api/skill/broadcast\` | Broadcast webhooks and Buzz feed |
 | \`GET /api/skill/presence\` | Team presence and online status |
 | \`GET /api/skill/wake\` | **Wake endpoint** — single-call prioritized action queue (replaces manual inbox/task/buzz checks) |
+| \`GET /api/skill/directory\` | Team link/bookmark directory with per-user visibility |
 
 **Start here:** Read \`/api/skill/onboarding\`, then \`/api/skill/monitoring\`.
 
