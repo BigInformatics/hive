@@ -38,6 +38,7 @@ export interface WakeAction {
 }
 
 export interface WakePayload {
+  instructions: string;
   items: WakeItem[];
   actions: WakeAction[];
   summary: string | null;
@@ -375,6 +376,7 @@ export async function getWakeItems(
   }
 
   return {
+    instructions: "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
     items,
     actions,
     summary,

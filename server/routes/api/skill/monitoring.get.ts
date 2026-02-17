@@ -31,6 +31,7 @@ curl -fsS -H "Authorization: Bearer $HIVE_TOKEN" \\
 Response:
 \`\`\`json
 {
+  "instructions": "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
   "items": [
     {
       "source": "message",

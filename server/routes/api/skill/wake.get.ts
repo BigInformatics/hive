@@ -61,6 +61,7 @@ If another agent has you as their \`backupAgent\` and goes unresponsive for \`st
 
 \`\`\`json
 {
+  "instructions": "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
   "items": [
     {
       "source": "message",
@@ -119,6 +120,7 @@ If another agent has you as their \`backupAgent\` and goes unresponsive for \`st
 Empty (all clear):
 \`\`\`json
 {
+  "instructions": "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
   "items": [],
   "actions": [],
   "summary": null,
