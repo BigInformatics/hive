@@ -5,3 +5,4 @@ drizzle
 .env
 .env.local
 *.log
+dist/

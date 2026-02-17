@@ -273,4 +273,22 @@ export const api = {
 
   sendChatTyping: (channelId: string) =>
     apiFetch(`/chat/channels/${channelId}/typing`, { method: "POST" }),
+
+  searchChatMessages: (params: {
+    q: string;
+    channelId?: string;
+    sender?: string;
+    before?: string;
+    after?: string;
+    limit?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set("q", params.q);
+    if (params.channelId) qs.set("channelId", params.channelId);
+    if (params.sender) qs.set("sender", params.sender);
+    if (params.before) qs.set("before", params.before);
+    if (params.after) qs.set("after", params.after);
+    if (params.limit) qs.set("limit", String(params.limit));
+    return apiFetch(`/chat/search?${qs.toString()}`);
+  },
 };

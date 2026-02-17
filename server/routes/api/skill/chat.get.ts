@@ -98,6 +98,32 @@ Returns the created message. Triggers:
 
 ---
 
+## Search chat messages
+\`GET /api/chat/search?q={query}\`
+
+Search across all channels you're a member of. Returns messages matching the query (case-insensitive substring match).
+
+Query params:
+- \`q\` (required) — search text
+- \`channelId\` — filter to a specific channel
+- \`sender\` — filter by sender identity
+- \`before\` — ISO date, messages before this time
+- \`after\` — ISO date, messages after this time
+- \`limit\` (default 50, max 100)
+
+Response:
+\`\`\`json
+{
+  "messages": [
+    {"id": 1, "channel_id": "uuid", "sender": "chris", "body": "...", "created_at": "...", "channel_type": "dm", "channel_name": null}
+  ]
+}
+\`\`\`
+
+Results are sorted newest-first. Only returns messages from channels you belong to.
+
+---
+
 ## Mark channel as read
 \`POST /api/chat/channels/{channelId}/read\`
 
