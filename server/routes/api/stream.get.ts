@@ -2,6 +2,7 @@ import { defineEventHandler, getQuery } from "h3";
 import { authenticateTokenAsync } from "@/lib/auth";
 import { subscribe } from "@/lib/events";
 import { updatePresence } from "@/lib/presence";
+import { getWakeItems, markBuzzEventsDelivered } from "@/lib/wake";
 
 export default defineEventHandler(async (event) => {
   // Auth via query param (SSE can't set headers)
@@ -29,6 +30,8 @@ export default defineEventHandler(async (event) => {
       const encoder = new TextEncoder();
       let closed = false;
 
+      let wakePulseTimer: ReturnType<typeof setInterval> | undefined;
+
       const cleanup = () => {
         if (closed) return;
         closed = true;
@@ -36,7 +39,9 @@ export default defineEventHandler(async (event) => {
         unsubBroadcast();
         unsubSwarm();
         unsubChat();
+        unsubWake();
         clearInterval(heartbeat);
+        if (wakePulseTimer) clearInterval(wakePulseTimer);
         try {
           controller.close();
         } catch {
@@ -80,6 +85,27 @@ export default defineEventHandler(async (event) => {
         send(evt.type, evt);
       });
 
+      // Subscribe to wake pulse triggers (immediate pulse on new wake events)
+      const unsubWake = subscribe("__wake__", (evt) => {
+        if (evt.type === "wake_pulse" && evt.identity === auth.identity) {
+          sendWakePulse();
+        }
+      });
+
+      // Wake pulse helper
+      const sendWakePulse = async () => {
+        if (closed) return;
+        try {
+          const payload = await getWakeItems(auth.identity);
+          if (payload.items.length > 0) {
+            await markBuzzEventsDelivered(payload.items);
+          }
+          send("wake_pulse", payload);
+        } catch (err) {
+          console.error("[sse] Wake pulse error:", err);
+        }
+      };
+
       // Heartbeat every 30s
       const heartbeat = setInterval(() => {
         if (closed) {
@@ -93,6 +119,16 @@ export default defineEventHandler(async (event) => {
           cleanup();
         }
       }, 30000);
+
+      // Wake pulse every 30 minutes
+      const WAKE_PULSE_INTERVAL = 30 * 60 * 1000;
+      wakePulseTimer = setInterval(() => {
+        if (closed) {
+          clearInterval(wakePulseTimer);
+          return;
+        }
+        sendWakePulse();
+      }, WAKE_PULSE_INTERVAL);
 
       // Cleanup on close — works in both Node and Bun
       if (event.node?.req?.on) {

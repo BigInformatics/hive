@@ -54,6 +54,10 @@ export type MailboxEvent =
       type: "chat_typing";
       channelId: string;
       identity: string;
+    }
+  | {
+      type: "wake_pulse";
+      identity: string;
     };
 
 type Listener = (event: MailboxEvent) => void;
@@ -72,6 +76,11 @@ export function subscribe(mailbox: string, listener: Listener): () => void {
       listeners.delete(mailbox);
     }
   };
+}
+
+/** Emit a wake pulse trigger for an identity (triggers immediate SSE pulse) */
+export function emitWakeTrigger(identity: string): void {
+  emit("__wake__", { type: "wake_pulse", identity });
 }
 
 export function emit(mailbox: string, event: MailboxEvent): void {

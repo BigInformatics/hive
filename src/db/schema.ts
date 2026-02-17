@@ -78,6 +78,8 @@ export const broadcastWebhooks = pgTable(
     title: varchar("title", { length: 255 }).notNull(),
     owner: varchar("owner", { length: 50 }).notNull(),
     forUsers: varchar("for_users", { length: 255 }),
+    wakeAgent: varchar("wake_agent", { length: 50 }),
+    notifyAgent: varchar("notify_agent", { length: 50 }),
     enabled: boolean("enabled").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -103,6 +105,8 @@ export const broadcastEvents = pgTable(
     contentType: varchar("content_type", { length: 100 }),
     bodyText: text("body_text"),
     bodyJson: jsonb("body_json"),
+    wakeDeliveredAt: timestamp("wake_delivered_at", { withTimezone: true }),
+    notifyDeliveredAt: timestamp("notify_delivered_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_broadcast_events_app").on(table.appName, table.receivedAt),
@@ -286,6 +290,9 @@ export const mailboxTokens = pgTable("mailbox_tokens", {
   // Webhook URL for agent notifications (chat messages, etc.)
   webhookUrl: varchar("webhook_url", { length: 500 }),
   webhookToken: varchar("webhook_token", { length: 200 }),
+  // Backup agent: notified when this agent goes stale
+  backupAgent: varchar("backup_agent", { length: 50 }),
+  staleTriggerHours: integer("stale_trigger_hours").default(4),
 });
 
 // ============================================================

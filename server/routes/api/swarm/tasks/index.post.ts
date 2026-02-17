@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { createTask } from "@/lib/swarm";
-import { emit } from "@/lib/events";
+import { emit, emitWakeTrigger } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -41,6 +41,12 @@ export default defineEventHandler(async (event) => {
     status: task.status,
     actor: auth.identity,
   });
+
+  // Trigger wake pulse for assignee
+  const wakeStatuses = ["ready", "in_progress", "review"];
+  if (task.assigneeUserId && wakeStatuses.includes(task.status)) {
+    emitWakeTrigger(task.assigneeUserId);
+  }
 
   return task;
 });

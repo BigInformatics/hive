@@ -17,6 +17,8 @@ export async function createWebhook(params: {
   title: string;
   owner: string;
   forUsers?: string;
+  wakeAgent?: string;
+  notifyAgent?: string;
 }): Promise<BroadcastWebhook> {
   const token = generateToken();
   const [row] = await db
@@ -27,6 +29,8 @@ export async function createWebhook(params: {
       title: params.title,
       owner: params.owner,
       forUsers: params.forUsers || null,
+      wakeAgent: params.wakeAgent || null,
+      notifyAgent: params.notifyAgent || null,
     })
     .returning();
   return row;

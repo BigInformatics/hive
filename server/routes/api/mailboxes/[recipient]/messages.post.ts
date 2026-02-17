@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody, getRouterParam } from "h3";
 import { authenticateEvent, isValidMailbox } from "@/lib/auth";
 import { sendMessage } from "@/lib/messages";
-import { emit } from "@/lib/events";
+import { emit, emitWakeTrigger } from "@/lib/events";
 import { updatePresence } from "@/lib/presence";
 
 export default defineEventHandler(async (event) => {
@@ -55,6 +55,9 @@ export default defineEventHandler(async (event) => {
     title: message.title,
     urgent: message.urgent,
   });
+
+  // Trigger immediate wake pulse for recipient
+  emitWakeTrigger(recipient);
 
   return message;
 });

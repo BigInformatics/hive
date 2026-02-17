@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody, getRouterParam } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { getTask, updateTaskStatus } from "@/lib/swarm";
-import { emit } from "@/lib/events";
+import { emit, emitWakeTrigger } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -45,6 +45,12 @@ export default defineEventHandler(async (event) => {
     previousStatus: before?.status,
     actor: auth.identity,
   });
+
+  // Trigger wake pulse for assignee if task entered a wakeable status
+  const wakeStatuses = ["ready", "in_progress", "review"];
+  if (task.assigneeUserId && wakeStatuses.includes(task.status)) {
+    emitWakeTrigger(task.assigneeUserId);
+  }
 
   return task;
 });

@@ -24,6 +24,8 @@ export default defineEventHandler(async (event) => {
     title: body.title,
     owner: auth.identity,
     forUsers: body.forUsers,
+    wakeAgent: body.wakeAgent,
+    notifyAgent: body.notifyAgent,
   });
 
   return webhook;
