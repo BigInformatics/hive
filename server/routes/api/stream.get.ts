@@ -1,5 +1,5 @@
 import { defineEventHandler, getQuery } from "h3";
-import { authenticateToken } from "@/lib/auth";
+import { authenticateTokenAsync } from "@/lib/auth";
 import { subscribe } from "@/lib/events";
 import { updatePresence } from "@/lib/presence";
 
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const auth = authenticateToken(token);
+  const auth = await authenticateTokenAsync(token);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Invalid token" }), {
       status: 401,
