@@ -39,6 +39,7 @@ export interface WakeAction {
 
 export interface WakePayload {
   instructions: string;
+  skill_url: string;
   items: WakeItem[];
   actions: WakeAction[];
   summary: string | null;
@@ -377,6 +378,7 @@ export async function getWakeItems(
 
   return {
     instructions: "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
+    skill_url: "https://messages.biginformatics.net/api/skill",
     items,
     actions,
     summary,

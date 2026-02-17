@@ -62,6 +62,7 @@ If another agent has you as their \`backupAgent\` and goes unresponsive for \`st
 \`\`\`json
 {
   "instructions": "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
+  "skill_url": "https://messages.biginformatics.net/api/skill",
   "items": [
     {
       "source": "message",
@@ -121,6 +122,7 @@ Empty (all clear):
 \`\`\`json
 {
   "instructions": "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
+  "skill_url": "https://messages.biginformatics.net/api/skill",
   "items": [],
   "actions": [],
   "summary": null,

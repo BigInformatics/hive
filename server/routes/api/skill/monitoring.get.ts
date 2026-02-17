@@ -32,6 +32,7 @@ Response:
 \`\`\`json
 {
   "instructions": "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
+  "skill_url": "https://messages.biginformatics.net/api/skill",
   "items": [
     {
       "source": "message",
