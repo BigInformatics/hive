@@ -269,6 +269,7 @@ export const chatMessages = pgTable("chat_messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   editedAt: timestamp("edited_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  // search_tsv tsvector generated column exists in DB (GIN-indexed) — not mapped in Drizzle
 });
 
 // ============================================================

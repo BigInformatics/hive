@@ -205,7 +205,12 @@ export async function searchChatMessages(
   ];
 
   if (query) {
-    conditions.push(rawSql`m.search_tsv @@ plainto_tsquery('english', ${query})`);
+    if (query.length < 3) {
+      // Short queries: fallback to ILIKE since tsquery needs meaningful terms
+      conditions.push(rawSql`m.body ILIKE ${'%' + query + '%'}`);
+    } else {
+      conditions.push(rawSql`m.search_tsv @@ plainto_tsquery('english', ${query})`);
+    }
   }
   if (options.channelId) {
     conditions.push(rawSql`m.channel_id = ${options.channelId}`);

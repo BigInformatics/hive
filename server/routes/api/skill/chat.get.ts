@@ -144,7 +144,7 @@ No body needed. Broadcasts a \`chat_typing\` SSE event to other channel members.
 Search across all chat channels you have access to (scoped via membership).
 
 **Required:**
-- \`q\` — search term (currently uses \`ILIKE\` matching)
+- \`q\` — search term (uses PostgreSQL full-text search with tsvector/GIN index; falls back to ILIKE for queries < 3 chars)
 
 **Optional filters:**
 - \`channelId\` — restrict to a specific channel
