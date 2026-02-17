@@ -123,7 +123,7 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
     : 0;
 
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex flex-col bg-background h-[100dvh] md:h-screen pb-14 md:pb-0">
       <Nav onLogout={onLogout} />
 
       <div className="flex items-center justify-between border-b px-4 py-2">

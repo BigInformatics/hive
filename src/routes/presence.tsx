@@ -243,7 +243,7 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex flex-col bg-background h-[100dvh] md:h-screen pb-14 md:pb-0">
       <Nav onLogout={onLogout} />
 
       <div className="flex flex-1 overflow-hidden">

@@ -136,7 +136,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   const unreadCount = messages.filter((m) => m.status === "unread").length;
 
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex flex-col bg-background h-[100dvh] md:h-screen pb-14 md:pb-0">
       {/* Header */}
       <Nav onLogout={handleLogout} />
       <div className="flex items-center justify-between px-4 py-2 border-b">

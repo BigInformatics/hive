@@ -56,7 +56,6 @@ function PresenceDots() {
     return () => clearInterval(interval);
   }, []);
 
-  // Sort: online first, then by last seen
   const users = ALL_USERS.map((name) => ({
     name,
     info: presence[name] || { online: false, lastSeen: null, source: null, unread: 0 },
@@ -118,45 +117,91 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
   };
 
   return (
-    <header className="flex items-center justify-between border-b px-4 py-3">
-      <div className="flex items-center gap-4">
-        <h1 className="text-xl font-bold">🐝 Hive</h1>
-        <nav className="flex gap-1">
-          {navItems.map((item) => {
-            const isActive =
-              item.to === "/"
-                ? location.pathname === "/"
-                : location.pathname.startsWith(item.to);
-            return (
-              <Link key={item.to} to={item.to}>
-                <Button
-                  variant={isActive ? "default" : "ghost"}
-                  size="sm"
-                  className="gap-1.5 relative"
-                >
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
+    <>
+      {/* Desktop / iPad header */}
+      <header className="hidden md:flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold">🐝 Hive</h1>
+          <nav className="flex gap-1">
+            {navItems.map((item) => {
+              const isActive =
+                item.to === "/"
+                  ? location.pathname === "/"
+                  : location.pathname.startsWith(item.to);
+              return (
+                <Link key={item.to} to={item.to}>
+                  <Button
+                    variant={isActive ? "default" : "ghost"}
+                    size="sm"
+                    className="gap-1.5 relative"
+                  >
+                    <item.icon className="h-3.5 w-3.5" />
+                    {item.label}
+                    {item.to === "/" && unreadCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </Link>
+              );
+            })}
+          </nav>
+          <PresenceDots />
+        </div>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      {/* Mobile header — minimal */}
+      <header className="flex md:hidden items-center justify-between border-b px-3 py-2">
+        <h1 className="text-lg font-bold">🐝 Hive</h1>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden items-center justify-around border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-1 py-1 safe-bottom">
+        {navItems.map((item) => {
+          const isActive =
+            item.to === "/"
+              ? location.pathname === "/"
+              : location.pathname.startsWith(item.to);
+          return (
+            <Link key={item.to} to={item.to} className="flex-1">
+              <button
+                type="button"
+                className={`flex flex-col items-center gap-0.5 w-full py-1.5 rounded-md transition-colors ${
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <div className="relative">
+                  <item.icon className="h-5 w-5" />
                   {item.to === "/" && unreadCount > 0 && (
-                    <Badge
-                      variant="destructive"
-                      className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
-                    >
+                    <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 text-[9px] font-bold bg-destructive text-destructive-foreground rounded-full flex items-center justify-center">
                       {unreadCount > 99 ? "99+" : unreadCount}
-                    </Badge>
+                    </span>
                   )}
-                </Button>
-              </Link>
-            );
-          })}
-        </nav>
-        <PresenceDots />
-      </div>
-      <div className="flex items-center gap-1">
-        <ThemeToggle />
-        <Button variant="ghost" size="icon" onClick={handleLogout}>
-          <LogOut className="h-4 w-4" />
-        </Button>
-      </div>
-    </header>
+                </div>
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </button>
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

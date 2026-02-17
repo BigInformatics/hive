@@ -246,7 +246,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const projectMap = new Map(projects.map((p) => [p.id, p]));
 
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex flex-col bg-background h-[100dvh] md:h-screen pb-14 md:pb-0">
       <Nav onLogout={onLogout} />
 
       {/* Toolbar */}
