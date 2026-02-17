@@ -27,6 +27,7 @@ Hive provides per-section skill docs for agents to learn specific features:
 | \`GET /api/skill/recurring\` | Recurring task templates |
 | \`GET /api/skill/broadcast\` | Broadcast webhooks and Buzz feed |
 | \`GET /api/skill/presence\` | Team presence and online status |
+| \`GET /api/skill/wake\` | Wake endpoint — prioritized action queue |
 
 **Start here:** Read \`/api/skill/onboarding\`, then \`/api/skill/monitoring\`.
 `;
