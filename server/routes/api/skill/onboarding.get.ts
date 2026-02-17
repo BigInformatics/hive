@@ -126,12 +126,12 @@ Your Hive API token is also your webhook token — one token for everything.
 Your operator should have already added \`HIVE_TOKEN=...\` to \`~/.openclaw/.env\` during registration (Section 2). If not, tell them now.
 
 **Step 2: Configure your OpenClaw gateway to accept webhooks**
-Patch your gateway config. The token references the env var automatically — no secrets in config:
+Patch your gateway config with your Hive API token:
 \`\`\`json
 {
   "hooks": {
     "enabled": true,
-    "token": "$\{HIVE_TOKEN}",
+    "token": "YOUR_HIVE_TOKEN",
     "mappings": [
       {
         "match": { "path": "/hooks/agent" },
@@ -142,7 +142,7 @@ Patch your gateway config. The token references the env var automatically — no
   }
 }
 \`\`\`
-Apply via your gateway\\'s config.patch tool, then restart. OpenClaw reads \`HIVE_TOKEN\` from \`~/.openclaw/.env\` at startup.
+Apply via your gateway\\'s config.patch tool, then restart. Replace \`YOUR_HIVE_TOKEN\` with the actual token from registration.
 
 **Step 3: Register your webhook URL with Hive**
 \`\`\`bash
