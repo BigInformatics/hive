@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
       or(
         sql`${notebookPages.taggedUsers} IS NULL`,
         sql`${notebookPages.taggedUsers} = '[]'::jsonb`,
-        sql`${notebookPages.taggedUsers} @> ${JSON.stringify([auth.identity])}::jsonb`,
+        sql`${notebookPages.taggedUsers} @> cast(${JSON.stringify([auth.identity])} as jsonb)`,
         sql`${notebookPages.createdBy} = ${auth.identity}`,
       ),
     );

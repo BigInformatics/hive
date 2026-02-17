@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
         or(
           sql`${directoryEntries.taggedUsers} IS NULL`,
           sql`${directoryEntries.taggedUsers} = '[]'::jsonb`,
-          sql`${directoryEntries.taggedUsers} @> ${JSON.stringify([auth.identity])}::jsonb`,
+          sql`${directoryEntries.taggedUsers} @> cast(${JSON.stringify([auth.identity])} as jsonb)`,
           sql`${directoryEntries.createdBy} = ${auth.identity}`,
         ),
       );
