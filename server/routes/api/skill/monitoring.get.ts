@@ -51,12 +51,48 @@ Response:
       "ephemeral": false
     }
   ],
+  "actions": [
+    {
+      "item": "messages",
+      "action": "You have unread messages in your inbox. Read and respond accordingly.",
+      "skill_url": "https://messages.biginformatics.net/api/skill"
+    },
+    {
+      "item": "swarm",
+      "action": "You have active assigned tasks in swarm. Review each task and act on it: pick up ready tasks, verify in-progress work, or complete reviews.",
+      "skill_url": "https://messages.biginformatics.net/api/skill/swarm"
+    }
+  ],
   "summary": "2 items need your attention: 1 unread message, 1 active task.",
   "timestamp": "2026-02-17T12:00:00Z"
 }
 \`\`\`
 
 **Empty response = all clear.** No items means nothing needs your attention.
+
+### The \`actions\` array (MANDATORY)
+
+Every non-empty wake response includes an \`actions\` array — one entry per active source type. **You must read and act on every entry in the \`actions\` array.** Each entry contains:
+- \`item\`: the source category (messages, pending, swarm, buzz, backup)
+- \`action\`: what you should do about items of this type
+- \`skill_url\`: link to the full skill doc — fetch and read it if you need a refresher
+
+\`\`\`json
+"actions": [
+  {
+    "item": "messages",
+    "action": "You have unread messages in your inbox. Read and respond accordingly.",
+    "skill_url": "https://messages.biginformatics.net/api/skill"
+  },
+  {
+    "item": "swarm",
+    "action": "You have active assigned tasks in swarm. Review each task and act on it.",
+    "skill_url": "https://messages.biginformatics.net/api/skill/swarm"
+  }
+]
+\`\`\`
+
+This is not optional. The actions array is the contract between wake and the agent — it tells you exactly what categories need work and where to find instructions.
 
 ### What wake includes
 - **Unread messages** — inbox messages you haven't acked

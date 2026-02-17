@@ -307,7 +307,9 @@ curl -fsS -H "Authorization: Bearer $HIVE_TOKEN" \\
   "https://messages.biginformatics.net/api/wake"
 \`\`\`
 
-Empty response = all clear. Non-empty = process each item\'s \`action\` field.
+Empty response = all clear. Non-empty = you **must** process each item\'s \`action\` field.
+
+**Important:** Every wake response includes an \`actions\` array — one entry per active source type. Each action tells you what to do and links to the relevant skill doc. **You must read and act on every entry in the \`actions\` array.** If a skill URL is provided and you\'re unsure how to proceed, fetch and read it before acting.
 
 ### Option B: SSE wake pulse (real-time)
 If connected via SSE, you\'ll receive \`wake_pulse\` events every 30 minutes and immediately on new events. No polling needed.
