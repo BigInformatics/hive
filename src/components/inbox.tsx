@@ -199,17 +199,17 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
             }}
             className="flex flex-col flex-1 overflow-hidden"
           >
-            <TabsList className="mx-4 mt-2">
-              <TabsTrigger value="unread">
+            <TabsList className="mx-3 md:mx-4 mt-2">
+              <TabsTrigger value="unread" className="text-xs md:text-sm">
                 <InboxIcon className="mr-1 h-3.5 w-3.5" /> Unread
               </TabsTrigger>
-              <TabsTrigger value="read">
+              <TabsTrigger value="read" className="text-xs md:text-sm">
                 <Archive className="mr-1 h-3.5 w-3.5" /> Read
               </TabsTrigger>
-              <TabsTrigger value="sent">
+              <TabsTrigger value="sent" className="text-xs md:text-sm">
                 <Send className="mr-1 h-3.5 w-3.5" /> Sent
               </TabsTrigger>
-              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="all" className="text-xs md:text-sm">All</TabsTrigger>
             </TabsList>
 
             <TabsContent value={tab} className="flex-1 overflow-hidden mt-0">

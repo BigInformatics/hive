@@ -142,17 +142,17 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
     <div className="flex flex-col bg-background h-[100dvh] md:h-screen pb-14 md:pb-0">
       <Nav onLogout={onLogout} />
 
-      <div className="flex items-center justify-between border-b px-4 py-2">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between border-b px-3 md:px-4 py-2 gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Radio className="h-4 w-4 text-primary" />
-          <span className="font-medium text-sm">Broadcast Feed</span>
+          <span className="font-medium text-sm hidden sm:inline">Broadcast Feed</span>
           {events.length > 0 && (
             <Badge variant="secondary">{events.length}</Badge>
           )}
         </div>
         <div className="flex items-center gap-1">
           {apps.length > 1 && (
-            <div className="flex gap-1 mr-2">
+            <div className="flex gap-1 mr-2 overflow-x-auto no-scrollbar">
               <Button
                 variant={appFilter === null ? "default" : "ghost"}
                 size="sm"

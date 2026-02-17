@@ -164,21 +164,21 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <Tabs defaultValue="presence" className="px-4 pb-4">
-          <TabsList>
+          <TabsList className="w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="presence" className="gap-1.5">
-              <Users className="h-3.5 w-3.5" /> Presence
+              <Users className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Presence</span>
             </TabsTrigger>
             <TabsTrigger value="tasks" className="gap-1.5">
-              <LayoutList className="h-3.5 w-3.5" /> Tasks
+              <LayoutList className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Tasks</span>
             </TabsTrigger>
             <TabsTrigger value="recurring" className="gap-1.5">
-              <Timer className="h-3.5 w-3.5" /> Recurring
+              <Timer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Recurring</span>
             </TabsTrigger>
             <TabsTrigger value="webhooks" className="gap-1.5">
-              <Webhook className="h-3.5 w-3.5" /> Webhooks
+              <Webhook className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Webhooks</span>
             </TabsTrigger>
             <TabsTrigger value="invites" className="gap-1.5">
-              <KeyRound className="h-3.5 w-3.5" /> Auth
+              <KeyRound className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Auth</span>
             </TabsTrigger>
           </TabsList>
 
@@ -365,9 +365,9 @@ function PresencePanel({
 
                 {/* Stats row */}
                 {stats && (
-                  <div className="flex gap-4 mt-2 ml-[52px] text-xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 md:ml-[52px] text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
+                      <Mail className="h-3 w-3 shrink-0" />
                       <span>
                         <strong className={stats.inbox.unread > 0 ? "text-destructive" : ""}>{stats.inbox.unread}</strong> unread
                         {stats.inbox.pending > 0 && (
@@ -377,7 +377,7 @@ function PresencePanel({
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <LayoutList className="h-3 w-3" />
+                      <LayoutList className="h-3 w-3 shrink-0" />
                       <span>
                         <strong>{swarmTotal}</strong> tasks
                         {swarmTotal > 0 && (
