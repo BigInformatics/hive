@@ -9,6 +9,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -313,7 +314,31 @@ export const invites = pgTable("invites", {
   webhookToken: varchar("webhook_token", { length: 200 }),
 });
 
-export * from "./notebook-schema";
+// ============================================================
+// NOTEBOOK PAGES — collaborative markdown notebook
+// ============================================================
+
+export const notebookPages = pgTable(
+  "notebook_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: varchar("title", { length: 255 }).notNull(),
+    content: text("content").notNull().default(""),
+    createdBy: varchar("created_by", { length: 50 }).notNull(),
+    taggedUsers: jsonb("tagged_users").$type<string[]>(),
+    locked: boolean("locked").notNull().default(false),
+    lockedBy: varchar("locked_by", { length: 50 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_notebook_created_at").on(table.createdAt),
+  ],
+);
 
 // ============================================================
 // DIRECTORY ENTRIES — team link/bookmark directory
@@ -356,3 +381,4 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type MailboxToken = typeof mailboxTokens.$inferSelect;
 export type Invite = typeof invites.$inferSelect;
 export type DirectoryEntry = typeof directoryEntries.$inferSelect;
+export type NotebookPage = typeof notebookPages.$inferSelect;
