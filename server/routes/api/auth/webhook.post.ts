@@ -26,6 +26,18 @@ export default defineEventHandler(async (event) => {
   const url = body?.url ?? null;
   const token = body?.token ?? null;
 
+  // Validate webhook URL if provided
+  if (url) {
+    const { validateWebhookUrl } = await import("@/lib/url-validation");
+    const validation = validateWebhookUrl(url);
+    if (!validation.valid) {
+      return new Response(JSON.stringify({ error: validation.error }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
   // Find the active token row for this identity
   const [row] = await db
     .select({ id: mailboxTokens.id, token: mailboxTokens.token })

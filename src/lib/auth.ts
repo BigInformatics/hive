@@ -16,7 +16,7 @@ export interface AuthContext {
 
 // In-memory env token cache (loaded once at startup)
 const envTokens = new Map<string, AuthContext>();
-const validMailboxes = new Set(["chris", "clio", "domingo", "zumie"]);
+const validMailboxes = new Set<string>();
 
 // DB token cache (short TTL to avoid constant queries)
 const dbCache = new Map<string, { ctx: AuthContext | null; expires: number }>();

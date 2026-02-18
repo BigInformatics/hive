@@ -32,11 +32,15 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Input validation
+  const title = String(body.title).slice(0, 255);
+  const msgBody = body.body ? String(body.body).slice(0, 10_000) : body.body;
+
   const message = await sendMessage({
     recipient,
     sender: auth.identity,
-    title: body.title,
-    body: body.body,
+    title,
+    body: msgBody,
     urgent: body.urgent,
     threadId: body.threadId,
     replyToMessageId: body.replyToMessageId
