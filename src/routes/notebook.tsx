@@ -28,6 +28,7 @@ import {
   Trash2,
   Link2,
   Check,
+  Copy,
 } from "lucide-react";
 import { UserSelect } from "@/components/user-select";
 import { marked } from "marked";
@@ -288,7 +289,7 @@ function PageEditor({
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [identity, setIdentity] = useState<string | null>(null);
   const [viewers, setViewers] = useState<string[]>([]);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"idle" | "url" | "content">("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
 
@@ -326,9 +327,28 @@ function PageEditor({
   const handleCopyUrl = () => {
     const url = `${window.location.origin}/notebook?page=${pageId}`;
     navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied("url");
+      setTimeout(() => setCopied("idle"), 2000);
     });
+  };
+
+  const handleCopyContent = () => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopied("content");
+      setTimeout(() => setCopied("idle"), 2000);
+    });
+  };
+
+  const handleTaggedUsersChange = async (users: string[]) => {
+    if (!page) return;
+    try {
+      const data = await api.updateNotebookPage(pageId, {
+        taggedUsers: users.length > 0 ? users : [],
+      });
+      setPage(data.page);
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to update visibility");
+    }
   };
 
   // Load page
@@ -473,6 +493,20 @@ function PageEditor({
             {saving === "saving" && "Saving…"}
             {saving === "saved" && "✓ Saved"}
           </span>
+          {/* Copy content */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={handleCopyContent}
+            title="Copy page content"
+          >
+            {copied === "content" ? (
+              <Check className="h-3.5 w-3.5 text-green-500" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </Button>
           {/* Copy URL */}
           <Button
             variant="ghost"
@@ -481,7 +515,7 @@ function PageEditor({
             onClick={handleCopyUrl}
             title="Copy page URL"
           >
-            {copied ? (
+            {copied === "url" ? (
               <Check className="h-3.5 w-3.5 text-green-500" />
             ) : (
               <Link2 className="h-3.5 w-3.5" />
@@ -580,6 +614,19 @@ function PageEditor({
             className="prose prose-sm dark:prose-invert max-w-none min-h-[400px] rounded-md border p-4"
             dangerouslySetInnerHTML={{ __html: renderedHtml }}
           />
+        )}
+
+        {/* Visibility control */}
+        {isOwnerOrAdmin && (
+          <div className="mt-6 pt-4 border-t">
+            <Label className="text-xs text-muted-foreground mb-2 block">
+              Visibility
+            </Label>
+            <UserSelect
+              value={page.taggedUsers ?? []}
+              onChange={handleTaggedUsersChange}
+            />
+          </div>
         )}
       </main>
     </div>
