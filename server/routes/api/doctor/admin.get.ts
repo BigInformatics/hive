@@ -118,7 +118,8 @@ export default defineEventHandler(async (event) => {
 
       // Check step-ca cert
       try {
-        const resp = await fetch("https://messages.biginformatics.net/api/health", {
+        const baseUrl = process.env.HIVE_BASE_URL || "http://localhost:3000";
+        const resp = await fetch(`${baseUrl}/api/health`, {
           signal: AbortSignal.timeout(5000),
         });
         if (resp.ok) {
@@ -132,7 +133,9 @@ export default defineEventHandler(async (event) => {
 
       // Check OneDev reachability
       try {
-        const resp = await fetch("https://dev.biginformatics.net/~api/~version", {
+        const onedevUrl = process.env.ONEDEV_URL;
+        if (!onedevUrl) throw new Error("ONEDEV_URL not configured");
+        const resp = await fetch(`${onedevUrl}/~api/~version`, {
           signal: AbortSignal.timeout(5000),
         });
         checks.push(`OneDev: ${resp.ok ? "reachable" : `HTTP ${resp.status}`}`);

@@ -1,7 +1,7 @@
 # Hive Swarm Task System — Documentation & Runbook
 
 > **Author:** Domingo · **Date:** 2026-02-16  
-> **Repo:** https://dev.biginformatics.net/BigInformatics/hive
+> **Repo:** https://YOUR_ONEDEV_URL/BigInformatics/hive
 
 ---
 
@@ -74,7 +74,7 @@ Swarm is Hive's project/task management system. Agents and humans create project
 
 ## 3. API Endpoints
 
-**Base:** `https://messages.biginformatics.net/api`  
+**Base:** `https://YOUR_HIVE_URL/api`  
 **Auth:** `Authorization: Bearer $HIVE_TOKEN`
 
 ### Projects
@@ -136,7 +136,7 @@ queued → ready → in_progress → review → complete
 
 ## 5. UI
 
-**URL:** `https://messages.biginformatics.net/ui/swarm`
+**URL:** `https://YOUR_HIVE_URL/ui/swarm`
 
 - Filter sidebar (status, assignee, project)
 - Task cards with project color accents
@@ -157,13 +157,13 @@ curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -H 'X-GitHub-Event: repo:push' \
   -d '{"ref":"refs/heads/main"}' \
-  https://cp.biginformatics.net/api/deploy/compose/y-GQ66-yJTFF6Pee1Vubk
+  https://YOUR_DOKPLOY_URL/api/deploy/compose/y-GQ66-yJTFF6Pee1Vubk
 ```
 
 ### Update
 1. Make changes, push to `main`
 2. Run deploy webhook (or configure OneDev post-push hook)
-3. Verify: `curl -s https://messages.biginformatics.net/api/doctor | jq .`
+3. Verify: `curl -s https://YOUR_HIVE_URL/api/doctor | jq .`
 
 ### Rollback
 **Option A — Dokploy UI:** Open `cp.biginformatics.net` → Hive service → redeploy previous image  
@@ -172,11 +172,11 @@ curl -fsS -X POST \
 ### Verify Health
 ```bash
 # Public probes (6 checks)
-curl -s https://messages.biginformatics.net/api/doctor | jq .
+curl -s https://YOUR_HIVE_URL/api/doctor | jq .
 
 # Admin probes (8 checks, needs auth)
 curl -s -H "Authorization: Bearer $HIVE_TOKEN" \
-  https://messages.biginformatics.net/api/doctor/admin | jq .
+  https://YOUR_HIVE_URL/api/doctor/admin | jq .
 
 # CLI wrapper
 ./scripts/hive-doctor.sh          # public
@@ -193,7 +193,7 @@ curl -s -H "Authorization: Bearer $HIVE_TOKEN" \
 |---|---|
 | `NODE_ENV` | `production` |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` |
-| `PGHOST` | DB host (`data.biginformatics.net`) |
+| `PGHOST` | DB host (`YOUR_DB_HOST`) |
 | `PGPORT` | `5432` |
 | `PGUSER` / `PGPASSWORD` | DB credentials |
 | `PGDATABASE_TEAM` | Database name (`team`) |
@@ -217,7 +217,7 @@ curl -s -H "Authorization: Bearer $HIVE_TOKEN" \
 |---|---|
 | Container logs | Dokploy UI → Hive service → Logs tab |
 | Docker direct | `docker logs hive --tail 100 -f` (on host) |
-| DB queries | `psql -h db.biginformatics.net -d team` |
+| DB queries | `psql -h YOUR_DB_HOST -d team` |
 | Health | `GET /api/doctor` (public) / `GET /api/doctor/admin` (auth) |
 | Container health | Built-in: `curl -f http://localhost:3000/api/health` every 30s |
 
@@ -282,7 +282,7 @@ SELECT id, title, project_lead_user_id, archived_at FROM swarm_projects;
 2. Add `GET /api/chat/search?q=...` for cross-channel search
 3. Add GIN index on `chat_messages.body`
 4. Add search UI component to chat views
-5. Consider semantic search via embeddings service (`ai.biginformatics.net:11434`)
+5. Consider semantic search via embeddings service (`YOUR_EMBEDDINGS_HOST:11434`)
 
 ---
 
@@ -290,11 +290,11 @@ SELECT id, title, project_lead_user_id, archived_at FROM swarm_projects;
 
 | What | Where |
 |---|---|
-| API | `https://messages.biginformatics.net/api` |
-| UI | `https://messages.biginformatics.net/ui/swarm` |
+| API | `https://YOUR_HIVE_URL/api` |
+| UI | `https://YOUR_HIVE_URL/ui/swarm` |
 | Health | `GET /api/doctor` |
-| Repo | `https://dev.biginformatics.net/BigInformatics/hive` |
-| DB | `db.biginformatics.net:5432 / team` |
+| Repo | `https://YOUR_ONEDEV_URL/BigInformatics/hive` |
+| DB | `YOUR_DB_HOST:5432 / team` |
 | Deploy | `curl` webhook (see §6) or git push → hook |
 | Logs | Dokploy UI → container logs |
-| Dokploy | `https://cp.biginformatics.net` |
+| Dokploy | `https://YOUR_DOKPLOY_URL` |

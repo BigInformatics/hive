@@ -9,7 +9,7 @@
 //   HIVE_TOKEN        — Hive Bearer token
 //
 // Optional env:
-//   HIVE_BASE_URL        — API base (default: https://messages.biginformatics.net/api)
+//   HIVE_BASE_URL        — API base (default: http://localhost:3000/api)
 //   WEBHOOK_URL          — POST events here (e.g. OpenClaw /hooks/agent)
 //   WEBHOOK_TOKEN        — Bearer token for webhook endpoint
 //   MONITOR_EVENTS       — Comma-separated event types to forward
@@ -30,7 +30,7 @@
 //   # Just log all events (debug mode)
 //   HIVE_TOKEN=xxx MONITOR_VERBOSE=true bun run scripts/hive-sse-monitor.ts
 
-const BASE = process.env.HIVE_BASE_URL ?? "https://messages.biginformatics.net/api";
+const BASE = process.env.HIVE_BASE_URL ?? "http://localhost:3000/api";
 const TOKEN = process.env.HIVE_TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN;

@@ -340,7 +340,8 @@ export async function getWakeItems(
   }
 
   // --- Build per-source actions ---
-  const SKILL_BASE = "https://messages.biginformatics.net/api/skill";
+  const { getBaseUrl } = await import("./base-url");
+  const SKILL_BASE = `${getBaseUrl()}/api/skill`;
   const ACTION_MAP: Record<string, { item: string; action: string; skill_url: string }> = {
     message: {
       item: "messages",
@@ -378,7 +379,7 @@ export async function getWakeItems(
 
   return {
     instructions: "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
-    skill_url: "https://messages.biginformatics.net/api/skill",
+    skill_url: `${getBaseUrl()}/api/skill`,
     items,
     actions,
     summary,

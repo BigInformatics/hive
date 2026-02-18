@@ -58,7 +58,7 @@ Example:
 curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   -d '{"event":"deploy","status":"success"}' \
-  https://messages.biginformatics.net/api/ingest/onedev/0123456789abcd
+  https://YOUR_HIVE_URL/api/ingest/onedev/0123456789abcd
 \`\`\`
 
 ---

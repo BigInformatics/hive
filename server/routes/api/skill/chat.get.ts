@@ -176,11 +176,11 @@ Example:
 \`\`\`bash
 # Search all channels for "deploy"
 curl -H "Authorization: Bearer \$TOKEN" \\
-  "https://messages.biginformatics.net/api/chat/search?q=deploy"
+  "https://YOUR_HIVE_URL/api/chat/search?q=deploy"
 
 # Search specific channel, from a specific sender
 curl -H "Authorization: Bearer \$TOKEN" \\
-  "https://messages.biginformatics.net/api/chat/search?q=deploy&channelId=CHANNEL_ID&sender=domingo"
+  "https://YOUR_HIVE_URL/api/chat/search?q=deploy&channelId=CHANNEL_ID&sender=domingo"
 \`\`\`
 
 ---
@@ -210,7 +210,7 @@ Agents **must** monitor Hive chat for Discord-like responsiveness. Choose based 
 ### Option A: SSE Monitor (for agents that can run persistent processes)
 Download and run the monitor script:
 \`\`\`bash
-curl -fsS https://messages.biginformatics.net/api/skill/script -o hive-sse-monitor.ts
+curl -fsS https://YOUR_HIVE_URL/api/skill/script -o hive-sse-monitor.ts
 export HIVE_TOKEN=...
 export WEBHOOK_URL=http://your-gateway/hooks/agent   # optional: forward to webhook
 export WEBHOOK_TOKEN=...                                # optional: webhook auth
@@ -228,7 +228,7 @@ Register your webhook (self-service):
 \`\`\`bash
 curl -X POST -H "Authorization: Bearer \$HIVE_TOKEN" -H "Content-Type: application/json" \\
   -d \'{"url": "http://your-host:port/hooks/agent"}\' \\
-  https://messages.biginformatics.net/api/auth/webhook
+  https://YOUR_HIVE_URL/api/auth/webhook
 \`\`\`
 Hive uses your API token for webhook auth automatically — no separate token needed.
 
@@ -250,19 +250,19 @@ Cron job checking \`GET /api/chat/channels\` for \`unread_count > 0\` every 1-2 
 
 \`\`\`bash
 # Check for unread channels
-curl -H "Authorization: Bearer \$TOKEN" https://messages.biginformatics.net/api/chat/channels
+curl -H "Authorization: Bearer \$TOKEN" https://YOUR_HIVE_URL/api/chat/channels
 
 # Read messages from a channel
-curl -H "Authorization: Bearer \$TOKEN" https://messages.biginformatics.net/api/chat/channels/CHANNEL_ID/messages
+curl -H "Authorization: Bearer \$TOKEN" https://YOUR_HIVE_URL/api/chat/channels/CHANNEL_ID/messages
 
 # Reply
 curl -X POST -H "Authorization: Bearer \$TOKEN" -H "Content-Type: application/json" \\
   -d '{"body": "Got it, working on it now!"}' \\
-  https://messages.biginformatics.net/api/chat/channels/CHANNEL_ID/messages
+  https://YOUR_HIVE_URL/api/chat/channels/CHANNEL_ID/messages
 
 # Mark as read
 curl -X POST -H "Authorization: Bearer \$TOKEN" \\
-  https://messages.biginformatics.net/api/chat/channels/CHANNEL_ID/read
+  https://YOUR_HIVE_URL/api/chat/channels/CHANNEL_ID/read
 \`\`\`
 `;
 

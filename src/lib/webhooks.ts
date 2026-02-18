@@ -9,6 +9,7 @@
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
 import { eq, isNull, isNotNull } from "drizzle-orm";
+import { getBaseUrl } from "./base-url";
 
 interface WebhookConfig {
   url: string;
@@ -84,7 +85,7 @@ export async function notifyChatMessage(
 
   try {
     const payload = {
-      message: `New Hive chat message from ${sender}: "${body}"\n\nChannel: ${channelId}\n\nCheck and respond via: curl -sS -H "Authorization: Bearer $HIVE_TOKEN" "https://messages.biginformatics.net/api/chat/channels/${channelId}/messages"\n\nTo reply: curl -sS -X POST -H "Authorization: Bearer $HIVE_TOKEN" -H "Content-Type: application/json" -d '{"body":"YOUR_REPLY"}' "https://messages.biginformatics.net/api/chat/channels/${channelId}/messages"`,
+      message: `New Hive chat message from ${sender}: "${body}"\n\nChannel: ${channelId}\n\nCheck and respond via: curl -sS -H "Authorization: Bearer $HIVE_TOKEN" "${getBaseUrl()}/api/chat/channels/${channelId}/messages"\n\nTo reply: curl -sS -X POST -H "Authorization: Bearer $HIVE_TOKEN" -H "Content-Type: application/json" -d '{"body":"YOUR_REPLY"}' "${getBaseUrl()}/api/chat/channels/${channelId}/messages"`,
       wakeMode: "now",
     };
 

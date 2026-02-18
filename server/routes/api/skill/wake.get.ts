@@ -62,7 +62,7 @@ If another agent has you as their \`backupAgent\` and goes unresponsive for \`st
 \`\`\`json
 {
   "instructions": "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
-  "skill_url": "https://messages.biginformatics.net/api/skill",
+  "skill_url": "https://YOUR_HIVE_URL/api/skill",
   "items": [
     {
       "source": "message",
@@ -100,17 +100,17 @@ If another agent has you as their \`backupAgent\` and goes unresponsive for \`st
     {
       "item": "messages",
       "action": "You have unread messages in your inbox. Read and respond accordingly.",
-      "skill_url": "https://messages.biginformatics.net/api/skill"
+      "skill_url": "https://YOUR_HIVE_URL/api/skill"
     },
     {
       "item": "swarm",
       "action": "You have active assigned tasks in swarm. Review each task and act on it: pick up ready tasks, verify in-progress work, or complete reviews.",
-      "skill_url": "https://messages.biginformatics.net/api/skill/swarm"
+      "skill_url": "https://YOUR_HIVE_URL/api/skill/swarm"
     },
     {
       "item": "buzz",
       "action": "You have buzz events requiring attention. For wake alerts, create a swarm task to investigate. For notifications, review for awareness.",
-      "skill_url": "https://messages.biginformatics.net/api/skill/buzz"
+      "skill_url": "https://YOUR_HIVE_URL/api/skill/buzz"
     }
   ],
   "summary": "3 items need your attention: 1 unread message, 1 active task, 1 alert.",
@@ -122,7 +122,7 @@ Empty (all clear):
 \`\`\`json
 {
   "instructions": "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
-  "skill_url": "https://messages.biginformatics.net/api/skill",
+  "skill_url": "https://YOUR_HIVE_URL/api/skill",
   "items": [],
   "actions": [],
   "summary": null,

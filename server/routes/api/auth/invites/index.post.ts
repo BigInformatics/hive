@@ -31,6 +31,6 @@ export default defineEventHandler(async (event) => {
 
   return {
     invite: row,
-    onboardUrl: `https://messages.biginformatics.net/onboard?code=${code}`,
+    onboardUrl: `${process.env.HIVE_BASE_URL || "http://localhost:3000"}/onboard?code=${code}`,
   };
 });
