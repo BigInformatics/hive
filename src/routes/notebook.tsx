@@ -285,7 +285,7 @@ function PageEditor({
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [mode, setMode] = useState<"source" | "preview">("source");
+  const [mode, setMode] = useState<"source" | "preview">("preview");
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [identity, setIdentity] = useState<string | null>(null);
   const [viewers, setViewers] = useState<string[]>([]);
@@ -547,18 +547,18 @@ function PageEditor({
         {/* Mode toggle */}
         <div className="flex gap-1 mb-3">
           <Button
-            variant={mode === "source" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setMode("source")}
-          >
-            <Code2 className="h-3.5 w-3.5 mr-1" /> Source
-          </Button>
-          <Button
             variant={mode === "preview" ? "default" : "ghost"}
             size="sm"
             onClick={() => setMode("preview")}
           >
             <Eye className="h-3.5 w-3.5 mr-1" /> Preview
+          </Button>
+          <Button
+            variant={mode === "source" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setMode("source")}
+          >
+            <Code2 className="h-3.5 w-3.5 mr-1" /> Source
           </Button>
         </div>
 
