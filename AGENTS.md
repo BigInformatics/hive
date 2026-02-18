@@ -6,13 +6,12 @@ Hive is **open source**. We follow a strict branching strategy:
 
 ### Branches
 - **`dev`** — Active development branch. All agent work happens here.
-- **`main`** — Release branch. Only updated via reviewed PRs from `dev`.
+- **`main`** — Release branch. **Only exists on GitHub.** Updated via reviewed PRs from `dev`.
 - **Feature branches** — Branch off `dev` for larger features: `feature/my-thing`
 
 ### Where to push
-- **OneDev** (`origin`): Push to `dev` (or feature branches). This is the team's working repo at `dev.biginformatics.net`.
-- **GitHub** (`github`): The `dev` branch is also pushed to GitHub for visibility.
-- **Never push directly to `main`**. Always go through a PR.
+- **OneDev** (`origin`): Push to `dev` (or feature branches). This is the team's working repo at `dev.biginformatics.net`. **There is no `main` branch on OneDev** — only `dev`.
+- **GitHub** (`github`): Push `dev` here too. PRs from `dev` → `main` happen **only on GitHub**.
 
 ### Deployment
 - **Dokploy deploys from `dev` on OneDev** (not main, not GitHub).
@@ -29,8 +28,8 @@ curl -fsS -X POST \
 ### Release Process
 1. Work on `dev` (or feature branch → merge to `dev`)
 2. Test on team deployment (auto-deploys from `dev`)
-3. When ready to release: **create a PR from `dev` → `main` on GitHub**
-4. PR goes through code review
+3. When ready to release: **create a PR from `dev` → `main` on GitHub** (only place `main` exists)
+4. PR goes through code review on GitHub
 5. Once approved and merged, `main` is the public stable release
 
 ### Daily workflow
