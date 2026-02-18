@@ -27,13 +27,12 @@ export function UserSelect({ value, onChange, className }: UserSelectProps) {
   useEffect(() => {
     const key = getMailboxKey();
     if (!key) return;
-    fetch("/api/presence", {
+    fetch("/api/users", {
       headers: { Authorization: `Bearer ${key}` },
     })
       .then((r) => r.json())
       .then((data) => {
-        // Merge presence users with already-selected users
-        const all = new Set([...Object.keys(data), ...value]);
+        const all = new Set([...(data.users || []), ...value]);
         setUsers([...all].sort());
       })
       .catch(() => {});
