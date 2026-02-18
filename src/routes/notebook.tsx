@@ -26,6 +26,8 @@ import {
   Lock,
   Unlock,
   Trash2,
+  Link2,
+  Check,
 } from "lucide-react";
 import { UserSelect } from "@/components/user-select";
 import { marked } from "marked";
@@ -70,7 +72,10 @@ function NotebookPage() {
 }
 
 function NotebookContent() {
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("page");
+  });
 
   if (selectedPageId) {
     return (
@@ -282,6 +287,8 @@ function PageEditor({
   const [mode, setMode] = useState<"source" | "preview">("source");
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [identity, setIdentity] = useState<string | null>(null);
+  const [viewers, setViewers] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
 
@@ -298,6 +305,31 @@ function PageEditor({
         .catch(() => {});
     }
   }, []);
+
+  // Presence heartbeat — ping every 30s, track who's viewing
+  useEffect(() => {
+    const key = getMailboxKey();
+    if (!key) return;
+    const ping = () =>
+      fetch(`/api/notebook/${pageId}/presence`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+      })
+        .then((r) => r.json())
+        .then((d) => d.viewers && setViewers(d.viewers))
+        .catch(() => {});
+    ping();
+    const interval = setInterval(ping, 30_000);
+    return () => clearInterval(interval);
+  }, [pageId]);
+
+  const handleCopyUrl = () => {
+    const url = `${window.location.origin}/notebook?page=${pageId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Load page
   useEffect(() => {
@@ -416,10 +448,45 @@ function PageEditor({
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
           <div className="flex-1" />
+          {/* Active viewers */}
+          {viewers.length > 0 && (
+            <div className="flex items-center gap-1 mr-1">
+              <div className="flex -space-x-1.5">
+                {viewers.slice(0, 5).map((v) => (
+                  <div
+                    key={v}
+                    className="h-6 w-6 rounded-full bg-primary/15 border-2 border-background flex items-center justify-center text-[10px] font-medium text-primary"
+                    title={v}
+                  >
+                    {v[0].toUpperCase()}
+                  </div>
+                ))}
+              </div>
+              {viewers.length > 5 && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  +{viewers.length - 5}
+                </span>
+              )}
+            </div>
+          )}
           <span className="text-xs text-muted-foreground">
             {saving === "saving" && "Saving…"}
             {saving === "saved" && "✓ Saved"}
           </span>
+          {/* Copy URL */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={handleCopyUrl}
+            title="Copy page URL"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-green-500" />
+            ) : (
+              <Link2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
           {isOwnerOrAdmin && (
             <>
               <Button
