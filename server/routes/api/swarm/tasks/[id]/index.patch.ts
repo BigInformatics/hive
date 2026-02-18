@@ -1,9 +1,10 @@
 import { defineEventHandler, readBody, getRouterParam } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { updateTask } from "@/lib/swarm";
+import { emit } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -24,9 +25,12 @@ export default defineEventHandler(async (event) => {
     projectId: body.projectId,
     title: body.title,
     detail: body.detail,
+    issueUrl: body.issueUrl,
     assigneeUserId: body.assigneeUserId,
     onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : body.onOrAfterAt,
     mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
+    nextTaskId: body.nextTaskId,
+    nextTaskAssigneeUserId: body.nextTaskAssigneeUserId,
   });
 
   if (!task) {
@@ -35,6 +39,14 @@ export default defineEventHandler(async (event) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  emit("__swarm__", {
+    type: "swarm_task_updated",
+    taskId: task.id,
+    title: task.title,
+    status: task.status,
+    actor: auth.identity,
+  });
 
   return task;
 });

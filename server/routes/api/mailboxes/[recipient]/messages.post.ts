@@ -1,12 +1,12 @@
 import { defineEventHandler, readBody, getRouterParam } from "h3";
 import { authenticateEvent, isValidMailbox } from "@/lib/auth";
 import { sendMessage } from "@/lib/messages";
-import { emit } from "@/lib/events";
+import { emit, emitWakeTrigger } from "@/lib/events";
 import { updatePresence } from "@/lib/presence";
 
 export default defineEventHandler(async (event) => {
   // Auth
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -32,11 +32,15 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Input validation
+  const title = String(body.title).slice(0, 255);
+  const msgBody = body.body ? String(body.body).slice(0, 10_000) : body.body;
+
   const message = await sendMessage({
     recipient,
     sender: auth.identity,
-    title: body.title,
-    body: body.body,
+    title,
+    body: msgBody,
     urgent: body.urgent,
     threadId: body.threadId,
     replyToMessageId: body.replyToMessageId
@@ -55,6 +59,9 @@ export default defineEventHandler(async (event) => {
     title: message.title,
     urgent: message.urgent,
   });
+
+  // Trigger immediate wake pulse for recipient
+  emitWakeTrigger(recipient);
 
   return message;
 });

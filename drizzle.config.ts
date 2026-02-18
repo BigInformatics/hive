@@ -4,7 +4,7 @@ import { defineConfig } from "drizzle-kit";
 config({ path: ".env" });
 config({ path: "/etc/clawdbot/vault.env" });
 
-const host = process.env.PGHOST_DATA || process.env.PGHOST || "data.biginformatics.net";
+const host = process.env.PGHOST_DATA || process.env.PGHOST || "localhost";
 const port = process.env.PGPORT || "5432";
 const user = process.env.PGUSER || "postgres";
 const password = process.env.PGPASSWORD || "";

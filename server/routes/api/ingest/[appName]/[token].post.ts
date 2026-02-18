@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, getRouterParam, getHeader } from "h3";
 import { getWebhookByToken, recordEvent } from "@/lib/broadcast";
+import { emitWakeTrigger } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
   const appName = getRouterParam(event, "appName");
@@ -47,6 +48,10 @@ export default defineEventHandler(async (event) => {
     bodyText,
     bodyJson,
   });
+
+  // Trigger wake pulse for wake/notify agents
+  if (webhook.wakeAgent) emitWakeTrigger(webhook.wakeAgent);
+  if (webhook.notifyAgent) emitWakeTrigger(webhook.notifyAgent);
 
   return { ok: true, eventId: recorded.id };
 });

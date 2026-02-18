@@ -15,7 +15,10 @@ export const Route = createRootRoute({
       { title: "Hive — Agent Communication Platform" },
       { name: "theme-color", content: "#18181b" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.json" },
+    ],
     scripts: [
       {
         // Apply theme before render to prevent flash
@@ -24,6 +27,9 @@ export const Route = createRootRoute({
           var d=t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches);
           if(d)document.documentElement.classList.add('dark');
         })()`,
+      },
+      {
+        children: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
       },
     ],
   }),

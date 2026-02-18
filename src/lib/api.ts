@@ -17,6 +17,7 @@ export function getMailboxKey(): string | null {
 
 export function clearMailboxKey() {
   localStorage.removeItem("hive-mailbox-key");
+  localStorage.removeItem("hive-identity");
 }
 
 async function apiFetch(path: string, options: RequestInit = {}) {
@@ -76,6 +77,17 @@ export const api = {
   searchMessages: (q: string) =>
     apiFetch(`/mailboxes/me/messages/search?q=${encodeURIComponent(q)}`),
 
+  listSentMessages: (params?: { limit?: number }) => {
+    const qs = params?.limit ? `?limit=${params.limit}` : "";
+    return apiFetch(`/mailboxes/me/sent${qs}`);
+  },
+
+  markPending: (id: number) =>
+    apiFetch(`/mailboxes/me/messages/${id}/pending`, { method: "POST" }),
+
+  clearPending: (id: number) =>
+    apiFetch(`/mailboxes/me/messages/${id}/pending`, { method: "DELETE" }),
+
   getPresence: () => apiFetch("/presence"),
 
   // Broadcast
@@ -92,6 +104,15 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  updateWebhook: (id: number, data: Record<string, unknown>) =>
+    apiFetch(`/broadcast/webhooks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteWebhook: (id: number) =>
+    apiFetch(`/broadcast/webhooks/${id}`, { method: "DELETE" }),
+
   // Swarm
   listProjects: () => apiFetch("/swarm/projects"),
 
@@ -101,10 +122,24 @@ export const api = {
     description?: string;
     projectLeadUserId?: string;
     developerLeadUserId?: string;
+    websiteUrl?: string;
+    onedevUrl?: string;
+    githubUrl?: string;
   }) =>
     apiFetch("/swarm/projects", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+
+  updateProject: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/swarm/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  archiveProject: (id: string) =>
+    apiFetch(`/swarm/projects/${id}/archive`, {
+      method: "POST",
     }),
 
   listTasks: (params?: {
@@ -127,8 +162,13 @@ export const api = {
     title: string;
     projectId?: string;
     detail?: string;
+    issueUrl?: string;
     assigneeUserId?: string;
     status?: string;
+    mustBeDoneAfterTaskId?: string;
+    onOrAfterAt?: string;
+    nextTaskId?: string;
+    nextTaskAssigneeUserId?: string;
   }) =>
     apiFetch("/swarm/tasks", {
       method: "POST",
@@ -146,4 +186,173 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  // Recurring templates
+  listRecurringTemplates: (includeDisabled = false) =>
+    apiFetch(`/swarm/recurring${includeDisabled ? "?includeDisabled=true" : ""}`),
+
+  createRecurringTemplate: (data: {
+    title: string;
+    cronExpr: string;
+    projectId?: string;
+    detail?: string;
+    assigneeUserId?: string;
+    timezone?: string;
+    initialStatus?: string;
+  }) =>
+    apiFetch("/swarm/recurring", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateRecurringTemplate: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/swarm/recurring/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteRecurringTemplate: (id: string) =>
+    apiFetch(`/swarm/recurring/${id}`, { method: "DELETE" }),
+
+  tickRecurring: () =>
+    apiFetch("/swarm/recurring/tick", { method: "POST" }),
+
+  // Auth / Invites
+  listInvites: () => apiFetch("/auth/invites"),
+
+  createInvite: (data: {
+    identityHint?: string;
+    isAdmin?: boolean;
+    maxUses?: number;
+    expiresInHours?: number;
+  }) =>
+    apiFetch("/auth/invites", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  deleteInvite: (id: number) =>
+    apiFetch(`/auth/invites/${id}`, { method: "DELETE" }),
+
+  listTokens: () => apiFetch("/auth/tokens"),
+
+  revokeToken: (id: number) =>
+    apiFetch(`/auth/tokens/${id}/revoke`, { method: "POST" }),
+
+  // Chat
+  listChatChannels: () => apiFetch("/chat/channels"),
+
+  openDm: (identity: string) =>
+    apiFetch("/chat/channels", {
+      method: "POST",
+      body: JSON.stringify({ identity }),
+    }),
+
+  createGroupChat: (name: string, members: string[]) =>
+    apiFetch("/chat/channels", {
+      method: "POST",
+      body: JSON.stringify({ type: "group", name, members }),
+    }),
+
+  getChatMessages: (channelId: string, params?: { limit?: number; before?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.before) qs.set("before", String(params.before));
+    const q = qs.toString();
+    return apiFetch(`/chat/channels/${channelId}/messages${q ? `?${q}` : ""}`);
+  },
+
+  sendChatMessage: (channelId: string, body: string) =>
+    apiFetch(`/chat/channels/${channelId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+
+  markChatRead: (channelId: string) =>
+    apiFetch(`/chat/channels/${channelId}/read`, { method: "POST" }),
+
+  sendChatTyping: (channelId: string) =>
+    apiFetch(`/chat/channels/${channelId}/typing`, { method: "POST" }),
+
+  // Wake
+  getWake: (identity?: string) =>
+    apiFetch(identity ? `/wake/${identity}` : "/wake"),
+
+  // Admin
+  getUserStats: () => apiFetch("/admin/user-stats"),
+
+  searchChatMessages: (params: {
+    q: string;
+    channelId?: string;
+    sender?: string;
+    before?: string;
+    after?: string;
+    limit?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set("q", params.q);
+    if (params.channelId) qs.set("channelId", params.channelId);
+    if (params.sender) qs.set("sender", params.sender);
+    if (params.before) qs.set("before", params.before);
+    if (params.after) qs.set("after", params.after);
+    if (params.limit) qs.set("limit", String(params.limit));
+    return apiFetch(`/chat/search?${qs.toString()}`);
+  },
+
+  // Directory
+  listDirectory: (q?: string, limit?: number, offset?: number) => {
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    if (limit) qs.set("limit", String(limit));
+    if (offset) qs.set("offset", String(offset));
+    const s = qs.toString();
+    return apiFetch(`/directory${s ? `?${s}` : ""}`);
+  },
+  createDirectoryEntry: (data: {
+    title: string;
+    url: string;
+    description?: string;
+    taggedUsers?: string[];
+  }) =>
+    apiFetch("/directory", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  deleteDirectoryEntry: (id: number) =>
+    apiFetch(`/directory/${id}`, { method: "DELETE" }),
+
+  // Notebook
+  listNotebookPages: (q?: string, limit?: number, offset?: number) => {
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    if (limit) qs.set("limit", String(limit));
+    if (offset) qs.set("offset", String(offset));
+    const s = qs.toString();
+    return apiFetch(`/notebook${s ? `?${s}` : ""}`);
+  },
+  createNotebookPage: (data: {
+    title: string;
+    content?: string;
+    taggedUsers?: string[];
+  }) =>
+    apiFetch("/notebook", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getNotebookPage: (id: string) => apiFetch(`/notebook/${id}`),
+  updateNotebookPage: (
+    id: string,
+    data: {
+      title?: string;
+      content?: string;
+      taggedUsers?: string[];
+      locked?: boolean;
+    },
+  ) =>
+    apiFetch(`/notebook/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteNotebookPage: (id: string) =>
+    apiFetch(`/notebook/${id}`, { method: "DELETE" }),
 };

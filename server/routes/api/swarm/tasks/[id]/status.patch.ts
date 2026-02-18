@@ -1,9 +1,10 @@
 import { defineEventHandler, readBody, getRouterParam } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { updateTaskStatus } from "@/lib/swarm";
+import { getTask, updateTaskStatus } from "@/lib/swarm";
+import { emit, emitWakeTrigger } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -27,12 +28,28 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  const before = await getTask(id);
   const task = await updateTaskStatus(id, body.status, auth.identity);
   if (!task) {
     return new Response(JSON.stringify({ error: "Task not found" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  emit("__swarm__", {
+    type: "swarm_task_updated",
+    taskId: task.id,
+    title: task.title,
+    status: task.status,
+    previousStatus: before?.status,
+    actor: auth.identity,
+  });
+
+  // Trigger wake pulse for assignee if task entered a wakeable status
+  const wakeStatuses = ["ready", "in_progress", "review"];
+  if (task.assigneeUserId && wakeStatuses.includes(task.status)) {
+    emitWakeTrigger(task.assigneeUserId);
   }
 
   return task;

@@ -77,7 +77,7 @@ export interface ListOptions {
 export async function listMessages(
   recipient: string,
   options: ListOptions = {},
-): Promise<{ messages: MailboxMessage[]; nextCursor?: string }> {
+): Promise<{ messages: MailboxMessage[]; total: number; nextCursor?: string }> {
   const limit = Math.min(options.limit || 50, 100);
   const cursorId = options.cursor ? Number(options.cursor) : null;
 
@@ -86,6 +86,14 @@ export async function listMessages(
   if (options.status) {
     conditions.push(eq(mailboxMessages.status, options.status));
   }
+
+  // Get total count (before cursor filter)
+  const [countResult] = await db
+    .select({ count: rawSql<number>`count(*)::int` })
+    .from(mailboxMessages)
+    .where(and(...conditions));
+  const total = countResult?.count ?? 0;
+
   if (cursorId) {
     conditions.push(gt(mailboxMessages.id, cursorId));
   }
@@ -109,7 +117,7 @@ export async function listMessages(
       ? messages[messages.length - 1].id.toString()
       : undefined;
 
-  return { messages, nextCursor };
+  return { messages, total, nextCursor };
 }
 
 export async function getMessage(

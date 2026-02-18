@@ -3,7 +3,7 @@ import { authenticateEvent } from "@/lib/auth";
 import { createWebhook } from "@/lib/broadcast";
 
 export default defineEventHandler(async (event) => {
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -24,6 +24,8 @@ export default defineEventHandler(async (event) => {
     title: body.title,
     owner: auth.identity,
     forUsers: body.forUsers,
+    wakeAgent: body.wakeAgent,
+    notifyAgent: body.notifyAgent,
   });
 
   return webhook;

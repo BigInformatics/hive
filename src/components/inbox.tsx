@@ -13,6 +13,7 @@ import {
   CheckCheck,
   AlertTriangle,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
 import { Nav } from "./nav";
 import { ComposeDialog } from "./compose-dialog";
@@ -30,6 +31,9 @@ interface Message {
   viewedAt: string | null;
   threadId: string | null;
   replyToMessageId: number | null;
+  responseWaiting: boolean;
+  waitingResponder: string | null;
+  waitingSince: string | null;
 }
 
 function timeAgo(date: string): string {
@@ -51,14 +55,19 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
 
-  const fetchMessages = useCallback(async (status?: string) => {
+  const fetchMessages = useCallback(async (currentTab?: string) => {
     setLoading(true);
     try {
-      const result = await api.listMessages({
-        status: status || undefined,
-        limit: 50,
-      });
-      setMessages(result.messages || []);
+      if (currentTab === "sent") {
+        const result = await api.listSentMessages({ limit: 50 });
+        setMessages(result.messages || []);
+      } else {
+        const result = await api.listMessages({
+          status: currentTab === "all" ? undefined : currentTab,
+          limit: 50,
+        });
+        setMessages(result.messages || []);
+      }
     } catch (err) {
       console.error("Failed to fetch messages:", err);
     } finally {
@@ -82,7 +91,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     if (tab !== "search") {
-      fetchMessages(tab === "all" ? undefined : tab);
+      fetchMessages(tab);
     }
   }, [tab, fetchMessages]);
 
@@ -90,7 +99,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     const interval = setInterval(() => {
       if (tab !== "search") {
-        fetchMessages(tab === "all" ? undefined : tab);
+        fetchMessages(tab);
       }
     }, 30000);
     return () => clearInterval(interval);
@@ -128,7 +137,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   const unreadCount = messages.filter((m) => m.status === "unread").length;
 
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex flex-col bg-background h-[100dvh] md:h-screen pb-14 md:pb-0">
       {/* Header */}
       <Nav onLogout={handleLogout} />
       <div className="flex items-center justify-between px-4 py-2 border-b">
@@ -156,8 +165,8 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="border-b px-4 py-2">
+      {/* Search — hidden on mobile when viewing detail */}
+      <div className={`border-b px-3 md:px-4 py-2 ${selectedMessage ? "hidden md:block" : ""}`}>
         <div className="flex gap-2">
           <input
             type="text"
@@ -180,8 +189,8 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
 
       {/* Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Message list */}
-        <div className="flex w-full flex-col border-r md:w-96">
+        {/* Message list — hidden on mobile when viewing detail */}
+        <div className={`flex flex-col border-r md:w-96 ${selectedMessage ? "hidden md:flex" : "flex"} w-full`}>
           <Tabs
             value={tab}
             onValueChange={(v) => {
@@ -190,14 +199,17 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
             }}
             className="flex flex-col flex-1 overflow-hidden"
           >
-            <TabsList className="mx-4 mt-2">
-              <TabsTrigger value="unread">
+            <TabsList className="mx-3 md:mx-4 mt-2">
+              <TabsTrigger value="unread" className="text-xs md:text-sm">
                 <InboxIcon className="mr-1 h-3.5 w-3.5" /> Unread
               </TabsTrigger>
-              <TabsTrigger value="read">
+              <TabsTrigger value="read" className="text-xs md:text-sm">
                 <Archive className="mr-1 h-3.5 w-3.5" /> Read
               </TabsTrigger>
-              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="sent" className="text-xs md:text-sm">
+                <Send className="mr-1 h-3.5 w-3.5" /> Sent
+              </TabsTrigger>
+              <TabsTrigger value="all" className="text-xs md:text-sm">All</TabsTrigger>
             </TabsList>
 
             <TabsContent value={tab} className="flex-1 overflow-hidden mt-0">
@@ -245,9 +257,14 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                           {timeAgo(msg.createdAt)}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        from {msg.sender}
-                      </p>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">
+                          {tab === "sent" ? `to ${msg.recipient}` : `from ${msg.sender}`}
+                        </span>
+                        {msg.responseWaiting && (
+                          <span className="text-[10px] text-amber-500 font-medium">⏳ pending</span>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -257,16 +274,43 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {/* Detail pane */}
-        <div className="hidden flex-1 md:block">
+        <div className={`flex-1 flex flex-col ${selectedMessage ? "flex" : "hidden md:flex"}`}>
           {selectedMessage ? (
-            <MessageDetail
-              message={selectedMessage}
-              onAck={() => handleAck(selectedMessage.id)}
-              onReply={async (body) => {
-                await api.replyToMessage(selectedMessage.id, body);
-                fetchMessages(tab === "all" ? undefined : tab);
-              }}
-            />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              {/* Mobile back button */}
+              <div className="flex md:hidden items-center border-b px-2 py-1.5">
+                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => setSelectedMessage(null)}>
+                  <ArrowLeft className="h-4 w-4" /> Back
+                </Button>
+              </div>
+              <MessageDetail
+                message={selectedMessage}
+                onAck={() => handleAck(selectedMessage.id)}
+                onReply={async (body) => {
+                  await api.replyToMessage(selectedMessage.id, body);
+                  if (selectedMessage.status === "unread") {
+                    await api.ackMessage(selectedMessage.id);
+                    setSelectedMessage({ ...selectedMessage, status: "read" });
+                  }
+                  fetchMessages(tab);
+                }}
+                onTogglePending={async () => {
+                  if (selectedMessage.responseWaiting) {
+                    const updated = await api.clearPending(selectedMessage.id);
+                    setSelectedMessage({ ...selectedMessage, responseWaiting: false, waitingResponder: null, waitingSince: null });
+                  } else {
+                    const updated = await api.markPending(selectedMessage.id);
+                    setSelectedMessage({ ...selectedMessage, responseWaiting: true, waitingResponder: "me", waitingSince: new Date().toISOString() });
+                  }
+                  fetchMessages(tab);
+                }}
+                onAutoRead={() => {
+                  if (selectedMessage.status === "unread") {
+                    handleAck(selectedMessage.id);
+                  }
+                }}
+              />
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <p>Select a message to read</p>

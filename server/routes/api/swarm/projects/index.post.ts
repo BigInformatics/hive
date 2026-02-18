@@ -3,7 +3,7 @@ import { authenticateEvent } from "@/lib/auth";
 import { createProject } from "@/lib/swarm";
 
 export default defineEventHandler(async (event) => {
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
   if (!auth) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -25,7 +25,9 @@ export default defineEventHandler(async (event) => {
     color: body.color,
     projectLeadUserId: body.projectLeadUserId || auth.identity,
     developerLeadUserId: body.developerLeadUserId || auth.identity,
+    websiteUrl: body.websiteUrl,
     onedevUrl: body.onedevUrl,
+    githubUrl: body.githubUrl,
     dokployDeployUrl: body.dokployDeployUrl,
   });
 

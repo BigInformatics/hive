@@ -27,8 +27,14 @@ export async function createProject(input: {
   color: string;
   projectLeadUserId: string;
   developerLeadUserId: string;
+  websiteUrl?: string;
   onedevUrl?: string;
+  githubUrl?: string;
   dokployDeployUrl?: string;
+  workHoursStart?: number;
+  workHoursEnd?: number;
+  workHoursTimezone?: string;
+  blockingMode?: boolean;
 }): Promise<SwarmProject> {
   const [row] = await db
     .insert(swarmProjects)
@@ -38,8 +44,14 @@ export async function createProject(input: {
       color: input.color,
       projectLeadUserId: input.projectLeadUserId,
       developerLeadUserId: input.developerLeadUserId,
+      websiteUrl: input.websiteUrl || null,
       onedevUrl: input.onedevUrl || null,
+      githubUrl: input.githubUrl || null,
       dokployDeployUrl: input.dokployDeployUrl || null,
+      workHoursStart: input.workHoursStart || null,
+      workHoursEnd: input.workHoursEnd || null,
+      workHoursTimezone: input.workHoursTimezone || "America/Chicago",
+      blockingMode: input.blockingMode || false,
     })
     .returning();
   return row;
@@ -74,8 +86,14 @@ export async function updateProject(
     color: string;
     projectLeadUserId: string;
     developerLeadUserId: string;
+    websiteUrl: string | null;
     onedevUrl: string | null;
+    githubUrl: string | null;
     dokployDeployUrl: string | null;
+    workHoursStart: number | null;
+    workHoursEnd: number | null;
+    workHoursTimezone: string;
+    blockingMode: boolean;
   }>,
 ): Promise<SwarmProject | null> {
   const [row] = await db
@@ -103,11 +121,16 @@ export async function createTask(input: {
   projectId?: string;
   title: string;
   detail?: string;
+  issueUrl?: string;
   creatorUserId: string;
   assigneeUserId?: string;
   status?: TaskStatus;
   onOrAfterAt?: Date;
   mustBeDoneAfterTaskId?: string;
+  nextTaskId?: string;
+  nextTaskAssigneeUserId?: string;
+  recurringTemplateId?: string;
+  recurringInstanceAt?: Date;
 }): Promise<SwarmTask> {
   const [row] = await db
     .insert(swarmTasks)
@@ -115,11 +138,16 @@ export async function createTask(input: {
       projectId: input.projectId || null,
       title: input.title,
       detail: input.detail || null,
+      issueUrl: input.issueUrl || null,
       creatorUserId: input.creatorUserId,
       assigneeUserId: input.assigneeUserId || null,
       status: input.status || "queued",
       onOrAfterAt: input.onOrAfterAt || null,
       mustBeDoneAfterTaskId: input.mustBeDoneAfterTaskId || null,
+      nextTaskId: input.nextTaskId || null,
+      nextTaskAssigneeUserId: input.nextTaskAssigneeUserId || null,
+      recurringTemplateId: input.recurringTemplateId || null,
+      recurringInstanceAt: input.recurringInstanceAt || null,
     })
     .returning();
 
@@ -188,10 +216,13 @@ export async function updateTask(
     projectId: string | null;
     title: string;
     detail: string | null;
+    issueUrl: string | null;
     assigneeUserId: string | null;
     onOrAfterAt: Date | null;
     mustBeDoneAfterTaskId: string | null;
     sortKey: number;
+    nextTaskId: string | null;
+    nextTaskAssigneeUserId: string | null;
   }>,
 ): Promise<SwarmTask | null> {
   const [row] = await db

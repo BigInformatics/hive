@@ -4,7 +4,7 @@ import { getPresence, updatePresence } from "@/lib/presence";
 import { getUnreadCounts } from "@/lib/messages";
 
 export default defineEventHandler(async (event) => {
-  const auth = authenticateEvent(event);
+  const auth = await authenticateEvent(event);
 
   // Update presence for authenticated users
   if (auth) {

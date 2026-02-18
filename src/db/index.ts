@@ -7,7 +7,7 @@ config({ path: ".env" });
 config({ path: "/etc/clawdbot/vault.env" });
 
 // HIVE_PGHOST takes priority, then DATABASE_URL, then PGHOST, then default
-const host = process.env.HIVE_PGHOST || process.env.PGHOST || "data.biginformatics.net";
+const host = process.env.HIVE_PGHOST || process.env.PGHOST || "localhost";
 const port = Number(process.env.PGPORT || 5432);
 const user = process.env.PGUSER || "postgres";
 const password = process.env.PGPASSWORD || "";

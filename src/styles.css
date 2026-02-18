@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
 @import "@fontsource-variable/nunito-sans";
 
 @custom-variant dark (&:is(.dark *));
@@ -127,3 +128,10 @@
     @apply font-sans;
     }
 }
+
+/* Hide scrollbar for touch-scroll areas */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Safe area for bottom tab bar (iOS) */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }

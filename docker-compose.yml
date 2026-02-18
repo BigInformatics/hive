@@ -9,7 +9,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - HOST=0.0.0.0
-      - PGHOST=${PGHOST:-data.biginformatics.net}
+      - PGHOST=${PGHOST:-localhost}
       - PGPORT=${PGPORT:-5432}
       - PGUSER=${PGUSER}
       - PGPASSWORD=${PGPASSWORD}
@@ -20,6 +20,10 @@ services:
       - MAILBOX_TOKEN_CHRIS=${MAILBOX_TOKEN_CHRIS}
       - MAILBOX_ADMIN_TOKEN=${MAILBOX_ADMIN_TOKEN}
       - UI_MAILBOX_KEYS=${UI_MAILBOX_KEYS:-}
+      - WEBHOOK_DOMINGO_URL=${WEBHOOK_DOMINGO_URL:-}
+      - WEBHOOK_DOMINGO_TOKEN=${WEBHOOK_DOMINGO_TOKEN:-}
+      - HIVE_BASE_URL=${HIVE_BASE_URL:-http://localhost:3000}
+      - ONEDEV_URL=${ONEDEV_URL:-}
     networks:
       - dokploy-network
     labels:
