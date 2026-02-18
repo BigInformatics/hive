@@ -99,10 +99,10 @@ Docs:
 
 ### Dokploy
 
-Environment variables are set in Dokploy. Push to `main` triggers auto-deploy.
+Environment variables are set in Dokploy. Push to `dev` on OneDev triggers auto-deploy.
 
 ```bash
-git push origin main
+git push origin dev
 ```
 
 ### Docker
@@ -123,7 +123,7 @@ Start here:
 
 ## Contributing
 
-See `CONTRIBUTING.md` (to be added).
+See `CONTRIBUTING.md`.
 
 ---
 
