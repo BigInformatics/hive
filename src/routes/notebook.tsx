@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import {
   Dialog,
   DialogContent,
@@ -602,11 +602,10 @@ function PageEditor({
 
         {/* Editor / Preview */}
         {mode === "source" ? (
-          <Textarea
+          <MarkdownEditor
             value={content}
-            onChange={(e) => handleContentChange(e.target.value)}
-            className="font-mono text-sm min-h-[400px] resize-y"
-            disabled={isLocked}
+            onChange={handleContentChange}
+            disabled={!!isLocked}
             placeholder="Write markdown here…"
           />
         ) : (
