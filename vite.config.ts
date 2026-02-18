@@ -11,6 +11,9 @@ const config = defineConfig({
     devtools(),
     nitro({
       serverDir: './server',
+      features: {
+        websocket: true,
+      },
     }),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({

@@ -292,37 +292,20 @@ function PageEditor({
   const [copied, setCopied] = useState<"idle" | "url" | "content">("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
+  const authToken = getMailboxKey();
 
   // Get current user identity
   useEffect(() => {
-    const key = getMailboxKey();
-    if (key) {
+    if (authToken) {
       fetch("/api/auth/verify", {
         method: "POST",
-        headers: { Authorization: `Bearer ${key}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       })
         .then((r) => r.json())
         .then((d) => setIdentity(d.identity))
         .catch(() => {});
     }
-  }, []);
-
-  // Presence heartbeat — ping every 30s, track who's viewing
-  useEffect(() => {
-    const key = getMailboxKey();
-    if (!key) return;
-    const ping = () =>
-      fetch(`/api/notebook/${pageId}/presence`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}` },
-      })
-        .then((r) => r.json())
-        .then((d) => d.viewers && setViewers(d.viewers))
-        .catch(() => {});
-    ping();
-    const interval = setInterval(ping, 30_000);
-    return () => clearInterval(interval);
-  }, [pageId]);
+  }, [authToken]);
 
   const handleCopyUrl = () => {
     const url = `${window.location.origin}/notebook?page=${pageId}`;
@@ -366,31 +349,10 @@ function PageEditor({
       .finally(() => setLoading(false));
   }, [pageId]);
 
-  // Auto-save content
-  const scheduleContentSave = useCallback(
-    (newContent: string) => {
-      contentRef.current = newContent;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      setSaving("saving");
-      saveTimer.current = setTimeout(async () => {
-        try {
-          await api.updateNotebookPage(pageId, {
-            content: contentRef.current,
-          });
-          setSaving("saved");
-          setTimeout(() => setSaving("idle"), 2000);
-        } catch {
-          setSaving("idle");
-        }
-      }, 2000);
-    },
-    [pageId],
-  );
-
-  const handleContentChange = (val: string) => {
+  const handleContentChange = useCallback((val: string) => {
     setContent(val);
-    scheduleContentSave(val);
-  };
+    contentRef.current = val;
+  }, []);
 
   const handleTitleSave = async () => {
     if (!title.trim() || title === page?.title) return;
@@ -607,6 +569,9 @@ function PageEditor({
             onChange={handleContentChange}
             disabled={!!isLocked}
             placeholder="Write markdown here…"
+            pageId={pageId}
+            token={authToken || undefined}
+            onViewersChange={setViewers}
           />
         ) : (
           <div

@@ -1,10 +1,31 @@
-import { useRef, useEffect, useCallback } from "react";
-import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
+import { useRef, useEffect } from "react";
+import * as Y from "yjs";
+import {
+  EditorView,
+  lineNumbers,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  keymap,
+  placeholder as cmPlaceholder,
+  ViewPlugin,
+  type PluginValue,
+  type ViewUpdate,
+} from "@codemirror/view";
+import { EditorState, type ChangeSpec, Annotation } from "@codemirror/state";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import { defaultKeymap, indentWithTab, history, historyKeymap } from "@codemirror/commands";
-import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, indentOnInput } from "@codemirror/language";
+import {
+  defaultKeymap,
+  indentWithTab,
+  history,
+  historyKeymap,
+} from "@codemirror/commands";
+import {
+  syntaxHighlighting,
+  defaultHighlightStyle,
+  bracketMatching,
+  indentOnInput,
+} from "@codemirror/language";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 
@@ -14,9 +35,15 @@ interface MarkdownEditorProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  /** If provided, enables Yjs collaborative editing */
+  pageId?: string;
+  /** Auth token for WebSocket */
+  token?: string;
+  /** Callback when viewers change */
+  onViewersChange?: (viewers: string[]) => void;
 }
 
-// Light theme that matches shadcn styling
+// Light theme matching shadcn
 const lightTheme = EditorView.theme({
   "&": {
     fontSize: "14px",
@@ -34,9 +61,7 @@ const lightTheme = EditorView.theme({
     minHeight: "400px",
     caretColor: "hsl(var(--foreground))",
   },
-  ".cm-line": {
-    padding: "0 12px",
-  },
+  ".cm-line": { padding: "0 12px" },
   ".cm-gutters": {
     backgroundColor: "hsl(var(--muted))",
     color: "hsl(var(--muted-foreground))",
@@ -44,27 +69,20 @@ const lightTheme = EditorView.theme({
     borderRight: "1px solid hsl(var(--border))",
     borderRadius: "calc(var(--radius) - 2px) 0 0 calc(var(--radius) - 2px)",
   },
-  ".cm-activeLineGutter": {
-    backgroundColor: "hsl(var(--accent))",
-  },
-  ".cm-activeLine": {
-    backgroundColor: "hsl(var(--accent) / 0.5)",
-  },
-  ".cm-cursor": {
-    borderLeftColor: "hsl(var(--foreground))",
-  },
+  ".cm-activeLineGutter": { backgroundColor: "hsl(var(--accent))" },
+  ".cm-activeLine": { backgroundColor: "hsl(var(--accent) / 0.5)" },
+  ".cm-cursor": { borderLeftColor: "hsl(var(--foreground))" },
   ".cm-selectionBackground": {
     backgroundColor: "hsl(var(--accent)) !important",
   },
-  ".cm-placeholder": {
-    color: "hsl(var(--muted-foreground))",
-  },
+  ".cm-placeholder": { color: "hsl(var(--muted-foreground))" },
 });
 
-// Detect dark mode
 function isDark() {
   return document.documentElement.classList.contains("dark");
 }
+
+const remoteUpdate = Annotation.define<boolean>();
 
 export function MarkdownEditor({
   value,
@@ -72,96 +90,230 @@ export function MarkdownEditor({
   disabled = false,
   placeholder = "Write markdown here…",
   className,
+  pageId,
+  token,
+  onViewersChange,
 }: MarkdownEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-
-  // Track whether changes are coming from props vs user input
+  const onViewersRef = useRef(onViewersChange);
+  const ydocRef = useRef<any>(null);
+  const ytextRef = useRef<any>(null);
   const isExternalUpdate = useRef(false);
+  const initializedRef = useRef(false);
+  onChangeRef.current = onChange;
+  onViewersRef.current = onViewersChange;
 
-  const createState = useCallback(
-    (doc: string) => {
-      const dark = isDark();
-      return EditorState.create({
-        doc,
-        extensions: [
-          lineNumbers(),
-          highlightActiveLine(),
-          highlightActiveLineGutter(),
-          history(),
-          bracketMatching(),
-          indentOnInput(),
-          highlightSelectionMatches(),
-          markdown({ base: markdownLanguage, codeLanguages: languages }),
-          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-          dark ? oneDark : lightTheme,
-          keymap.of([
-            ...defaultKeymap,
-            ...historyKeymap,
-            ...searchKeymap,
-            indentWithTab,
-          ]),
-          cmPlaceholder(placeholder),
-          EditorView.lineWrapping,
-          EditorState.readOnly.of(disabled),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged && !isExternalUpdate.current) {
-              onChangeRef.current(update.state.doc.toString());
-            }
-          }),
-        ],
-      });
-    },
-    [disabled, placeholder],
-  );
+  // Stable refs for pageId/token
+  const pageIdRef = useRef(pageId);
+  const tokenRef = useRef(token);
+  pageIdRef.current = pageId;
+  tokenRef.current = token;
 
-  // Initialize editor
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const dark = isDark();
+
+    // ── Yjs setup (if collaborative) ──
+    let ydoc: any = null;
+    let ytext: any = null;
+    let ws: WebSocket | null = null;
+    let ytextObserver: any = null;
+
+    const extensions = [
+      lineNumbers(),
+      highlightActiveLine(),
+      highlightActiveLineGutter(),
+      history(),
+      bracketMatching(),
+      indentOnInput(),
+      highlightSelectionMatches(),
+      markdown({ base: markdownLanguage, codeLanguages: languages }),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      dark ? oneDark : lightTheme,
+      keymap.of([
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...searchKeymap,
+        indentWithTab,
+      ]),
+      cmPlaceholder(placeholder),
+      EditorView.lineWrapping,
+      EditorState.readOnly.of(disabled),
+    ];
+
+    if (pageIdRef.current && tokenRef.current) {
+      // Collaborative mode with Yjs
+      ydoc = new Y.Doc();
+      ytext = ydoc.getText("content");
+      ydocRef.current = ydoc;
+      ytextRef.current = ytext;
+
+      // CM6 ↔ Yjs sync plugin (inspired by HedgeDoc's YTextSyncViewPlugin)
+      const yjsSyncPlugin = ViewPlugin.define(
+        (editorView) => {
+          const plugin: PluginValue & { _view: EditorView } = {
+            _view: editorView,
+            update(update: ViewUpdate) {
+              if (!update.docChanged) return;
+              // Apply CM changes to Yjs (skip if change came from Yjs)
+              update.transactions
+                .filter((tr) => !tr.annotation(remoteUpdate))
+                .forEach((tr) => {
+                  ytext.doc?.transact(() => {
+                    let adj = 0;
+                    tr.changes.iterChanges(
+                      (fromA: number, toA: number, _fromB: number, _toB: number, insert: any) => {
+                        const text = insert.sliceString(0, insert.length, "\n");
+                        if (fromA !== toA) ytext.delete(fromA + adj, toA - fromA);
+                        if (text.length > 0) ytext.insert(fromA + adj, text);
+                        adj += text.length - (toA - fromA);
+                      },
+                    );
+                  }, "codemirror");
+                });
+            },
+            destroy() {},
+          };
+
+          // Observe Yjs changes → apply to CM
+          ytextObserver = (event: any, transaction: any) => {
+            if (transaction.origin === "codemirror") return;
+            const changes: ChangeSpec[] = [];
+            let pos = 0;
+            for (const delta of event.delta) {
+              if (delta.insert) {
+                changes.push({ from: pos, to: pos, insert: delta.insert });
+              } else if (delta.delete) {
+                changes.push({ from: pos, to: pos + delta.delete });
+                pos += delta.delete;
+              } else if (delta.retain) {
+                pos += delta.retain;
+              }
+            }
+            if (changes.length > 0) {
+              editorView.dispatch({
+                changes,
+                annotations: [remoteUpdate.of(true)],
+              });
+              onChangeRef.current(ytext.toString());
+            }
+          };
+          ytext.observe(ytextObserver);
+
+          return plugin;
+        },
+      );
+
+      extensions.push(yjsSyncPlugin);
+
+      // Also report local changes
+      extensions.push(
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged && !update.transactions.some((tr) => tr.annotation(remoteUpdate))) {
+            onChangeRef.current(update.state.doc.toString());
+          }
+        }),
+      );
+
+      // Connect WebSocket
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${proto}//${window.location.host}/api/notebook/ws?page=${pageIdRef.current}&token=${tokenRef.current}`;
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "sync" && Array.isArray(msg.update)) {
+            // Initial sync — replace doc content
+            const update = new Uint8Array(msg.update);
+            Y.applyUpdate(ydoc, update, "server");
+            // Set CM content to match
+            const content = ytext.toString();
+            const view = viewRef.current;
+            if (view) {
+              const currentDoc = view.state.doc.toString();
+              if (currentDoc !== content) {
+                view.dispatch({
+                  changes: { from: 0, to: currentDoc.length, insert: content },
+                  annotations: [remoteUpdate.of(true)],
+                });
+              }
+            }
+            onChangeRef.current(content);
+            initializedRef.current = true;
+          } else if (msg.type === "update" && Array.isArray(msg.update)) {
+            // Incremental update from another peer
+            const update = new Uint8Array(msg.update);
+            Y.applyUpdate(ydoc, update, "server");
+          } else if (msg.type === "viewers" && Array.isArray(msg.viewers)) {
+            onViewersRef.current?.(msg.viewers);
+          }
+        } catch {}
+      };
+
+      // Send local Yjs updates to server
+      ydoc.on("update", (update: Uint8Array, origin: any) => {
+        if (origin === "server") return;
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "update",
+            update: Array.from(update),
+          }));
+        }
+      });
+
+      ws.onclose = () => {
+        console.log("[notebook:ws] disconnected");
+      };
+    } else {
+      // Non-collaborative fallback
+      extensions.push(
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            onChangeRef.current(update.state.doc.toString());
+          }
+        }),
+      );
+    }
+
     const view = new EditorView({
-      state: createState(value),
+      state: EditorState.create({ doc: pageIdRef.current ? "" : value, extensions }),
       parent: containerRef.current,
     });
     viewRef.current = view;
 
     return () => {
+      if (ytextObserver && ytext) ytext.unobserve(ytextObserver);
+      ws?.close();
+      wsRef.current = null;
       view.destroy();
       viewRef.current = null;
+      if (ydoc) ydoc.destroy();
+      ydocRef.current = null;
+      ytextRef.current = null;
+      initializedRef.current = false;
     };
-    // Only create once
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pageId, token, disabled]);
 
-  // Sync external value changes
+  // For non-collaborative mode, sync external value changes
   useEffect(() => {
+    if (pageIdRef.current) return; // collaborative mode handles its own sync
     const view = viewRef.current;
     if (!view) return;
-    const currentDoc = view.state.doc.toString();
-    if (currentDoc !== value) {
-      isExternalUpdate.current = true;
+    const current = view.state.doc.toString();
+    if (current !== value) {
       view.dispatch({
-        changes: { from: 0, to: currentDoc.length, insert: value },
+        changes: { from: 0, to: current.length, insert: value },
+        annotations: [remoteUpdate.of(true)],
       });
-      isExternalUpdate.current = false;
     }
   }, [value]);
 
-  // Recreate on theme/disabled changes
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view || !containerRef.current) return;
-    const doc = view.state.doc.toString();
-    view.setState(createState(doc));
-  }, [disabled, createState]);
-
-  return (
-    <div
-      ref={containerRef}
-      className={className}
-      data-slot="markdown-editor"
-    />
-  );
+  return <div ref={containerRef} className={className} data-slot="markdown-editor" />;
 }
