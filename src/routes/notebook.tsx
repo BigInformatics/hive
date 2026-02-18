@@ -26,8 +26,8 @@ import {
   Lock,
   Unlock,
   Trash2,
-  Save,
 } from "lucide-react";
+import { UserSelect } from "@/components/user-select";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
@@ -93,7 +93,7 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newTagged, setNewTagged] = useState("");
+  const [newTagged, setNewTagged] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -122,19 +122,13 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
     if (!newTitle.trim()) return;
     setCreating(true);
     try {
-      const taggedUsers = newTagged.trim()
-        ? newTagged
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : undefined;
       const data = await api.createNotebookPage({
         title: newTitle.trim(),
-        taggedUsers,
+        taggedUsers: newTagged.length > 0 ? newTagged : undefined,
       });
       setDialogOpen(false);
       setNewTitle("");
-      setNewTagged("");
+      setNewTagged([]);
       onSelect(data.page.id);
     } catch (e: any) {
       alert(e?.message ?? "Failed to create page");
@@ -182,12 +176,10 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="nb-users">Visible to</Label>
-                  <Input
-                    id="nb-users"
+                  <Label>Visible to</Label>
+                  <UserSelect
                     value={newTagged}
-                    onChange={(e) => setNewTagged(e.target.value)}
-                    placeholder="alice, bob — or leave blank for everyone"
+                    onChange={setNewTagged}
                   />
                 </div>
               </div>

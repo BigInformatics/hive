@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, ExternalLink, Bookmark } from "lucide-react";
+import { UserSelect } from "@/components/user-select";
 
 export const Route = createFileRoute("/directory")({
   component: DirectoryPage,
@@ -40,7 +41,7 @@ function formatDate(iso: string) {
   });
 }
 
-const defaultForm = { title: "", url: "", description: "", taggedUsers: "" };
+const defaultForm = { title: "", url: "", description: "", taggedUsers: [] as string[] };
 
 function DirectoryPage() {
   const [authed, setAuthed] = useState(false);
@@ -92,17 +93,11 @@ function DirectoryContent() {
     }
     setSubmitting(true);
     try {
-      const taggedUsers = form.taggedUsers.trim()
-        ? form.taggedUsers
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : undefined;
       await api.createDirectoryEntry({
         title: form.title.trim(),
         url: form.url.trim(),
         description: form.description.trim() || undefined,
-        taggedUsers,
+        taggedUsers: form.taggedUsers.length > 0 ? form.taggedUsers : undefined,
       });
       setDialogOpen(false);
       setForm(defaultForm);
@@ -187,14 +182,12 @@ function DirectoryContent() {
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="d-users">Visible to</Label>
-                  <Input
-                    id="d-users"
+                  <Label>Visible to</Label>
+                  <UserSelect
                     value={form.taggedUsers}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, taggedUsers: e.target.value }))
+                    onChange={(users) =>
+                      setForm((f) => ({ ...f, taggedUsers: users }))
                     }
-                    placeholder="alice, bob — or leave blank for everyone"
                   />
                 </div>
                 {formError && (
