@@ -19,8 +19,10 @@ export default defineConfig({
 					items: [
 						{ label: 'About Hive', slug: 'getting-started/about' },
 						{ label: 'Quick Start', slug: 'getting-started/quickstart' },
+						{ label: 'Required Technologies', slug: 'getting-started/required-technologies' },
 						{ label: 'Configuration', slug: 'getting-started/configuration' },
 						{ label: 'Deployment', slug: 'getting-started/deployment' },
+						{ label: 'Big Informatics Team', slug: 'getting-started/team' },
 					],
 				},
 				{
