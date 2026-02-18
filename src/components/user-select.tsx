@@ -31,13 +31,27 @@ export function UserSelect({ value, onChange, className }: UserSelectProps) {
       headers: { Authorization: `Bearer ${key}` },
     })
       .then((r) => r.json())
-      .then((data) => setUsers(Object.keys(data).sort()))
+      .then((data) => {
+        // Merge presence users with already-selected users
+        const all = new Set([...Object.keys(data), ...value]);
+        setUsers([...all].sort());
+      })
       .catch(() => {});
   }, []);
 
   const filtered = users.filter(
     (u) => !search || u.toLowerCase().includes(search.toLowerCase()),
   );
+
+  // Allow adding a custom username by pressing Enter
+  const handleAddCustom = () => {
+    const name = search.trim().toLowerCase();
+    if (name && !value.includes(name)) {
+      onChange([...value, name]);
+      if (!users.includes(name)) setUsers((prev) => [...prev, name].sort());
+    }
+    setSearch("");
+  };
 
   const toggle = (user: string) => {
     onChange(
@@ -96,9 +110,15 @@ export function UserSelect({ value, onChange, className }: UserSelectProps) {
           </DialogHeader>
           <div className="px-3 pb-2">
             <Input
-              placeholder="Search users…"
+              placeholder="Search or type a name…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddCustom();
+                }
+              }}
               className="h-8 text-sm"
               autoFocus
             />
