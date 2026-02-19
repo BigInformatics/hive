@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    volumes:
+      - avatar-data:/app/public/avatars
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -48,6 +50,9 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+
+volumes:
+  avatar-data:
 
 networks:
   dokploy-network:
