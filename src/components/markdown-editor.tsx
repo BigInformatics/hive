@@ -41,6 +41,8 @@ interface MarkdownEditorProps {
   token?: string;
   /** Callback when viewers change */
   onViewersChange?: (viewers: string[]) => void;
+  /** Callback when page becomes readonly (locked/archived) or editable again */
+  onReadonlyChange?: (readonly: boolean, reason?: string) => void;
 }
 
 // Light theme matching shadcn
@@ -93,12 +95,14 @@ export function MarkdownEditor({
   pageId,
   token,
   onViewersChange,
+  onReadonlyChange,
 }: MarkdownEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const onChangeRef = useRef(onChange);
   const onViewersRef = useRef(onViewersChange);
+  const onReadonlyRef = useRef(onReadonlyChange);
   const ydocRef = useRef<any>(null);
   const ytextRef = useRef<any>(null);
   const _isExternalUpdate = useRef(false);
@@ -107,6 +111,7 @@ export function MarkdownEditor({
   valueRef.current = value;
   onChangeRef.current = onChange;
   onViewersRef.current = onViewersChange;
+  onReadonlyRef.current = onReadonlyChange;
 
   // Stable refs for pageId/token
   const pageIdRef = useRef(pageId);
@@ -261,6 +266,10 @@ export function MarkdownEditor({
             Y.applyUpdate(ydoc, update, "server");
           } else if (msg.type === "viewers" && Array.isArray(msg.viewers)) {
             onViewersRef.current?.(msg.viewers);
+          } else if (msg.type === "readonly") {
+            onReadonlyRef.current?.(true, msg.reason);
+          } else if (msg.type === "editable") {
+            onReadonlyRef.current?.(false);
           }
         } catch {}
       };

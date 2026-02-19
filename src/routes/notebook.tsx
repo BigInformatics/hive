@@ -471,7 +471,10 @@ function PageEditor({
             contentRef.current = data.page.content;
           }
           setPage(data.page);
-          setTitle(data.page.title);
+          // Only update title if it changed server-side (avoid overwriting in-progress edits)
+          setTitle((prev) =>
+            prev !== data.page.title ? data.page.title : prev,
+          );
         }
       } catch {}
     }, 10_000);

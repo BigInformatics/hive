@@ -3,6 +3,7 @@ import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
 import { authenticateEvent } from "@/lib/auth";
+import { notifyPageStateChange } from "../ws";
 
 function canAccess(
   page: { createdBy: string; taggedUsers: string[] | null },
@@ -54,8 +55,18 @@ export default defineEventHandler(async (event) => {
 
   const isOwnerOrAdmin = auth.isAdmin || page.createdBy === auth.identity;
 
-  // Archived pages: no edits allowed (except unarchiving by owner/admin)
+  // Archived pages: only owner/admin can unarchive, no other edits allowed
   if (page.archivedAt) {
+    const body = await readBody(event);
+    if (body?.archived === false && isOwnerOrAdmin) {
+      const [restored] = await db
+        .update(notebookPages)
+        .set({ archivedAt: null, updatedAt: sql`now()` })
+        .where(eq(notebookPages.id, id))
+        .returning();
+      notifyPageStateChange(id, { archivedAt: null });
+      return { page: restored };
+    }
     return new Response(JSON.stringify({ error: "Page is archived" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -113,6 +124,11 @@ export default defineEventHandler(async (event) => {
     .set(updates)
     .where(eq(notebookPages.id, id))
     .returning();
+
+  // Notify WS peers if lock state changed
+  if (locked !== undefined) {
+    notifyPageStateChange(id, { locked: !!locked });
+  }
 
   return { page: updated };
 });

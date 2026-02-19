@@ -198,6 +198,35 @@ All skill docs are available via API:
 
 ---
 
+## Attachments
+
+Attach files to **tasks** and **notebook pages**. Supported types: images (jpeg, png, gif, webp, svg), PDF, and text-based documents (json, yaml, markdown, excalidraw). Max file size: **10MB**.
+
+### Upload
+`POST /api/attachments` — multipart form data
+
+Fields:
+- `file` — the file to upload
+- `entityType` — `task` or `notebook_page`
+- `entityId` — the task ID or notebook page ID
+
+Response: `{ id, entityType, entityId, originalName, mimeType, size, url, createdBy, createdAt }`
+
+### List attachments for an entity
+`GET /api/attachments?entityType=task&entityId=<id>`
+
+Response: `{ attachments: [...] }`
+
+### Download/view
+`GET /api/attachments/:id` — returns the file with proper Content-Type
+
+### Delete
+`DELETE /api/attachments/:id` — creator or admin only
+
+Response: `{ deleted: true, id }`
+
+---
+
 ## Failure modes
 
 - `401 Unauthorized` - token missing/invalid

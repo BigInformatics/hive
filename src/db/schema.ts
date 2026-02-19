@@ -402,6 +402,32 @@ export const directoryEntries = pgTable(
 );
 
 // ============================================================
+// ATTACHMENTS — files on tasks and notebook pages
+// ============================================================
+
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    entityType: varchar("entity_type", { length: 20 }).notNull(), // 'task' | 'notebook_page'
+    entityId: text("entity_id").notNull(),
+    filename: text("filename").notNull(), // stored filename (uuid + ext)
+    originalName: text("original_name").notNull(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    size: integer("size").notNull(), // bytes
+    createdBy: varchar("created_by", { length: 50 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_attachments_entity").on(table.entityType, table.entityId),
+  ],
+);
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -422,3 +448,4 @@ export type Invite = typeof invites.$inferSelect;
 export type DirectoryEntry = typeof directoryEntries.$inferSelect;
 export type NotebookPage = typeof notebookPages.$inferSelect;
 export type SwarmTaskNotebookPage = typeof swarmTaskNotebookPages.$inferSelect;
+export type Attachment = typeof attachments.$inferSelect;

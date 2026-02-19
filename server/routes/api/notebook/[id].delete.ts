@@ -3,6 +3,7 @@ import { defineEventHandler, getRouterParam } from "h3";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
 import { authenticateEvent } from "@/lib/auth";
+import { notifyPageStateChange } from "./ws";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -41,10 +42,13 @@ export default defineEventHandler(async (event) => {
     );
   }
 
+  const archivedAt = new Date();
   await db
     .update(notebookPages)
-    .set({ archivedAt: new Date() })
+    .set({ archivedAt })
     .where(eq(notebookPages.id, id));
+
+  notifyPageStateChange(id, { archivedAt });
 
   return { success: true };
 });
