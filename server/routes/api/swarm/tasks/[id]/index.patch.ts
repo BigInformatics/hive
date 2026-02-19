@@ -31,6 +31,9 @@ export default defineEventHandler(async (event) => {
     mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
     nextTaskId: body.nextTaskId,
     nextTaskAssigneeUserId: body.nextTaskAssigneeUserId,
+    linkedNotebookPages: body.linkedNotebookPages !== undefined
+      ? (Array.isArray(body.linkedNotebookPages) && body.linkedNotebookPages.length > 0 ? body.linkedNotebookPages : null)
+      : undefined,
   });
 
   if (!task) {

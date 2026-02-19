@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
     mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
     nextTaskId: body.nextTaskId,
     nextTaskAssigneeUserId: body.nextTaskAssigneeUserId,
+    linkedNotebookPages: Array.isArray(body.linkedNotebookPages) ? body.linkedNotebookPages : undefined,
   });
 
   emit("__swarm__", {

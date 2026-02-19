@@ -169,6 +169,7 @@ export const swarmTasks = pgTable(
     nextTaskAssigneeUserId: varchar("next_task_assignee_user_id", { length: 50 }),
     recurringTemplateId: text("recurring_template_id"),
     recurringInstanceAt: timestamp("recurring_instance_at", { withTimezone: true }),
+    linkedNotebookPages: jsonb("linked_notebook_pages").$type<string[]>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -326,8 +327,14 @@ export const notebookPages = pgTable(
     content: text("content").notNull().default(""),
     createdBy: varchar("created_by", { length: 50 }).notNull(),
     taggedUsers: jsonb("tagged_users").$type<string[]>(),
+    tags: jsonb("tags").$type<string[]>(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    reviewAt: timestamp("review_at", { withTimezone: true }),
+    tags: jsonb("tags").$type<string[]>().default([]),
     locked: boolean("locked").notNull().default(false),
     lockedBy: varchar("locked_by", { length: 50 }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    reviewAt: timestamp("review_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

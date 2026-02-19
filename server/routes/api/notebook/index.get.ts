@@ -46,8 +46,11 @@ export default defineEventHandler(async (event) => {
       title: notebookPages.title,
       createdBy: notebookPages.createdBy,
       taggedUsers: notebookPages.taggedUsers,
+      tags: notebookPages.tags,
       locked: notebookPages.locked,
       lockedBy: notebookPages.lockedBy,
+      expiresAt: notebookPages.expiresAt,
+      reviewAt: notebookPages.reviewAt,
       createdAt: notebookPages.createdAt,
       updatedAt: notebookPages.updatedAt,
     })

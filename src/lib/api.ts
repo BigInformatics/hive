@@ -334,6 +334,9 @@ export const api = {
     title: string;
     content?: string;
     taggedUsers?: string[];
+    tags?: string[];
+    expiresAt?: string | null;
+    reviewAt?: string | null;
   }) =>
     apiFetch("/notebook", {
       method: "POST",
@@ -346,7 +349,10 @@ export const api = {
       title?: string;
       content?: string;
       taggedUsers?: string[];
+      tags?: string[];
       locked?: boolean;
+      expiresAt?: string | null;
+      reviewAt?: string | null;
     },
   ) =>
     apiFetch(`/notebook/${id}`, {

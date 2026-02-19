@@ -59,6 +59,7 @@ interface SwarmTask {
   onOrAfterAt: string | null;
   nextTaskId: string | null;
   nextTaskAssigneeUserId: string | null;
+  linkedNotebookPages: string[] | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -162,13 +163,46 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [editTask, setEditTask] = useState<SwarmTask | null>(null);
-  const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
-  const [filterProject, setFilterProject] = useState<string | null>(null);
+  const [filterAssignee, setFilterAssignee] = useState<string | null>(() => {
+    try { return localStorage.getItem("swarm-filter-assignee") || null; } catch { return null; }
+  });
+  const [filterProject, setFilterProject] = useState<string | null>(() => {
+    try { return localStorage.getItem("swarm-filter-project") || null; } catch { return null; }
+  });
+  // Persist filters to localStorage
+  useEffect(() => {
+    try {
+      if (filterAssignee) localStorage.setItem("swarm-filter-assignee", filterAssignee);
+      else localStorage.removeItem("swarm-filter-assignee");
+    } catch {}
+  }, [filterAssignee]);
+  useEffect(() => {
+    try {
+      if (filterProject) localStorage.setItem("swarm-filter-project", filterProject);
+      else localStorage.removeItem("swarm-filter-project");
+    } catch {}
+  }, [filterProject]);
+
   const [editingProject, setEditingProject] = useState<SwarmProject | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [mobileStatus, setMobileStatus] = useState<string>("ready");
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Persist filter selections to localStorage
+  useEffect(() => {
+    try {
+      if (filterAssignee) localStorage.setItem("swarm-filter-assignee", filterAssignee);
+      else localStorage.removeItem("swarm-filter-assignee");
+    } catch {}
+  }, [filterAssignee]);
+
+  useEffect(() => {
+    try {
+      if (filterProject) localStorage.setItem("swarm-filter-project", filterProject);
+      else localStorage.removeItem("swarm-filter-project");
+    } catch {}
+  }, [filterProject]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);

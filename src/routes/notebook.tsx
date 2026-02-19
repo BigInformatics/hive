@@ -29,6 +29,10 @@ import {
   Link2,
   Check,
   Copy,
+  Tag,
+  AlertTriangle,
+  Clock,
+  X,
 } from "lucide-react";
 import { UserSelect } from "@/components/user-select";
 import { marked } from "marked";
@@ -43,8 +47,11 @@ interface PageSummary {
   title: string;
   createdBy: string;
   taggedUsers: string[] | null;
+  tags: string[] | null;
   locked: boolean;
   lockedBy: string | null;
+  expiresAt: string | null;
+  reviewAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -98,6 +105,12 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [filterTags, setFilterTags] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("notebook-filter-tags");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [newTitle, setNewTitle] = useState("");
   const [newTagged, setNewTagged] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
@@ -123,6 +136,28 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [search, load]);
+
+  // Persist tag filter
+  useEffect(() => {
+    try {
+      if (filterTags.length > 0) localStorage.setItem("notebook-filter-tags", JSON.stringify(filterTags));
+      else localStorage.removeItem("notebook-filter-tags");
+    } catch {}
+  }, [filterTags]);
+
+  // Collect all unique tags from pages
+  const allTags = [...new Set(pages.flatMap((p) => p.tags ?? []))].sort();
+
+  // Filter pages by selected tags
+  const filteredPages = filterTags.length > 0
+    ? pages.filter((p) => p.tags && filterTags.some((t) => p.tags!.includes(t)))
+    : pages;
+
+  const toggleTag = (tag: string) => {
+    setFilterTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -207,6 +242,36 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
           </Dialog>
         </div>
 
+        {/* Tag filter */}
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                  filterTags.includes(tag)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                onClick={() => toggleTag(tag)}
+              >
+                {tag}
+              </button>
+            ))}
+            {filterTags.length > 0 && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setFilterTags([])}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <p className="text-center text-muted-foreground text-sm py-16">
             Loading…
@@ -215,55 +280,78 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
           <p className="text-center text-destructive text-sm py-16">
             {error}
           </p>
-        ) : pages.length === 0 ? (
+        ) : filteredPages.length === 0 ? (
           <p className="text-center text-muted-foreground text-sm py-16">
-            {search
-              ? "No pages match your search."
+            {search || filterTags.length > 0
+              ? "No pages match your filters."
               : "No pages yet — create the first one!"}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
-            {pages.map((page) => (
-              <Card
-                key={page.id}
-                className="cursor-pointer hover:bg-accent/50 transition-colors"
-                onClick={() => onSelect(page.id)}
-              >
-                <CardContent className="pt-4 pb-3 px-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="font-medium truncate">
-                          {page.title}
-                        </span>
-                        {page.locked && (
-                          <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-muted-foreground">
-                          {page.createdBy} · {formatDate(page.updatedAt)}
-                        </span>
-                        {page.taggedUsers &&
-                          page.taggedUsers.length > 0 && (
+            {filteredPages.map((page) => {
+              const isExpired = page.expiresAt && new Date(page.expiresAt) < new Date();
+              const needsReview = page.reviewAt && new Date(page.reviewAt) < new Date();
+              return (
+                <Card
+                  key={page.id}
+                  className={`cursor-pointer hover:bg-accent/50 transition-colors ${isExpired ? "opacity-60" : ""}`}
+                  onClick={() => onSelect(page.id)}
+                >
+                  <CardContent className="pt-4 pb-3 px-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="font-medium truncate">
+                            {page.title}
+                          </span>
+                          {page.locked && (
+                            <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                          )}
+                          {isExpired && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">Expired</Badge>
+                          )}
+                          {needsReview && !isExpired && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-500 border-amber-500/30">Needs Review</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-muted-foreground">
+                            {page.createdBy} · {formatDate(page.updatedAt)}
+                          </span>
+                          {page.taggedUsers &&
+                            page.taggedUsers.length > 0 && (
+                              <span className="flex gap-1 flex-wrap">
+                                {page.taggedUsers.map((u) => (
+                                  <Badge
+                                    key={u}
+                                    variant="secondary"
+                                    className="text-xs px-1.5 py-0 h-4"
+                                  >
+                                    {u}
+                                  </Badge>
+                                ))}
+                              </span>
+                            )}
+                          {page.tags && page.tags.length > 0 && (
                             <span className="flex gap-1 flex-wrap">
-                              {page.taggedUsers.map((u) => (
+                              {page.tags.map((t) => (
                                 <Badge
-                                  key={u}
-                                  variant="secondary"
-                                  className="text-xs px-1.5 py-0 h-4"
+                                  key={t}
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 h-4"
                                 >
-                                  {u}
+                                  <Tag className="h-2.5 w-2.5 mr-0.5" />{t}
                                 </Badge>
                               ))}
                             </span>
                           )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </main>
@@ -290,6 +378,8 @@ function PageEditor({
   const [identity, setIdentity] = useState<string | null>(null);
   const [viewers, setViewers] = useState<string[]>([]);
   const [copied, setCopied] = useState<"idle" | "url" | "content">("idle");
+  const [newTag, setNewTag] = useState("");
+  const [allTags, setAllTags] = useState<string[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
   const authToken = getMailboxKey();
@@ -306,6 +396,53 @@ function PageEditor({
         .catch(() => {});
     }
   }, [authToken]);
+
+  // Fetch all existing tags for autocomplete
+  useEffect(() => {
+    api.listNotebookPages(undefined, 100).then((data: any) => {
+      const tags = [...new Set((data.pages || []).flatMap((p: any) => p.tags ?? []))].sort();
+      setAllTags(tags as string[]);
+    }).catch(() => {});
+  }, []);
+
+  const handleAddTag = async (tag: string) => {
+    if (!page || !tag.trim()) return;
+    const trimmed = tag.trim().toLowerCase();
+    const currentTags = page.tags ?? [];
+    if (currentTags.includes(trimmed)) { setNewTag(""); return; }
+    const updated = [...currentTags, trimmed];
+    try {
+      const data = await api.updateNotebookPage(pageId, { tags: updated });
+      setPage(data.page);
+      setNewTag("");
+      if (!allTags.includes(trimmed)) setAllTags((prev) => [...prev, trimmed].sort());
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to add tag");
+    }
+  };
+
+  const handleRemoveTag = async (tag: string) => {
+    if (!page) return;
+    const updated = (page.tags ?? []).filter((t) => t !== tag);
+    try {
+      const data = await api.updateNotebookPage(pageId, { tags: updated });
+      setPage(data.page);
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to remove tag");
+    }
+  };
+
+  const handleDateChange = async (field: "expiresAt" | "reviewAt", value: string | null) => {
+    if (!page) return;
+    try {
+      const data = await api.updateNotebookPage(pageId, {
+        [field]: value ? new Date(value).toISOString() : null,
+      });
+      setPage(data.page);
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to update date");
+    }
+  };
 
   const handleCopyUrl = () => {
     const url = `${window.location.origin}/notebook?page=${pageId}`;
@@ -521,6 +658,20 @@ function PageEditor({
           placeholder="Page title"
         />
 
+        {/* Expiration / Review banners */}
+        {page.expiresAt && new Date(page.expiresAt) < new Date() && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 mb-3 text-sm text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>This page expired on {formatDate(page.expiresAt)}. Content is available as historical information only.</span>
+          </div>
+        )}
+        {page.reviewAt && new Date(page.reviewAt) < new Date() && !(page.expiresAt && new Date(page.expiresAt) < new Date()) && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 mb-3 text-sm text-amber-600 dark:text-amber-400">
+            <Clock className="h-4 w-4 shrink-0" />
+            <span>This page is past its review date ({formatDate(page.reviewAt)}). Content may be out of date and requires review.</span>
+          </div>
+        )}
+
         {/* Meta */}
         <div className="flex items-center gap-2 flex-wrap mb-4">
           <span className="text-xs text-muted-foreground">
@@ -542,6 +693,11 @@ function PageEditor({
               <Lock className="h-2.5 w-2.5 mr-0.5" /> Locked
             </Badge>
           )}
+          {page.tags && page.tags.length > 0 && page.tags.map((t) => (
+            <Badge key={t} variant="outline" className="text-xs px-1.5 py-0 h-4">
+              <Tag className="h-2.5 w-2.5 mr-0.5" />{t}
+            </Badge>
+          ))}
         </div>
 
         {/* Mode toggle */}
@@ -580,19 +736,125 @@ function PageEditor({
           />
         )}
 
-        {/* Visibility control */}
+        {/* Expiration / Review banners */}
+        {page.expiresAt && new Date(page.expiresAt) < new Date() && (
+          <div className="flex items-center gap-2 p-3 mt-4 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>This page expired on {formatDate(page.expiresAt)}. Content is historical only.</span>
+          </div>
+        )}
+        {page.reviewAt && new Date(page.reviewAt) < new Date() && !(page.expiresAt && new Date(page.expiresAt) < new Date()) && (
+          <div className="flex items-center gap-2 p-3 mt-4 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm">
+            <Clock className="h-4 w-4 shrink-0" />
+            <span>This page is past its review date ({formatDate(page.reviewAt)}). Content may be outdated and requires review.</span>
+          </div>
+        )}
+
+        {/* Page settings */}
         {isOwnerOrAdmin && (
-          <div className="mt-6 pt-4 border-t">
-            <Label className="text-xs text-muted-foreground mb-2 block">
-              Visibility
-            </Label>
-            <UserSelect
-              value={page.taggedUsers ?? []}
-              onChange={handleTaggedUsersChange}
-            />
+          <div className="mt-6 pt-4 border-t space-y-4">
+            {/* Tags */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Tags</Label>
+              <TagEditor
+                tags={page.tags ?? []}
+                onChange={async (tags) => {
+                  try {
+                    const data = await api.updateNotebookPage(pageId, { tags: tags.length > 0 ? tags : [] });
+                    setPage(data.page);
+                  } catch (e: any) { alert(e?.message ?? "Failed to update tags"); }
+                }}
+              />
+            </div>
+
+            {/* Dates */}
+            <div className="flex gap-4 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs text-muted-foreground mb-1 block">Expiration Date</Label>
+                <input
+                  type="datetime-local"
+                  className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
+                  value={page.expiresAt ? new Date(page.expiresAt).toISOString().slice(0, 16) : ""}
+                  onChange={async (e) => {
+                    try {
+                      const data = await api.updateNotebookPage(pageId, {
+                        expiresAt: e.target.value ? new Date(e.target.value).toISOString() : null,
+                      });
+                      setPage(data.page);
+                    } catch {}
+                  }}
+                />
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <Label className="text-xs text-muted-foreground mb-1 block">Review Date</Label>
+                <input
+                  type="datetime-local"
+                  className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
+                  value={page.reviewAt ? new Date(page.reviewAt).toISOString().slice(0, 16) : ""}
+                  onChange={async (e) => {
+                    try {
+                      const data = await api.updateNotebookPage(pageId, {
+                        reviewAt: e.target.value ? new Date(e.target.value).toISOString() : null,
+                      });
+                      setPage(data.page);
+                    } catch {}
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Visibility */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Visibility</Label>
+              <UserSelect
+                value={page.taggedUsers ?? []}
+                onChange={handleTaggedUsersChange}
+              />
+            </div>
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+/* ─── Tag Editor ─── */
+
+function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const [input, setInput] = useState("");
+
+  const addTag = () => {
+    const tag = input.trim().toLowerCase();
+    if (tag && !tags.includes(tag)) {
+      onChange([...tags, tag]);
+    }
+    setInput("");
+  };
+
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center">
+      {tags.map((tag) => (
+        <Badge key={tag} variant="outline" className="gap-1 text-xs">
+          <Tag className="h-2.5 w-2.5" />
+          {tag}
+          <button
+            type="button"
+            className="ml-0.5 hover:text-destructive transition-colors"
+            onClick={() => onChange(tags.filter((t) => t !== tag))}
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </Badge>
+      ))}
+      <Input
+        placeholder="Add tag..."
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); addTag(); }
+        }}
+        className="h-6 w-28 text-xs px-2"
+      />
     </div>
   );
 }

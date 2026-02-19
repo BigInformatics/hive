@@ -131,6 +131,7 @@ export async function createTask(input: {
   nextTaskAssigneeUserId?: string;
   recurringTemplateId?: string;
   recurringInstanceAt?: Date;
+  linkedNotebookPages?: string[];
 }): Promise<SwarmTask> {
   const [row] = await db
     .insert(swarmTasks)
@@ -148,6 +149,7 @@ export async function createTask(input: {
       nextTaskAssigneeUserId: input.nextTaskAssigneeUserId || null,
       recurringTemplateId: input.recurringTemplateId || null,
       recurringInstanceAt: input.recurringInstanceAt || null,
+      linkedNotebookPages: input.linkedNotebookPages || null,
     })
     .returning();
 
@@ -223,6 +225,7 @@ export async function updateTask(
     sortKey: number;
     nextTaskId: string | null;
     nextTaskAssigneeUserId: string | null;
+    linkedNotebookPages: string[] | null;
   }>,
 ): Promise<SwarmTask | null> {
   const [row] = await db

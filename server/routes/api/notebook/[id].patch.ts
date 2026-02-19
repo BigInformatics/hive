@@ -63,7 +63,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event);
-  const { title, content, taggedUsers, locked } = body ?? {};
+  const { title, content, taggedUsers, tags, locked, expiresAt, reviewAt } = body ?? {};
 
   // Only owner/admin can change lock or access settings
   if ((locked !== undefined || taggedUsers !== undefined) && !isOwnerOrAdmin) {
@@ -81,6 +81,18 @@ export default defineEventHandler(async (event) => {
       Array.isArray(taggedUsers) && taggedUsers.length > 0
         ? taggedUsers.map(String)
         : null;
+  }
+  if (tags !== undefined) {
+    updates.tags =
+      Array.isArray(tags) && tags.length > 0
+        ? tags.map(String)
+        : null;
+  }
+  if (expiresAt !== undefined) {
+    updates.expiresAt = expiresAt ? new Date(expiresAt) : null;
+  }
+  if (reviewAt !== undefined) {
+    updates.reviewAt = reviewAt ? new Date(reviewAt) : null;
   }
   if (locked !== undefined) {
     updates.locked = !!locked;
