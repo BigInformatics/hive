@@ -131,7 +131,16 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
       {/* Desktop / iPad header */}
       <header className="hidden md:flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold">🐝 Hive</h1>
+          <img
+            src="/logo-light.png"
+            alt="Hive"
+            className="h-8 w-auto dark:hidden"
+          />
+          <img
+            src="/logo-dark.png"
+            alt="Hive"
+            className="h-8 w-auto hidden dark:block"
+          />
           <nav className="flex gap-1">
             {navItems.map((item) => {
               const isActive =
@@ -172,7 +181,16 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
 
       {/* Mobile header — minimal */}
       <header className="flex md:hidden items-center justify-between border-b px-3 py-2">
-        <h1 className="text-lg font-bold">🐝 Hive</h1>
+        <img
+          src="/logo-light.png"
+          alt="Hive"
+          className="h-7 w-auto dark:hidden"
+        />
+        <img
+          src="/logo-dark.png"
+          alt="Hive"
+          className="h-7 w-auto hidden dark:block"
+        />
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <Button
