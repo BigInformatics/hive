@@ -54,6 +54,14 @@ export default defineEventHandler(async (event) => {
 
   const isOwnerOrAdmin = auth.isAdmin || page.createdBy === auth.identity;
 
+  // Archived pages: no edits allowed (except unarchiving by owner/admin)
+  if (page.archivedAt) {
+    return new Response(JSON.stringify({ error: "Page is archived" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   // Locked pages: only owner/admin can edit
   if (page.locked && !isOwnerOrAdmin) {
     return new Response(JSON.stringify({ error: "Page is locked" }), {

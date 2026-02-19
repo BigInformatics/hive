@@ -195,12 +195,22 @@ export default defineWebSocketHandler({
       );
 
       if (msg.type === "update" && Array.isArray(msg.update)) {
-        // Check if page is locked before accepting edits
+        // Check if page is locked or archived before accepting edits
         const [currentPage] = await db
-          .select({ locked: notebookPages.locked })
+          .select({
+            locked: notebookPages.locked,
+            archivedAt: notebookPages.archivedAt,
+          })
           .from(notebookPages)
           .where(eq(notebookPages.id, pageId))
           .limit(1);
+
+        if (currentPage?.archivedAt) {
+          peer.send(
+            JSON.stringify({ type: "error", message: "Page is archived" }),
+          );
+          return;
+        }
 
         if (currentPage?.locked) {
           peer.send(
