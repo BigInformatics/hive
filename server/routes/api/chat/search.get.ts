@@ -22,17 +22,13 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  const messages = await searchChatMessages(
-    auth.identity,
-    query.q as string,
-    {
-      limit: query.limit ? Number(query.limit) : undefined,
-      channelId: query.channelId as string | undefined,
-      sender: query.sender as string | undefined,
-      before: query.before as string | undefined,
-      after: query.after as string | undefined,
-    },
-  );
+  const messages = await searchChatMessages(auth.identity, query.q as string, {
+    limit: query.limit ? Number(query.limit) : undefined,
+    channelId: query.channelId as string | undefined,
+    sender: query.sender as string | undefined,
+    before: query.before as string | undefined,
+    after: query.after as string | undefined,
+  });
 
   return { messages };
 });

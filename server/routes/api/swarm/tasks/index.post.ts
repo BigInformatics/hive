@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { createTask } from "@/lib/swarm";
 import { emit, emitWakeTrigger } from "@/lib/events";
+import { createTask } from "@/lib/swarm";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -33,7 +33,9 @@ export default defineEventHandler(async (event) => {
     mustBeDoneAfterTaskId: body.mustBeDoneAfterTaskId,
     nextTaskId: body.nextTaskId,
     nextTaskAssigneeUserId: body.nextTaskAssigneeUserId,
-    linkedNotebookPages: Array.isArray(body.linkedNotebookPages) ? body.linkedNotebookPages : undefined,
+    linkedNotebookPages: Array.isArray(body.linkedNotebookPages)
+      ? body.linkedNotebookPages
+      : undefined,
   });
 
   emit("__swarm__", {

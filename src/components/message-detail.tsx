@@ -1,9 +1,16 @@
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
+import {
+  AlertTriangle,
+  Check,
+  CheckCheck,
+  Copy,
+  Hourglass,
+  Reply,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCheck, Reply, AlertTriangle, Clock, Hourglass, Copy, Check } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Message {
   id: number;
@@ -48,7 +55,7 @@ export function MessageDetail({
     return () => {
       if (autoReadRef.current) clearTimeout(autoReadRef.current);
     };
-  }, [message.id, message.status, onAutoRead]);
+  }, [message.status, onAutoRead]);
 
   const handleReply = async () => {
     if (!replyText.trim()) return;
@@ -89,12 +96,20 @@ export function MessageDetail({
                 }}
                 title="Copy message ID"
               >
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copied ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
                 #{message.id}
               </button>
-              <span>From: <strong>{message.sender}</strong></span>
+              <span>
+                From: <strong>{message.sender}</strong>
+              </span>
               <span>→</span>
-              <span><strong>{message.recipient}</strong></span>
+              <span>
+                <strong>{message.recipient}</strong>
+              </span>
               <span>•</span>
               <span>{formattedDate}</span>
             </div>
@@ -127,12 +142,17 @@ export function MessageDetail({
 
         {/* Status badges */}
         <div className="mb-4 flex gap-2 flex-wrap">
-          <Badge variant={message.status === "unread" ? "default" : "secondary"}>
+          <Badge
+            variant={message.status === "unread" ? "default" : "secondary"}
+          >
             {message.status}
           </Badge>
           {message.urgent && <Badge variant="destructive">urgent</Badge>}
           {message.responseWaiting && (
-            <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 gap-1">
+            <Badge
+              variant="default"
+              className="bg-amber-500 hover:bg-amber-600 gap-1"
+            >
               <Hourglass className="h-3 w-3" />
               Pending Response
               {message.waitingResponder && ` (${message.waitingResponder})`}

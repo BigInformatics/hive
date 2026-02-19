@@ -1,8 +1,8 @@
+import { eq } from "drizzle-orm";
 import { defineEventHandler, getRouterParam } from "h3";
-import { authenticateEvent, clearAuthCache } from "@/lib/auth";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { authenticateEvent, clearAuthCache } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

@@ -1,8 +1,8 @@
-import { defineEventHandler, getRequestPath, getMethod, readBody, createError } from "h3";
+import { createError, defineEventHandler, getMethod, getRequestPath } from "h3";
 
-const MAX_TITLE = 255;
-const MAX_BODY = 10_000;
-const MAX_CONTENT = 100_000; // notebook pages can be longer
+const _MAX_TITLE = 255;
+const _MAX_BODY = 10_000;
+const _MAX_CONTENT = 100_000; // notebook pages can be longer
 const MAX_JSON_SIZE = 50_000; // 50KB general limit
 
 export default defineEventHandler(async (event) => {
@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
   // Read and validate body size
   const contentLength = parseInt(
     event.node?.req?.headers?.["content-length"] || "0",
+    10,
   );
   if (contentLength > MAX_JSON_SIZE) {
     throw createError({

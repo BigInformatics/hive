@@ -1,8 +1,8 @@
+import { eq } from "drizzle-orm";
 import { defineEventHandler, getRouterParam } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { directoryEntries } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -14,8 +14,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const rawId = getRouterParam(event, "id");
-  const id = parseInt(rawId ?? "");
-  if (isNaN(id)) {
+  const id = parseInt(rawId ?? "", 10);
+  if (Number.isNaN(id)) {
     return new Response(JSON.stringify({ error: "Invalid id" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },

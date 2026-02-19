@@ -1,7 +1,7 @@
-import { defineEventHandler, readBody, getRouterParam } from "h3";
+import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { replyToMessage } from "@/lib/messages";
 import { emit } from "@/lib/events";
+import { replyToMessage } from "@/lib/messages";
 import { updatePresence } from "@/lib/presence";
 
 export default defineEventHandler(async (event) => {

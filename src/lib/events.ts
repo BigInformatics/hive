@@ -68,7 +68,7 @@ export function subscribe(mailbox: string, listener: Listener): () => void {
   if (!listeners.has(mailbox)) {
     listeners.set(mailbox, new Set());
   }
-  listeners.get(mailbox)!.add(listener);
+  listeners.get(mailbox)?.add(listener);
 
   return () => {
     listeners.get(mailbox)?.delete(listener);

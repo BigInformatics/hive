@@ -1,7 +1,7 @@
 import { config } from "dotenv";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { getHeader } from "h3";
-import { eq, and, isNull, or, gt } from "drizzle-orm";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
 
@@ -82,7 +82,9 @@ async function authenticateFromDb(token: string): Promise<AuthContext | null> {
 }
 
 /** Authenticate a token — checks DB first, then env vars */
-export async function authenticateTokenAsync(token: string): Promise<AuthContext | null> {
+export async function authenticateTokenAsync(
+  token: string,
+): Promise<AuthContext | null> {
   // DB tokens take priority
   const dbAuth = await authenticateFromDb(token);
   if (dbAuth) return dbAuth;
@@ -97,7 +99,9 @@ export function authenticateToken(token: string): AuthContext | null {
 }
 
 /** Authenticate from H3 event — async, checks DB + env */
-export async function authenticateEvent(event: H3Event): Promise<AuthContext | null> {
+export async function authenticateEvent(
+  event: H3Event,
+): Promise<AuthContext | null> {
   const authHeader = getHeader(event, "authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
   return authenticateTokenAsync(authHeader.slice(7));
@@ -113,7 +117,11 @@ export function initAuth() {
       if (key.startsWith(prefix) && !key.endsWith("_ADMIN") && value) {
         const name = key.slice(prefix.length).toLowerCase();
         if (name && name !== "s") {
-          envTokens.set(value, { identity: name, isAdmin: false, source: "env" });
+          envTokens.set(value, {
+            identity: name,
+            isAdmin: false,
+            source: "env",
+          });
           validMailboxes.add(name);
         }
       }
@@ -126,7 +134,11 @@ export function initAuth() {
     try {
       const mapping = JSON.parse(tokensEnv) as Record<string, string>;
       for (const [token, identity] of Object.entries(mapping)) {
-        envTokens.set(token, { identity: identity.toLowerCase(), isAdmin: false, source: "env" });
+        envTokens.set(token, {
+          identity: identity.toLowerCase(),
+          isAdmin: false,
+          source: "env",
+        });
         validMailboxes.add(identity.toLowerCase());
       }
     } catch (err) {
@@ -148,7 +160,9 @@ export function initAuth() {
         });
         validMailboxes.add(info.sender.toLowerCase());
       }
-      console.log(`[auth] Loaded ${Object.keys(parsed).length} UI mailbox key(s)`);
+      console.log(
+        `[auth] Loaded ${Object.keys(parsed).length} UI mailbox key(s)`,
+      );
     } catch (err) {
       console.error("[auth] Failed to parse UI_MAILBOX_KEYS:", err);
     }

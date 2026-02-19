@@ -1,14 +1,14 @@
 /**
  * Agent webhook dispatch — notifies agents when they receive chat messages.
- * 
+ *
  * Looks up webhook config from:
  * 1. mailbox_tokens table (webhook_url + webhook_token columns)
  * 2. Environment variables: WEBHOOK_<IDENTITY>_URL and WEBHOOK_<IDENTITY>_TOKEN
  */
 
+import { isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { eq, isNull, isNotNull } from "drizzle-orm";
 import { getBaseUrl } from "./base-url";
 
 interface WebhookConfig {
@@ -46,7 +46,10 @@ async function getWebhookConfigs(): Promise<Map<string, WebhookConfig>> {
 
     for (const row of rows) {
       if (row.webhookUrl && row.webhookToken) {
-        configs.set(row.identity, { url: row.webhookUrl, token: row.webhookToken });
+        configs.set(row.identity, {
+          url: row.webhookUrl,
+          token: row.webhookToken,
+        });
       }
     }
   } catch (err) {
@@ -100,7 +103,9 @@ export async function notifyChatMessage(
     });
 
     if (!resp.ok) {
-      console.error(`[webhooks] ${recipientIdentity} webhook failed: ${resp.status}`);
+      console.error(
+        `[webhooks] ${recipientIdentity} webhook failed: ${resp.status}`,
+      );
     }
   } catch (err) {
     console.error(`[webhooks] ${recipientIdentity} webhook error:`, err);

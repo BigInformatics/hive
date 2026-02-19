@@ -1,23 +1,22 @@
-import { useEffect, useState, useCallback } from "react";
-import { api } from "@/lib/api";
+import {
+  AlertTriangle,
+  Archive,
+  ArrowLeft,
+  CheckCheck,
+  Inbox as InboxIcon,
+  RefreshCw,
+  Search,
+  Send,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Inbox as InboxIcon,
-  Archive,
-  Send,
-  Search,
-  CheckCheck,
-  AlertTriangle,
-  RefreshCw,
-  ArrowLeft,
-} from "lucide-react";
-import { Nav } from "./nav";
+import { api } from "@/lib/api";
 import { ComposeDialog } from "./compose-dialog";
 import { MessageDetail } from "./message-detail";
+import { Nav } from "./nav";
 
 interface Message {
   id: number;
@@ -37,9 +36,7 @@ interface Message {
 }
 
 function timeAgo(date: string): string {
-  const seconds = Math.floor(
-    (Date.now() - new Date(date).getTime()) / 1000,
-  );
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   if (seconds < 60) return "just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -120,11 +117,15 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleAckAll = async () => {
-    const unreadIds = messages.filter((m) => m.status === "unread").map((m) => m.id);
+    const unreadIds = messages
+      .filter((m) => m.status === "unread")
+      .map((m) => m.id);
     if (unreadIds.length === 0) return;
     try {
       await api.ackMessages(unreadIds);
-      setMessages((prev) => prev.map((m) => ({ ...m, status: "read" as const })));
+      setMessages((prev) =>
+        prev.map((m) => ({ ...m, status: "read" as const })),
+      );
     } catch (err) {
       console.error("Failed to ack all:", err);
     }
@@ -166,7 +167,9 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
       </div>
 
       {/* Search — hidden on mobile when viewing detail */}
-      <div className={`border-b px-3 md:px-4 py-2 ${selectedMessage ? "hidden md:block" : ""}`}>
+      <div
+        className={`border-b px-3 md:px-4 py-2 ${selectedMessage ? "hidden md:block" : ""}`}
+      >
         <div className="flex gap-2">
           <input
             type="text"
@@ -190,7 +193,9 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
       {/* Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Message list — hidden on mobile when viewing detail */}
-        <div className={`flex flex-col border-r md:w-96 ${selectedMessage ? "hidden md:flex" : "flex"} w-full`}>
+        <div
+          className={`flex flex-col border-r md:w-96 ${selectedMessage ? "hidden md:flex" : "flex"} w-full`}
+        >
           <Tabs
             value={tab}
             onValueChange={(v) => {
@@ -209,7 +214,9 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
               <TabsTrigger value="sent" className="text-xs md:text-sm">
                 <Send className="mr-1 h-3.5 w-3.5" /> Sent
               </TabsTrigger>
-              <TabsTrigger value="all" className="text-xs md:text-sm">All</TabsTrigger>
+              <TabsTrigger value="all" className="text-xs md:text-sm">
+                All
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value={tab} className="flex-1 overflow-hidden mt-0">
@@ -249,9 +256,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                           {msg.status === "unread" && (
                             <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
                           )}
-                          <span className="truncate text-sm">
-                            {msg.title}
-                          </span>
+                          <span className="truncate text-sm">{msg.title}</span>
                         </div>
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {timeAgo(msg.createdAt)}
@@ -259,10 +264,14 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                       </div>
                       <div className="mt-0.5 flex items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">
-                          {tab === "sent" ? `to ${msg.recipient}` : `from ${msg.sender}`}
+                          {tab === "sent"
+                            ? `to ${msg.recipient}`
+                            : `from ${msg.sender}`}
                         </span>
                         {msg.responseWaiting && (
-                          <span className="text-[10px] text-amber-500 font-medium">⏳ pending</span>
+                          <span className="text-[10px] text-amber-500 font-medium">
+                            ⏳ pending
+                          </span>
                         )}
                       </div>
                     </button>
@@ -274,12 +283,19 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {/* Detail pane */}
-        <div className={`flex-1 flex flex-col ${selectedMessage ? "flex" : "hidden md:flex"}`}>
+        <div
+          className={`flex-1 flex flex-col ${selectedMessage ? "flex" : "hidden md:flex"}`}
+        >
           {selectedMessage ? (
             <div className="flex flex-col flex-1 overflow-hidden">
               {/* Mobile back button */}
               <div className="flex md:hidden items-center border-b px-2 py-1.5">
-                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => setSelectedMessage(null)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1"
+                  onClick={() => setSelectedMessage(null)}
+                >
                   <ArrowLeft className="h-4 w-4" /> Back
                 </Button>
               </div>
@@ -296,11 +312,21 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                 }}
                 onTogglePending={async () => {
                   if (selectedMessage.responseWaiting) {
-                    const updated = await api.clearPending(selectedMessage.id);
-                    setSelectedMessage({ ...selectedMessage, responseWaiting: false, waitingResponder: null, waitingSince: null });
+                    const _updated = await api.clearPending(selectedMessage.id);
+                    setSelectedMessage({
+                      ...selectedMessage,
+                      responseWaiting: false,
+                      waitingResponder: null,
+                      waitingSince: null,
+                    });
                   } else {
-                    const updated = await api.markPending(selectedMessage.id);
-                    setSelectedMessage({ ...selectedMessage, responseWaiting: true, waitingResponder: "me", waitingSince: new Date().toISOString() });
+                    const _updated = await api.markPending(selectedMessage.id);
+                    setSelectedMessage({
+                      ...selectedMessage,
+                      responseWaiting: true,
+                      waitingResponder: "me",
+                      waitingSince: new Date().toISOString(),
+                    });
                   }
                   fetchMessages(tab);
                 }}

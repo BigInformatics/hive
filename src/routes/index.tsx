@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { getMailboxKey } from "@/lib/api";
-import { LoginGate } from "@/components/login-gate";
+import { useEffect, useState } from "react";
 import { InboxView } from "@/components/inbox";
+import { LoginGate } from "@/components/login-gate";
+import { getMailboxKey } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
   component: Home,

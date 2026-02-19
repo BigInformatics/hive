@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 describe("getBaseUrl", () => {
   const original = process.env.HIVE_BASE_URL;

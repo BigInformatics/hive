@@ -1,7 +1,7 @@
-import { and, desc, eq, gt, sql as rawSql, asc } from "drizzle-orm";
+import { and, asc, desc, eq, gt, sql as rawSql } from "drizzle-orm";
 import { db } from "@/db";
-import { mailboxMessages } from "@/db/schema";
 import type { MailboxMessage } from "@/db/schema";
+import { mailboxMessages } from "@/db/schema";
 
 export interface SendMessageInput {
   recipient: string;
@@ -15,7 +15,9 @@ export interface SendMessageInput {
   metadata?: Record<string, unknown>;
 }
 
-export async function sendMessage(input: SendMessageInput): Promise<MailboxMessage> {
+export async function sendMessage(
+  input: SendMessageInput,
+): Promise<MailboxMessage> {
   // For dedupe, use raw SQL with ON CONFLICT
   if (input.dedupeKey) {
     const [row] = await db
@@ -158,9 +160,7 @@ export async function ackMessages(
 ): Promise<{ success: number[]; notFound: number[] }> {
   if (ids.length === 0) return { success: [], notFound: [] };
 
-  const results = await Promise.all(
-    ids.map((id) => ackMessage(recipient, id)),
-  );
+  const results = await Promise.all(ids.map((id) => ackMessage(recipient, id)));
 
   const success: number[] = [];
   const notFound: number[] = [];
@@ -216,7 +216,9 @@ export async function replyToMessage(
     .values({
       recipient: original.sender,
       sender,
-      title: original.title.startsWith('Re: ') ? original.title : `Re: ${original.title}`,
+      title: original.title.startsWith("Re: ")
+        ? original.title
+        : `Re: ${original.title}`,
       body,
       replyToMessageId: originalMessageId,
       threadId: original.threadId || originalMessageId.toString(),

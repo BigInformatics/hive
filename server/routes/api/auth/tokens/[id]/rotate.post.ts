@@ -1,9 +1,9 @@
+import { randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { defineEventHandler, getRouterParam } from "h3";
-import { authenticateEvent, clearAuthCache } from "@/lib/auth";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { eq, isNull } from "drizzle-orm";
-import { randomBytes } from "node:crypto";
+import { authenticateEvent, clearAuthCache } from "@/lib/auth";
 
 /**
  * POST /api/auth/tokens/:id/rotate
@@ -54,10 +54,13 @@ export default defineEventHandler(async (event) => {
 
   // Allow self-rotation or admin
   if (!auth.isAdmin && auth.identity !== existing.identity) {
-    return new Response(JSON.stringify({ error: "Admin required or must own this token" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Admin required or must own this token" }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   // Generate new token
@@ -93,6 +96,7 @@ export default defineEventHandler(async (event) => {
       token: newRow.token,
       isAdmin: newRow.isAdmin,
     },
-    message: "Token rotated. Old token is now revoked. Update your configuration with the new token.",
+    message:
+      "Token rotated. Old token is now revoked. Update your configuration with the new token.",
   };
 });

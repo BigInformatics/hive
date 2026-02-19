@@ -1,8 +1,8 @@
+import { eq } from "drizzle-orm";
 import { defineEventHandler, getRouterParam } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
 function canAccess(
   page: { createdBy: string; taggedUsers: string[] | null },

@@ -1,8 +1,8 @@
+import { isNull } from "drizzle-orm";
 import { defineEventHandler } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { isNull } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

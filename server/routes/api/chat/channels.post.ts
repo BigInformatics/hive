@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { getOrCreateDm, createGroupChannel } from "@/lib/chat";
+import { createGroupChannel, getOrCreateDm } from "@/lib/chat";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -30,10 +30,10 @@ export default defineEventHandler(async (event) => {
 
   // Default: DM
   if (!body?.identity) {
-    return new Response(
-      JSON.stringify({ error: "identity required for DM" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "identity required for DM" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const channelId = await getOrCreateDm(auth.identity, body.identity);

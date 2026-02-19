@@ -1,42 +1,42 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { getMailboxKey, api } from "@/lib/api";
+import DOMPurify from "dompurify";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BookOpen,
+  Check,
+  Clock,
+  Code2,
+  Copy,
+  Eye,
+  Link2,
+  Lock,
+  Plus,
+  Tag,
+  Trash2,
+  Unlock,
+  X,
+} from "lucide-react";
+import { marked } from "marked";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
-import { Nav } from "@/components/nav";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { MarkdownEditor } from "@/components/markdown-editor";
+import { Nav } from "@/components/nav";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  BookOpen,
-  Plus,
-  ArrowLeft,
-  Eye,
-  Code2,
-  Lock,
-  Unlock,
-  Trash2,
-  Link2,
-  Check,
-  Copy,
-  Tag,
-  AlertTriangle,
-  Clock,
-  X,
-} from "lucide-react";
 import { UserSelect } from "@/components/user-select";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
+import { api, getMailboxKey } from "@/lib/api";
 
 export const Route = createFileRoute("/notebook")({
   component: NotebookPage,
@@ -116,7 +116,9 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
     try {
       const saved = localStorage.getItem("notebook-filter-tags");
       return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   });
   const [newTitle, setNewTitle] = useState("");
   const [newTagged, setNewTagged] = useState<string[]>([]);
@@ -147,7 +149,11 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
   // Persist tag filter
   useEffect(() => {
     try {
-      if (filterTags.length > 0) localStorage.setItem("notebook-filter-tags", JSON.stringify(filterTags));
+      if (filterTags.length > 0)
+        localStorage.setItem(
+          "notebook-filter-tags",
+          JSON.stringify(filterTags),
+        );
       else localStorage.removeItem("notebook-filter-tags");
     } catch {}
   }, [filterTags]);
@@ -156,13 +162,16 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
   const allTags = [...new Set(pages.flatMap((p) => p.tags ?? []))].sort();
 
   // Filter pages by selected tags
-  const filteredPages = filterTags.length > 0
-    ? pages.filter((p) => p.tags && filterTags.some((t) => p.tags!.includes(t)))
-    : pages;
+  const filteredPages =
+    filterTags.length > 0
+      ? pages.filter(
+          (p) => p.tags && filterTags.some((t) => p.tags?.includes(t)),
+        )
+      : pages;
 
   const toggleTag = (tag: string) => {
     setFilterTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   };
 
@@ -225,17 +234,11 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
                 </div>
                 <div className="grid gap-1.5">
                   <Label>Visible to</Label>
-                  <UserSelect
-                    value={newTagged}
-                    onChange={setNewTagged}
-                  />
+                  <UserSelect value={newTagged} onChange={setNewTagged} />
                 </div>
               </div>
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                >
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
                 <Button
@@ -284,9 +287,7 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
             Loading…
           </p>
         ) : error ? (
-          <p className="text-center text-destructive text-sm py-16">
-            {error}
-          </p>
+          <p className="text-center text-destructive text-sm py-16">{error}</p>
         ) : filteredPages.length === 0 ? (
           <p className="text-center text-muted-foreground text-sm py-16">
             {search || filterTags.length > 0
@@ -296,8 +297,10 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
         ) : (
           <div className="flex flex-col gap-3">
             {filteredPages.map((page) => {
-              const isExpired = page.expiresAt && new Date(page.expiresAt) < new Date();
-              const needsReview = page.reviewAt && new Date(page.reviewAt) < new Date();
+              const isExpired =
+                page.expiresAt && new Date(page.expiresAt) < new Date();
+              const needsReview =
+                page.reviewAt && new Date(page.reviewAt) < new Date();
               return (
                 <Card
                   key={page.id}
@@ -315,30 +318,39 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
                             <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
                           )}
                           {isExpired && (
-                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">Expired</Badge>
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px] px-1.5 py-0 h-4"
+                            >
+                              Expired
+                            </Badge>
                           )}
                           {needsReview && !isExpired && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-500 border-amber-500/30">Needs Review</Badge>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 h-4 text-amber-500 border-amber-500/30"
+                            >
+                              Needs Review
+                            </Badge>
                           )}
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-muted-foreground">
                             {page.createdBy} · {formatDate(page.updatedAt)}
                           </span>
-                          {page.taggedUsers &&
-                            page.taggedUsers.length > 0 && (
-                              <span className="flex gap-1 flex-wrap">
-                                {page.taggedUsers.map((u) => (
-                                  <Badge
-                                    key={u}
-                                    variant="secondary"
-                                    className="text-xs px-1.5 py-0 h-4"
-                                  >
-                                    {u}
-                                  </Badge>
-                                ))}
-                              </span>
-                            )}
+                          {page.taggedUsers && page.taggedUsers.length > 0 && (
+                            <span className="flex gap-1 flex-wrap">
+                              {page.taggedUsers.map((u) => (
+                                <Badge
+                                  key={u}
+                                  variant="secondary"
+                                  className="text-xs px-1.5 py-0 h-4"
+                                >
+                                  {u}
+                                </Badge>
+                              ))}
+                            </span>
+                          )}
                           {page.tags && page.tags.length > 0 && (
                             <span className="flex gap-1 flex-wrap">
                               {page.tags.map((t) => (
@@ -347,7 +359,8 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
                                   variant="outline"
                                   className="text-[10px] px-1.5 py-0 h-4"
                                 >
-                                  <Tag className="h-2.5 w-2.5 mr-0.5" />{t}
+                                  <Tag className="h-2.5 w-2.5 mr-0.5" />
+                                  {t}
                                 </Badge>
                               ))}
                             </span>
@@ -381,11 +394,11 @@ function PageEditor({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [mode, setMode] = useState<"source" | "preview">("preview");
-  const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
+  const [saving, _setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [identity, setIdentity] = useState<string | null>(null);
   const [viewers, setViewers] = useState<string[]>([]);
   const [copied, setCopied] = useState<"idle" | "url" | "content">("idle");
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const _saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
   const authToken = getMailboxKey();
 
@@ -620,15 +633,23 @@ function PageEditor({
         {page.expiresAt && new Date(page.expiresAt) < new Date() && (
           <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 mb-3 text-sm text-destructive">
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>This page expired on {formatDate(page.expiresAt)}. Content is available as historical information only.</span>
+            <span>
+              This page expired on {formatDate(page.expiresAt)}. Content is
+              available as historical information only.
+            </span>
           </div>
         )}
-        {page.reviewAt && new Date(page.reviewAt) < new Date() && !(page.expiresAt && new Date(page.expiresAt) < new Date()) && (
-          <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 mb-3 text-sm text-amber-600 dark:text-amber-400">
-            <Clock className="h-4 w-4 shrink-0" />
-            <span>This page is past its review date ({formatDate(page.reviewAt)}). Content may be out of date and requires review.</span>
-          </div>
-        )}
+        {page.reviewAt &&
+          new Date(page.reviewAt) < new Date() &&
+          !(page.expiresAt && new Date(page.expiresAt) < new Date()) && (
+            <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 mb-3 text-sm text-amber-600 dark:text-amber-400">
+              <Clock className="h-4 w-4 shrink-0" />
+              <span>
+                This page is past its review date ({formatDate(page.reviewAt)}).
+                Content may be out of date and requires review.
+              </span>
+            </div>
+          )}
 
         {/* Meta */}
         <div className="flex items-center gap-2 flex-wrap mb-4">
@@ -651,11 +672,18 @@ function PageEditor({
               <Lock className="h-2.5 w-2.5 mr-0.5" /> Locked
             </Badge>
           )}
-          {page.tags && page.tags.length > 0 && page.tags.map((t) => (
-            <Badge key={t} variant="outline" className="text-xs px-1.5 py-0 h-4">
-              <Tag className="h-2.5 w-2.5 mr-0.5" />{t}
-            </Badge>
-          ))}
+          {page.tags &&
+            page.tags.length > 0 &&
+            page.tags.map((t) => (
+              <Badge
+                key={t}
+                variant="outline"
+                className="text-xs px-1.5 py-0 h-4"
+              >
+                <Tag className="h-2.5 w-2.5 mr-0.5" />
+                {t}
+              </Badge>
+            ))}
         </div>
 
         {/* Mode toggle */}
@@ -699,14 +727,20 @@ function PageEditor({
           <div className="mt-6 pt-4 border-t space-y-4">
             {/* Tags */}
             <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Tags</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block">
+                Tags
+              </Label>
               <TagEditor
                 tags={page.tags ?? []}
                 onChange={async (tags) => {
                   try {
-                    const data = await api.updateNotebookPage(pageId, { tags: tags.length > 0 ? tags : [] });
+                    const data = await api.updateNotebookPage(pageId, {
+                      tags: tags.length > 0 ? tags : [],
+                    });
                     setPage(data.page);
-                  } catch (e: any) { alert(e?.message ?? "Failed to update tags"); }
+                  } catch (e: any) {
+                    alert(e?.message ?? "Failed to update tags");
+                  }
                 }}
               />
             </div>
@@ -714,15 +748,21 @@ function PageEditor({
             {/* Dates */}
             <div className="flex gap-4 flex-wrap">
               <div className="flex-1 min-w-[200px]">
-                <Label className="text-xs text-muted-foreground mb-1 block">Expiration Date</Label>
+                <Label className="text-xs text-muted-foreground mb-1 block">
+                  Expiration Date
+                </Label>
                 <input
                   type="datetime-local"
                   className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
-                  value={page.expiresAt ? toLocalDatetimeValue(page.expiresAt) : ""}
+                  value={
+                    page.expiresAt ? toLocalDatetimeValue(page.expiresAt) : ""
+                  }
                   onChange={async (e) => {
                     try {
                       const data = await api.updateNotebookPage(pageId, {
-                        expiresAt: e.target.value ? new Date(e.target.value).toISOString() : null,
+                        expiresAt: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : null,
                       });
                       setPage(data.page);
                     } catch {}
@@ -730,15 +770,21 @@ function PageEditor({
                 />
               </div>
               <div className="flex-1 min-w-[200px]">
-                <Label className="text-xs text-muted-foreground mb-1 block">Review Date</Label>
+                <Label className="text-xs text-muted-foreground mb-1 block">
+                  Review Date
+                </Label>
                 <input
                   type="datetime-local"
                   className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
-                  value={page.reviewAt ? toLocalDatetimeValue(page.reviewAt) : ""}
+                  value={
+                    page.reviewAt ? toLocalDatetimeValue(page.reviewAt) : ""
+                  }
                   onChange={async (e) => {
                     try {
                       const data = await api.updateNotebookPage(pageId, {
-                        reviewAt: e.target.value ? new Date(e.target.value).toISOString() : null,
+                        reviewAt: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : null,
                       });
                       setPage(data.page);
                     } catch {}
@@ -749,7 +795,9 @@ function PageEditor({
 
             {/* Visibility */}
             <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Visibility</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block">
+                Visibility
+              </Label>
               <UserSelect
                 value={page.taggedUsers ?? []}
                 onChange={handleTaggedUsersChange}
@@ -764,7 +812,13 @@ function PageEditor({
 
 /* ─── Tag Editor ─── */
 
-function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+function TagEditor({
+  tags,
+  onChange,
+}: {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+}) {
   const [input, setInput] = useState("");
 
   const addTag = () => {
@@ -795,7 +849,10 @@ function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); addTag(); }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            addTag();
+          }
         }}
         className="h-6 w-28 text-xs px-2"
       />

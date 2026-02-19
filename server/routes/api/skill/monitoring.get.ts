@@ -203,5 +203,7 @@ See \`GET /api/skill/swarm\` for task management.
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/markdown; charset=utf-8" } });
+  return new Response(DOC, {
+    headers: { "Content-Type": "text/markdown; charset=utf-8" },
+  });
 });

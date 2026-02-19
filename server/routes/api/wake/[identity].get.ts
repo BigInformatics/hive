@@ -1,4 +1,4 @@
-import { defineEventHandler, getRouterParam, getQuery } from "h3";
+import { defineEventHandler, getQuery, getRouterParam } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { getWakeItems } from "@/lib/wake";
 

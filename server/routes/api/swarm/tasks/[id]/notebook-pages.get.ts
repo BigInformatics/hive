@@ -1,8 +1,8 @@
-import { defineEventHandler, getRouterParam } from "h3";
-import { authenticateEvent } from "@/lib/auth";
-import { db } from "@/db";
-import { swarmTaskNotebookPages, notebookPages } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { defineEventHandler, getRouterParam } from "h3";
+import { db } from "@/db";
+import { notebookPages, swarmTaskNotebookPages } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -42,7 +42,10 @@ export default defineEventHandler(async (event) => {
       pageUpdatedAt: notebookPages.updatedAt,
     })
     .from(swarmTaskNotebookPages)
-    .innerJoin(notebookPages, eq(swarmTaskNotebookPages.notebookPageId, notebookPages.id))
+    .innerJoin(
+      notebookPages,
+      eq(swarmTaskNotebookPages.notebookPageId, notebookPages.id),
+    )
     .where(visibilityFilter);
 
   return { pages: links };

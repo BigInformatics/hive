@@ -1,8 +1,8 @@
+import { randomBytes } from "node:crypto";
 import { defineEventHandler, readBody } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { invites } from "@/db/schema";
-import { randomBytes } from "node:crypto";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

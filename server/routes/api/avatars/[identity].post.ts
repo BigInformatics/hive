@@ -1,9 +1,10 @@
+import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { defineEventHandler, getRouterParam, readMultipartFormData } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { join } from "node:path";
-import { writeFileSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
 
-const AVATAR_DIR = process.env.AVATAR_DIR || join(process.cwd(), "public", "avatars");
+const AVATAR_DIR =
+  process.env.AVATAR_DIR || join(process.cwd(), "public", "avatars");
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -40,10 +41,13 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!ALLOWED_TYPES.has(file.type)) {
-    return new Response(JSON.stringify({ error: "Only JPEG, PNG, and WebP are allowed" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Only JPEG, PNG, and WebP are allowed" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   if (file.data.length > MAX_SIZE) {

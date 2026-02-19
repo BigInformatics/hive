@@ -1,8 +1,8 @@
+import { and, desc, ilike, or, sql } from "drizzle-orm";
 import { defineEventHandler, getQuery } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
-import { and, desc, ilike, or, sql } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -15,8 +15,11 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event);
   const q = (query.q as string | undefined)?.trim() ?? "";
-  const limit = Math.min(parseInt((query.limit as string) || "50") || 50, 100);
-  const offset = parseInt((query.offset as string) || "0") || 0;
+  const limit = Math.min(
+    parseInt((query.limit as string) || "50", 10) || 50,
+    100,
+  );
+  const offset = parseInt((query.offset as string) || "0", 10) || 0;
 
   const conditions: any[] = [];
 

@@ -1,8 +1,8 @@
+import { randomBytes } from "node:crypto";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { defineEventHandler, readBody } from "h3";
 import { db } from "@/db";
 import { invites, mailboxTokens } from "@/db/schema";
-import { eq, and, or, isNull, gt } from "drizzle-orm";
-import { randomBytes } from "node:crypto";
 import { clearAuthCache, registerMailbox } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
@@ -18,7 +18,10 @@ export default defineEventHandler(async (event) => {
   const identity = String(body.identity).toLowerCase().trim();
   if (!/^[a-z][a-z0-9_-]*$/.test(identity) || identity.length > 50) {
     return new Response(
-      JSON.stringify({ error: "Identity must be lowercase alphanumeric (start with letter, max 50 chars)" }),
+      JSON.stringify({
+        error:
+          "Identity must be lowercase alphanumeric (start with letter, max 50 chars)",
+      }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -52,7 +55,9 @@ export default defineEventHandler(async (event) => {
   // If invite has an identity hint, enforce it
   if (invite.identityHint && invite.identityHint !== identity) {
     return new Response(
-      JSON.stringify({ error: `This invite is for identity "${invite.identityHint}"` }),
+      JSON.stringify({
+        error: `This invite is for identity "${invite.identityHint}"`,
+      }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }

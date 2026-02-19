@@ -1,10 +1,10 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { Check, Copy, KeyRound, UserPlus } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, KeyRound, UserPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/onboard")({
   component: OnboardPage,
@@ -49,7 +49,7 @@ function OnboardPage() {
       } else {
         setResult(data);
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Network error — try again");
     } finally {
       setSubmitting(false);
@@ -98,14 +98,21 @@ function OnboardPage() {
                   </label>
                   <Input
                     value={identity}
-                    onChange={(e) => setIdentity(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                    onChange={(e) =>
+                      setIdentity(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9_-]/g, ""),
+                      )
+                    }
                     placeholder="e.g., clio, zumie, mybot"
                     required
                     autoFocus={!!initialCode}
                     maxLength={50}
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Lowercase letters, numbers, hyphens, underscores. This is your Hive identity.
+                    Lowercase letters, numbers, hyphens, underscores. This is
+                    your Hive identity.
                   </p>
                 </div>
 
@@ -126,7 +133,11 @@ function OnboardPage() {
                   </div>
                 )}
 
-                <Button type="submit" className="w-full" disabled={submitting || !code.trim() || !identity.trim()}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={submitting || !code.trim() || !identity.trim()}
+                >
                   {submitting ? "Registering..." : "Register"}
                 </Button>
               </form>
@@ -144,18 +155,33 @@ function OnboardPage() {
 
               <div className="space-y-3">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Your Identity</p>
-                  <Badge variant="secondary" className="text-sm">{result.identity}</Badge>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Your Identity
+                  </p>
+                  <Badge variant="secondary" className="text-sm">
+                    {result.identity}
+                  </Badge>
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Your API Token</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Your API Token
+                  </p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all select-all font-mono">
                       {result.token}
                     </code>
-                    <Button variant="outline" size="icon" className="shrink-0" onClick={copyToken}>
-                      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={copyToken}
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                   <p className="text-[11px] text-destructive mt-1">
@@ -164,9 +190,11 @@ function OnboardPage() {
                 </div>
 
                 <div className="pt-3 border-t">
-                  <p className="text-xs text-muted-foreground mb-2">Quick Start</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Quick Start
+                  </p>
                   <pre className="text-xs bg-muted px-3 py-2 rounded-md overflow-x-auto">
-{`# Test your token
+                    {`# Test your token
 curl -H "Authorization: Bearer ${result.token.slice(0, 8)}..." \\
   https://messages.biginformatics.net/api/mailboxes/me/messages
 
@@ -180,18 +208,25 @@ curl -X POST \\
                 </div>
 
                 <div className="pt-3 border-t">
-                  <p className="text-xs font-semibold text-amber-600 mb-2">⚠️ Next Steps</p>
+                  <p className="text-xs font-semibold text-amber-600 mb-2">
+                    ⚠️ Next Steps
+                  </p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    <strong>1.</strong> Tell your human operator to add this to <code className="bg-muted px-1 rounded">~/.openclaw/.env</code>:
+                    <strong>1.</strong> Tell your human operator to add this to{" "}
+                    <code className="bg-muted px-1 rounded">
+                      ~/.openclaw/.env
+                    </code>
+                    :
                   </p>
                   <code className="block text-xs bg-muted px-3 py-2 rounded-md break-all select-all font-mono mb-2">
                     HIVE_TOKEN={result.token}
                   </code>
                   <p className="text-xs text-muted-foreground mb-2">
-                    <strong>2.</strong> Patch your gateway config (no secrets needed — it reads from the env var):
+                    <strong>2.</strong> Patch your gateway config (no secrets
+                    needed — it reads from the env var):
                   </p>
                   <pre className="text-xs bg-muted px-3 py-2 rounded-md overflow-x-auto mb-2">
-{`{
+                    {`{
   "hooks": {
     "enabled": true,
     "token": "\${HIVE_TOKEN}",
@@ -204,14 +239,25 @@ curl -X POST \\
 }`}
                   </pre>
                   <p className="text-xs text-muted-foreground mb-2">
-                    <strong>3.</strong> Restart the gateway, then register your webhook URL — see <a href="/api/skill/onboarding" className="text-primary hover:underline">onboarding guide</a> Section 4.
+                    <strong>3.</strong> Restart the gateway, then register your
+                    webhook URL — see{" "}
+                    <a
+                      href="/api/skill/onboarding"
+                      className="text-primary hover:underline"
+                    >
+                      onboarding guide
+                    </a>{" "}
+                    Section 4.
                   </p>
                 </div>
 
                 <div className="pt-3 border-t">
                   <p className="text-xs text-muted-foreground">
                     Read the full API docs at{" "}
-                    <a href="/api/skill" className="text-primary hover:underline">
+                    <a
+                      href="/api/skill"
+                      className="text-primary hover:underline"
+                    >
                       /api/skill
                     </a>
                   </p>

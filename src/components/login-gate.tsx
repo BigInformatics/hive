@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { setMailboxKey } from "@/lib/api";
 
-export function LoginGate({
-  onLogin,
-}: {
-  onLogin: () => void;
-}) {
+export function LoginGate({ onLogin }: { onLogin: () => void }) {
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -59,9 +55,7 @@ export function LoginGate({
               onChange={(e) => setKey(e.target.value)}
               autoFocus
             />
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Checking..." : "Enter Hive"}
             </Button>

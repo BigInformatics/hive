@@ -3,7 +3,7 @@
  * Requires TEST_HIVE_URL and TEST_HIVE_TOKEN env vars.
  * The token identity will send a message to itself.
  */
-import { describe, it, expect, beforeAll } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const BASE = process.env.TEST_HIVE_URL || "";
 const TOKEN = process.env.TEST_HIVE_TOKEN || "";
@@ -53,10 +53,13 @@ describe.skipIf(skip)("Messages API", () => {
 
   it("POST /api/mailboxes/me/messages/:id/ack — acknowledge message", async () => {
     if (!sentMessageId) return;
-    const res = await fetch(`${BASE}/api/mailboxes/me/messages/${sentMessageId}/ack`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${TOKEN}` },
-    });
+    const res = await fetch(
+      `${BASE}/api/mailboxes/me/messages/${sentMessageId}/ack`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      },
+    );
     expect(res.status).toBe(200);
   });
 

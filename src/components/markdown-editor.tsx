@@ -1,33 +1,33 @@
-import { useRef, useEffect } from "react";
-import * as Y from "yjs";
 import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+} from "@codemirror/commands";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import {
+  bracketMatching,
+  defaultHighlightStyle,
+  indentOnInput,
+  syntaxHighlighting,
+} from "@codemirror/language";
+import { languages } from "@codemirror/language-data";
+import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
+import { Annotation, type ChangeSpec, EditorState } from "@codemirror/state";
+import { oneDark } from "@codemirror/theme-one-dark";
+import {
+  placeholder as cmPlaceholder,
   EditorView,
-  lineNumbers,
   highlightActiveLine,
   highlightActiveLineGutter,
   keymap,
-  placeholder as cmPlaceholder,
-  ViewPlugin,
+  lineNumbers,
   type PluginValue,
+  ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
-import { EditorState, type ChangeSpec, Annotation } from "@codemirror/state";
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
-import {
-  defaultKeymap,
-  indentWithTab,
-  history,
-  historyKeymap,
-} from "@codemirror/commands";
-import {
-  syntaxHighlighting,
-  defaultHighlightStyle,
-  bracketMatching,
-  indentOnInput,
-} from "@codemirror/language";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
-import { oneDark } from "@codemirror/theme-one-dark";
+import { useEffect, useRef } from "react";
+import * as Y from "yjs";
 
 interface MarkdownEditorProps {
   value: string;
@@ -101,7 +101,7 @@ export function MarkdownEditor({
   const onViewersRef = useRef(onViewersChange);
   const ydocRef = useRef<any>(null);
   const ytextRef = useRef<any>(null);
-  const isExternalUpdate = useRef(false);
+  const _isExternalUpdate = useRef(false);
   const initializedRef = useRef(false);
   onChangeRef.current = onChange;
   onViewersRef.current = onViewersChange;
@@ -153,67 +153,74 @@ export function MarkdownEditor({
       ytextRef.current = ytext;
 
       // CM6 ↔ Yjs sync plugin (inspired by HedgeDoc's YTextSyncViewPlugin)
-      const yjsSyncPlugin = ViewPlugin.define(
-        (editorView) => {
-          const plugin: PluginValue & { _view: EditorView } = {
-            _view: editorView,
-            update(update: ViewUpdate) {
-              if (!update.docChanged) return;
-              // Apply CM changes to Yjs (skip if change came from Yjs)
-              update.transactions
-                .filter((tr) => !tr.annotation(remoteUpdate))
-                .forEach((tr) => {
-                  ytext.doc?.transact(() => {
-                    let adj = 0;
-                    tr.changes.iterChanges(
-                      (fromA: number, toA: number, _fromB: number, _toB: number, insert: any) => {
-                        const text = insert.sliceString(0, insert.length, "\n");
-                        if (fromA !== toA) ytext.delete(fromA + adj, toA - fromA);
-                        if (text.length > 0) ytext.insert(fromA + adj, text);
-                        adj += text.length - (toA - fromA);
-                      },
-                    );
-                  }, "codemirror");
-                });
-            },
-            destroy() {},
-          };
-
-          // Observe Yjs changes → apply to CM
-          ytextObserver = (event: any, transaction: any) => {
-            if (transaction.origin === "codemirror") return;
-            const changes: ChangeSpec[] = [];
-            let pos = 0;
-            for (const delta of event.delta) {
-              if (delta.insert) {
-                changes.push({ from: pos, to: pos, insert: delta.insert });
-              } else if (delta.delete) {
-                changes.push({ from: pos, to: pos + delta.delete });
-                pos += delta.delete;
-              } else if (delta.retain) {
-                pos += delta.retain;
-              }
-            }
-            if (changes.length > 0) {
-              editorView.dispatch({
-                changes,
-                annotations: [remoteUpdate.of(true)],
+      const yjsSyncPlugin = ViewPlugin.define((editorView) => {
+        const plugin: PluginValue & { _view: EditorView } = {
+          _view: editorView,
+          update(update: ViewUpdate) {
+            if (!update.docChanged) return;
+            // Apply CM changes to Yjs (skip if change came from Yjs)
+            update.transactions
+              .filter((tr) => !tr.annotation(remoteUpdate))
+              .forEach((tr) => {
+                ytext.doc?.transact(() => {
+                  let adj = 0;
+                  tr.changes.iterChanges(
+                    (
+                      fromA: number,
+                      toA: number,
+                      _fromB: number,
+                      _toB: number,
+                      insert: any,
+                    ) => {
+                      const text = insert.sliceString(0, insert.length, "\n");
+                      if (fromA !== toA) ytext.delete(fromA + adj, toA - fromA);
+                      if (text.length > 0) ytext.insert(fromA + adj, text);
+                      adj += text.length - (toA - fromA);
+                    },
+                  );
+                }, "codemirror");
               });
-              onChangeRef.current(ytext.toString());
-            }
-          };
-          ytext.observe(ytextObserver);
+          },
+          destroy() {},
+        };
 
-          return plugin;
-        },
-      );
+        // Observe Yjs changes → apply to CM
+        ytextObserver = (event: any, transaction: any) => {
+          if (transaction.origin === "codemirror") return;
+          const changes: ChangeSpec[] = [];
+          let pos = 0;
+          for (const delta of event.delta) {
+            if (delta.insert) {
+              changes.push({ from: pos, to: pos, insert: delta.insert });
+            } else if (delta.delete) {
+              changes.push({ from: pos, to: pos + delta.delete });
+              pos += delta.delete;
+            } else if (delta.retain) {
+              pos += delta.retain;
+            }
+          }
+          if (changes.length > 0) {
+            editorView.dispatch({
+              changes,
+              annotations: [remoteUpdate.of(true)],
+            });
+            onChangeRef.current(ytext.toString());
+          }
+        };
+        ytext.observe(ytextObserver);
+
+        return plugin;
+      });
 
       extensions.push(yjsSyncPlugin);
 
       // Also report local changes
       extensions.push(
         EditorView.updateListener.of((update) => {
-          if (update.docChanged && !update.transactions.some((tr) => tr.annotation(remoteUpdate))) {
+          if (
+            update.docChanged &&
+            !update.transactions.some((tr) => tr.annotation(remoteUpdate))
+          ) {
             onChangeRef.current(update.state.doc.toString());
           }
         }),
@@ -260,10 +267,12 @@ export function MarkdownEditor({
       ydoc.on("update", (update: Uint8Array, origin: any) => {
         if (origin === "server") return;
         if (ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: "update",
-            update: Array.from(update),
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "update",
+              update: Array.from(update),
+            }),
+          );
         }
       });
 
@@ -282,7 +291,10 @@ export function MarkdownEditor({
     }
 
     const view = new EditorView({
-      state: EditorState.create({ doc: pageIdRef.current ? "" : value, extensions }),
+      state: EditorState.create({
+        doc: pageIdRef.current ? "" : value,
+        extensions,
+      }),
       parent: containerRef.current,
     });
     viewRef.current = view;
@@ -299,7 +311,7 @@ export function MarkdownEditor({
       initializedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageId, token, disabled]);
+  }, [disabled, placeholder, value]);
 
   // For non-collaborative mode, sync external value changes
   useEffect(() => {
@@ -315,5 +327,7 @@ export function MarkdownEditor({
     }
   }, [value]);
 
-  return <div ref={containerRef} className={className} data-slot="markdown-editor" />;
+  return (
+    <div ref={containerRef} className={className} data-slot="markdown-editor" />
+  );
 }

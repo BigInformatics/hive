@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { markChannelRead, isMember } from "@/lib/chat";
+import { isMember, markChannelRead } from "@/lib/chat";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

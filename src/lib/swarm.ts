@@ -1,12 +1,21 @@
-import { and, asc, desc, eq, isNull, inArray, sql as rawSql, ne } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  sql as rawSql,
+} from "drizzle-orm";
 import { db } from "@/db";
 import {
-  swarmProjects,
-  swarmTasks,
-  swarmTaskEvents,
   type SwarmProject,
   type SwarmTask,
   type SwarmTaskEvent,
+  swarmProjects,
+  swarmTaskEvents,
+  swarmTasks,
 } from "@/db/schema";
 
 export type TaskStatus =
@@ -167,10 +176,7 @@ export async function createTask(input: {
 }
 
 export async function getTask(id: string): Promise<SwarmTask | null> {
-  const [row] = await db
-    .select()
-    .from(swarmTasks)
-    .where(eq(swarmTasks.id, id));
+  const [row] = await db.select().from(swarmTasks).where(eq(swarmTasks.id, id));
   return row || null;
 }
 

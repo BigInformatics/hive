@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
-import { getMailboxKey, api } from "@/lib/api";
+import { Radio, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, Radio } from "lucide-react";
+import { api, getMailboxKey } from "@/lib/api";
 
 export const Route = createFileRoute("/buzz")({
   component: BuzzPage,
@@ -25,9 +25,7 @@ interface BroadcastEvent {
 }
 
 function timeAgo(date: string): string {
-  const seconds = Math.floor(
-    (Date.now() - new Date(date).getTime()) / 1000,
-  );
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   if (seconds < 60) return "just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -71,9 +69,7 @@ function BuzzCard({
               <Badge variant="outline" className="text-xs shrink-0">
                 {evt.appName}
               </Badge>
-              <span className="font-medium text-sm truncate">
-                {evt.title}
-              </span>
+              <span className="font-medium text-sm truncate">{evt.title}</span>
               {hasBody && !expanded && (
                 <span className="text-xs text-muted-foreground">▸</span>
               )}
@@ -103,7 +99,6 @@ function BuzzCard({
   );
 }
 
-
 function BuzzView({ onLogout }: { onLogout: () => void }) {
   const [events, setEvents] = useState<BroadcastEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -113,13 +108,13 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await api.listBroadcastEvents(
-        appFilter || undefined,
-      );
+      const result = await api.listBroadcastEvents(appFilter || undefined);
       const evts = result.events || [];
       setEvents(evts);
       // Extract unique app names
-      const uniqueApps = [...new Set(evts.map((e: BroadcastEvent) => e.appName))];
+      const uniqueApps = [
+        ...new Set(evts.map((e: BroadcastEvent) => e.appName)),
+      ];
       if (!appFilter) setApps(uniqueApps);
     } catch (err) {
       console.error("Failed to fetch broadcast events:", err);
@@ -145,7 +140,9 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
       <div className="flex items-center justify-between border-b px-3 md:px-4 py-2 gap-2">
         <div className="flex items-center gap-2 shrink-0">
           <Radio className="h-4 w-4 text-primary" />
-          <span className="font-medium text-sm hidden sm:inline">Broadcast Feed</span>
+          <span className="font-medium text-sm hidden sm:inline">
+            Broadcast Feed
+          </span>
           {events.length > 0 && (
             <Badge variant="secondary">{events.length}</Badge>
           )}
@@ -203,4 +200,3 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
-

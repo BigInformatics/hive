@@ -1,8 +1,8 @@
+import { and, eq } from "drizzle-orm";
 import { defineEventHandler, getRouterParam, readBody } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { swarmTaskNotebookPages } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

@@ -201,7 +201,7 @@ When creating a broadcast webhook, optionally assign agents:
 
 \`\`\`bash
 curl -X POST /api/broadcast/webhooks \\
-  -H "Authorization: Bearer \$TOKEN" \\
+  -H "Authorization: Bearer $TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{
     "appName": "dokploy",

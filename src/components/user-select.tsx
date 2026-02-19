@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { Check, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Users, Check, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { getMailboxKey } from "@/lib/api";
 
 interface UserSelectProps {
@@ -36,7 +36,7 @@ export function UserSelect({ value, onChange, className }: UserSelectProps) {
         setUsers([...all].sort());
       })
       .catch(() => {});
-  }, []);
+  }, [value]);
 
   const filtered = users.filter(
     (u) => !search || u.toLowerCase().includes(search.toLowerCase()),
@@ -54,9 +54,7 @@ export function UserSelect({ value, onChange, className }: UserSelectProps) {
 
   const toggle = (user: string) => {
     onChange(
-      value.includes(user)
-        ? value.filter((u) => u !== user)
-        : [...value, user],
+      value.includes(user) ? value.filter((u) => u !== user) : [...value, user],
     );
   };
 
@@ -72,9 +70,7 @@ export function UserSelect({ value, onChange, className }: UserSelectProps) {
             <Users className="mr-2 h-3.5 w-3.5" />
             {value.length > 0 ? (
               <span className="flex items-center gap-1.5">
-                <span className="text-foreground">
-                  {value.length} selected
-                </span>
+                <span className="text-foreground">{value.length} selected</span>
                 <Separator orientation="vertical" className="h-4" />
                 <span className="flex gap-1 flex-wrap">
                   {value.slice(0, 3).map((u) => (

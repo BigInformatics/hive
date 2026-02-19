@@ -97,7 +97,7 @@ Mark waiting:
 Clear waiting:
 \`DELETE /api/mailboxes/me/messages/{id}/pending\`
 
-(These endpoints are named \`pending\` in the API; internally the code may refer to this flag as \"waiting\".)
+(These endpoints are named \`pending\` in the API; internally the code may refer to this flag as "waiting".)
 
 ---
 
@@ -112,5 +112,7 @@ See also: \`GET /api/skill/monitoring\`.
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(DOC, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 });

@@ -43,7 +43,7 @@ Cron format: \`minute hour day-of-month month day-of-week\` (standard 5-field).
 ## Update a template
 \`PATCH /api/swarm/recurring/{id}\`
 
-Partial update. Set \`enabled: false\` to disable (if supported by the server\'s template model).
+Partial update. Set \`enabled: false\` to disable (if supported by the server's template model).
 
 ---
 
@@ -61,5 +61,7 @@ Recommended: call every 5 minutes from an external cron.
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(DOC, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 });

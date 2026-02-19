@@ -1,9 +1,16 @@
 import { useState } from "react";
 
 const COLORS = [
-  "bg-red-500", "bg-orange-500", "bg-amber-500", "bg-green-500",
-  "bg-teal-500", "bg-sky-500", "bg-blue-500", "bg-violet-500",
-  "bg-purple-500", "bg-pink-500",
+  "bg-red-500",
+  "bg-orange-500",
+  "bg-amber-500",
+  "bg-green-500",
+  "bg-teal-500",
+  "bg-sky-500",
+  "bg-blue-500",
+  "bg-violet-500",
+  "bg-purple-500",
+  "bg-pink-500",
 ];
 
 function hashColor(name: string): string {
@@ -31,7 +38,11 @@ const SIZE_MAP = {
  * User avatar with API-backed image and initials fallback.
  * Tries /api/avatars/<name> first; on error shows colored initials.
  */
-export function UserAvatar({ name, className = "", size = "md" }: UserAvatarProps) {
+export function UserAvatar({
+  name,
+  className = "",
+  size = "md",
+}: UserAvatarProps) {
   const [imgError, setImgError] = useState(false);
   const sizeClass = SIZE_MAP[size];
   const initials = name.slice(0, 2).toUpperCase();

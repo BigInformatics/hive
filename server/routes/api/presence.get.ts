@@ -1,7 +1,7 @@
 import { defineEventHandler } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { getPresence, updatePresence } from "@/lib/presence";
 import { getUnreadCounts } from "@/lib/messages";
+import { getPresence, updatePresence } from "@/lib/presence";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

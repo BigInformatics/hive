@@ -14,7 +14,9 @@ export function startScheduler() {
   tickRecurring()
     .then(({ created, errors }) => {
       if (created > 0 || errors > 0) {
-        console.log(`[scheduler] Startup tick: ${created} created, ${errors} errors`);
+        console.log(
+          `[scheduler] Startup tick: ${created} created, ${errors} errors`,
+        );
       }
     })
     .catch((err) => console.error("[scheduler] Startup tick failed:", err));

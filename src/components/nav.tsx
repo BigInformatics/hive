@@ -1,11 +1,20 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Inbox, Radio, Users, LogOut, LayoutList, Settings, Bookmark, BookOpen } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  Bookmark,
+  BookOpen,
+  Inbox,
+  LayoutList,
+  LogOut,
+  Radio,
+  Settings,
+  Users,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from "./theme-toggle";
+import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
-import { clearMailboxKey, api } from "@/lib/api";
-import { useState, useEffect } from "react";
+import { api, clearMailboxKey } from "@/lib/api";
+import { ThemeToggle } from "./theme-toggle";
 
 const navItems = [
   { to: "/", label: "Inbox", icon: Inbox },
@@ -47,16 +56,27 @@ function PresenceDots() {
   const [presence, setPresence] = useState<Record<string, UserPresence>>({});
 
   useEffect(() => {
-    api.getPresence().then(setPresence).catch(() => {});
+    api
+      .getPresence()
+      .then(setPresence)
+      .catch(() => {});
     const interval = setInterval(() => {
-      api.getPresence().then(setPresence).catch(() => {});
+      api
+        .getPresence()
+        .then(setPresence)
+        .catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const users = ALL_USERS.map((name) => ({
     name,
-    info: presence[name] || { online: false, lastSeen: null, source: null, unread: 0 },
+    info: presence[name] || {
+      online: false,
+      lastSeen: null,
+      source: null,
+      unread: 0,
+    },
   })).sort((a, b) => {
     if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
     const aTime = a.info.lastSeen ? new Date(a.info.lastSeen).getTime() : 0;
@@ -89,8 +109,11 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     const fetchUnread = () => {
-      api.listMessages({ status: "unread", limit: 1 })
-        .then((data: any) => setUnreadCount(data.total ?? data.messages?.length ?? 0))
+      api
+        .listMessages({ status: "unread", limit: 1 })
+        .then((data: any) =>
+          setUnreadCount(data.total ?? data.messages?.length ?? 0),
+        )
         .catch(() => {});
     };
     fetchUnread();
@@ -152,7 +175,12 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
         <h1 className="text-lg font-bold">🐝 Hive</h1>
         <div className="flex items-center gap-1">
           <ThemeToggle />
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleLogout}
+          >
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
@@ -170,9 +198,7 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
               <button
                 type="button"
                 className={`flex flex-col items-center gap-0.5 w-full py-1.5 rounded-md transition-colors ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground"
+                  isActive ? "text-primary" : "text-muted-foreground"
                 }`}
               >
                 <div className="relative">

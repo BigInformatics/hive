@@ -16,16 +16,13 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event);
   if (!body?.ids || !Array.isArray(body.ids)) {
-    return new Response(
-      JSON.stringify({ error: "ids array is required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "ids array is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  const result = await ackMessages(
-    auth.identity,
-    body.ids.map(Number),
-  );
+  const result = await ackMessages(auth.identity, body.ids.map(Number));
 
   return result;
 });

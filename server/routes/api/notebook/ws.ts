@@ -1,8 +1,8 @@
+import { eq } from "drizzle-orm";
 import { defineWebSocketHandler } from "h3";
 import * as Y from "yjs";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
-import { eq } from "drizzle-orm";
 
 // ─── In-memory doc store ──────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ interface DocEntry {
 const docs = new Map<string, DocEntry>();
 
 const SAVE_DEBOUNCE_MS = 5_000;
-const SAVE_INTERVAL_MS = 30_000;
+const _SAVE_INTERVAL_MS = 30_000;
 
 async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
   if (docs.has(pageId)) return docs.get(pageId)!;
@@ -54,7 +54,10 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
 
 function scheduleSave(pageId: string, entry: DocEntry) {
   if (entry.saveTimer) clearTimeout(entry.saveTimer);
-  entry.saveTimer = setTimeout(() => persistDoc(pageId, entry), SAVE_DEBOUNCE_MS);
+  entry.saveTimer = setTimeout(
+    () => persistDoc(pageId, entry),
+    SAVE_DEBOUNCE_MS,
+  );
 }
 
 async function persistDoc(pageId: string, entry: DocEntry) {
@@ -87,7 +90,7 @@ function destroyDocIfEmpty(pageId: string) {
 function broadcastToOthers(
   entry: DocEntry,
   excludePeerId: string,
-  message: object
+  message: object,
 ) {
   const data = JSON.stringify(message);
   for (const [, peer] of entry.peers) {
@@ -106,7 +109,9 @@ const peerSockets = new Map<string, any>();
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
-async function authenticateToken(token: string): Promise<{ identity: string; isAdmin: boolean } | null> {
+async function authenticateToken(
+  token: string,
+): Promise<{ identity: string; isAdmin: boolean } | null> {
   const { authenticateTokenAsync } = await import("@/lib/auth");
   return authenticateTokenAsync(token);
 }
@@ -121,7 +126,9 @@ export default defineWebSocketHandler({
     const token = url.searchParams.get("token");
 
     if (!pageId || !token) {
-      peer.send(JSON.stringify({ type: "error", message: "Missing page or token" }));
+      peer.send(
+        JSON.stringify({ type: "error", message: "Missing page or token" }),
+      );
       peer.close(4000, "Missing params");
       return;
     }
@@ -151,20 +158,27 @@ export default defineWebSocketHandler({
 
     // Send initial sync: full document state
     const state = Y.encodeStateAsUpdate(entry.ydoc);
-    peer.send(JSON.stringify({
-      type: "sync",
-      update: Array.from(state),
-    }));
+    peer.send(
+      JSON.stringify({
+        type: "sync",
+        update: Array.from(state),
+      }),
+    );
 
     // Send current viewers
     const viewers = [...entry.peers.values()].map((p) => p.identity);
     const viewerMsg = JSON.stringify({ type: "viewers", viewers });
     for (const [, p] of entry.peers) {
       const ws = peerSockets.get(p.peerId);
-      if (ws) try { ws.send(viewerMsg); } catch {}
+      if (ws)
+        try {
+          ws.send(viewerMsg);
+        } catch {}
     }
 
-    console.log(`[notebook:ws] ${auth.identity} joined ${pageId.slice(0, 8)}… (${entry.peers.size} peers)`);
+    console.log(
+      `[notebook:ws] ${auth.identity} joined ${pageId.slice(0, 8)}… (${entry.peers.size} peers)`,
+    );
   },
 
   async message(peer, rawMessage) {
@@ -176,7 +190,9 @@ export default defineWebSocketHandler({
     if (!entry) return;
 
     try {
-      const msg = JSON.parse(typeof rawMessage === "string" ? rawMessage : rawMessage.text());
+      const msg = JSON.parse(
+        typeof rawMessage === "string" ? rawMessage : rawMessage.text(),
+      );
 
       if (msg.type === "update" && Array.isArray(msg.update)) {
         // Apply Yjs update from client
@@ -205,14 +221,19 @@ export default defineWebSocketHandler({
 
     if (entry) {
       entry.peers.delete(peerId);
-      console.log(`[notebook:ws] ${identity} left ${pageId.slice(0, 8)}… (${entry.peers.size} peers)`);
+      console.log(
+        `[notebook:ws] ${identity} left ${pageId.slice(0, 8)}… (${entry.peers.size} peers)`,
+      );
 
       // Broadcast updated viewers
       const viewers = [...entry.peers.values()].map((p) => p.identity);
       const viewerMsg = JSON.stringify({ type: "viewers", viewers });
       for (const [, p] of entry.peers) {
         const ws = peerSockets.get(p.peerId);
-        if (ws) try { ws.send(viewerMsg); } catch {}
+        if (ws)
+          try {
+            ws.send(viewerMsg);
+          } catch {}
       }
 
       // Destroy if no peers left
@@ -220,7 +241,7 @@ export default defineWebSocketHandler({
     }
   },
 
-  error(peer, error) {
+  error(_peer, error) {
     console.error("[notebook:ws] error:", error);
   },
 });

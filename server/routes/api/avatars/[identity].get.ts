@@ -1,8 +1,14 @@
-import { defineEventHandler, getRouterParam, sendStream, setResponseHeader } from "h3";
-import { join } from "node:path";
 import { createReadStream, existsSync } from "node:fs";
+import { join } from "node:path";
+import {
+  defineEventHandler,
+  getRouterParam,
+  sendStream,
+  setResponseHeader,
+} from "h3";
 
-const AVATAR_DIR = process.env.AVATAR_DIR || join(process.cwd(), "public", "avatars");
+const AVATAR_DIR =
+  process.env.AVATAR_DIR || join(process.cwd(), "public", "avatars");
 const EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".svg"];
 
 /**
@@ -26,7 +32,11 @@ export default defineEventHandler(async (event) => {
         ".webp": "image/webp",
         ".svg": "image/svg+xml",
       };
-      setResponseHeader(event, "Content-Type", mimeMap[ext] || "application/octet-stream");
+      setResponseHeader(
+        event,
+        "Content-Type",
+        mimeMap[ext] || "application/octet-stream",
+      );
       setResponseHeader(event, "Cache-Control", "public, max-age=3600");
       return sendStream(event, createReadStream(filePath));
     }
