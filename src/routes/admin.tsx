@@ -1511,7 +1511,7 @@ function AuthPanel() {
   const [inviteTab, setInviteTab] = useState<"active" | "used">("active");
   const [tokenTab, setTokenTab] = useState<"active" | "revoked">("active");
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const [inv, tok] = await Promise.all([
@@ -1523,7 +1523,7 @@ function AuthPanel() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAll();
