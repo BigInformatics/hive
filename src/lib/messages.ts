@@ -216,7 +216,7 @@ export async function replyToMessage(
     .values({
       recipient: original.sender,
       sender,
-      title: `Re: ${original.title}`,
+      title: original.title.startsWith('Re: ') ? original.title : `Re: ${original.title}`,
       body,
       replyToMessageId: originalMessageId,
       threadId: original.threadId || originalMessageId.toString(),

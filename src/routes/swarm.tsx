@@ -38,6 +38,7 @@ import {
   Pencil,
   Copy,
   Check,
+  Search,
 } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 
@@ -167,6 +168,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [mobileStatus, setMobileStatus] = useState<string>("ready");
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -222,6 +224,12 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const filteredTasks = tasks.filter((t) => {
     if (filterAssignee && t.assigneeUserId !== filterAssignee) return false;
     if (filterProject && t.projectId !== filterProject) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = t.title.toLowerCase().includes(q);
+      const matchDetail = t.detail?.toLowerCase().includes(q);
+      if (!matchTitle && !matchDetail) return false;
+    }
     return true;
   });
 
@@ -259,6 +267,19 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
           >
             <Plus className="h-3.5 w-3.5 mr-1" /> Project
           </Button>
+
+          <div className="h-4 w-px bg-border mx-1" />
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-7 w-48 pl-7 text-xs"
+            />
+          </div>
 
           <div className="h-4 w-px bg-border mx-1" />
 
@@ -399,6 +420,17 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
+        </div>
+
+        {/* Search — mobile */}
+        <div className="relative px-3 pb-2">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 text-xs"
+          />
         </div>
 
         {/* Status tabs — mobile */}
