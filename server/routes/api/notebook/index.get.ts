@@ -1,4 +1,4 @@
-import { and, desc, ilike, or, sql } from "drizzle-orm";
+import { and, desc, ilike, isNull, or, sql } from "drizzle-orm";
 import { defineEventHandler, getQuery } from "h3";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
@@ -21,14 +21,14 @@ export default defineEventHandler(async (event) => {
   );
   const offset = parseInt((query.offset as string) || "0", 10) || 0;
 
-  const conditions: any[] = [];
+  const conditions: any[] = [isNull(notebookPages.archivedAt)];
 
   if (!auth.isAdmin) {
     conditions.push(
       or(
         sql`${notebookPages.taggedUsers} IS NULL`,
         sql`${notebookPages.taggedUsers} = '[]'::jsonb`,
-        sql`${notebookPages.taggedUsers} @> ${sql.raw(`'${JSON.stringify([auth.identity]).replace(/'/g, "''")}'::jsonb`)}`,
+        sql`${notebookPages.taggedUsers} @> ${sql`${JSON.stringify([auth.identity])}::jsonb`}`,
         sql`${notebookPages.createdBy} = ${auth.identity}`,
       ),
     );

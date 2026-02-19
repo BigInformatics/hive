@@ -8,190 +8,190 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as AdminRouteImport } from "./routes/admin";
-import { Route as BuzzRouteImport } from "./routes/buzz";
-import { Route as DirectoryRouteImport } from "./routes/directory";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as NotebookRouteImport } from "./routes/notebook";
-import { Route as OnboardRouteImport } from "./routes/onboard";
-import { Route as PresenceRouteImport } from "./routes/presence";
-import { Route as SwarmRouteImport } from "./routes/swarm";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as SwarmRouteImport } from './routes/swarm'
+import { Route as PresenceRouteImport } from './routes/presence'
+import { Route as OnboardRouteImport } from './routes/onboard'
+import { Route as NotebookRouteImport } from './routes/notebook'
+import { Route as DirectoryRouteImport } from './routes/directory'
+import { Route as BuzzRouteImport } from './routes/buzz'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as IndexRouteImport } from './routes/index'
 
 const SwarmRoute = SwarmRouteImport.update({
-  id: "/swarm",
-  path: "/swarm",
+  id: '/swarm',
+  path: '/swarm',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PresenceRoute = PresenceRouteImport.update({
-  id: "/presence",
-  path: "/presence",
+  id: '/presence',
+  path: '/presence',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const OnboardRoute = OnboardRouteImport.update({
-  id: "/onboard",
-  path: "/onboard",
+  id: '/onboard',
+  path: '/onboard',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const NotebookRoute = NotebookRouteImport.update({
-  id: "/notebook",
-  path: "/notebook",
+  id: '/notebook',
+  path: '/notebook',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const DirectoryRoute = DirectoryRouteImport.update({
-  id: "/directory",
-  path: "/directory",
+  id: '/directory',
+  path: '/directory',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const BuzzRoute = BuzzRouteImport.update({
-  id: "/buzz",
-  path: "/buzz",
+  id: '/buzz',
+  path: '/buzz',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AdminRoute = AdminRouteImport.update({
-  id: "/admin",
-  path: "/admin",
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/buzz": typeof BuzzRoute;
-  "/directory": typeof DirectoryRoute;
-  "/notebook": typeof NotebookRoute;
-  "/onboard": typeof OnboardRoute;
-  "/presence": typeof PresenceRoute;
-  "/swarm": typeof SwarmRoute;
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/buzz': typeof BuzzRoute
+  '/directory': typeof DirectoryRoute
+  '/notebook': typeof NotebookRoute
+  '/onboard': typeof OnboardRoute
+  '/presence': typeof PresenceRoute
+  '/swarm': typeof SwarmRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/buzz": typeof BuzzRoute;
-  "/directory": typeof DirectoryRoute;
-  "/notebook": typeof NotebookRoute;
-  "/onboard": typeof OnboardRoute;
-  "/presence": typeof PresenceRoute;
-  "/swarm": typeof SwarmRoute;
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/buzz': typeof BuzzRoute
+  '/directory': typeof DirectoryRoute
+  '/notebook': typeof NotebookRoute
+  '/onboard': typeof OnboardRoute
+  '/presence': typeof PresenceRoute
+  '/swarm': typeof SwarmRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/buzz": typeof BuzzRoute;
-  "/directory": typeof DirectoryRoute;
-  "/notebook": typeof NotebookRoute;
-  "/onboard": typeof OnboardRoute;
-  "/presence": typeof PresenceRoute;
-  "/swarm": typeof SwarmRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/buzz': typeof BuzzRoute
+  '/directory': typeof DirectoryRoute
+  '/notebook': typeof NotebookRoute
+  '/onboard': typeof OnboardRoute
+  '/presence': typeof PresenceRoute
+  '/swarm': typeof SwarmRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/admin"
-    | "/buzz"
-    | "/directory"
-    | "/notebook"
-    | "/onboard"
-    | "/presence"
-    | "/swarm";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/admin'
+    | '/buzz'
+    | '/directory'
+    | '/notebook'
+    | '/onboard'
+    | '/presence'
+    | '/swarm'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/admin"
-    | "/buzz"
-    | "/directory"
-    | "/notebook"
-    | "/onboard"
-    | "/presence"
-    | "/swarm";
+    | '/'
+    | '/admin'
+    | '/buzz'
+    | '/directory'
+    | '/notebook'
+    | '/onboard'
+    | '/presence'
+    | '/swarm'
   id:
-    | "__root__"
-    | "/"
-    | "/admin"
-    | "/buzz"
-    | "/directory"
-    | "/notebook"
-    | "/onboard"
-    | "/presence"
-    | "/swarm";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/buzz'
+    | '/directory'
+    | '/notebook'
+    | '/onboard'
+    | '/presence'
+    | '/swarm'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AdminRoute: typeof AdminRoute;
-  BuzzRoute: typeof BuzzRoute;
-  DirectoryRoute: typeof DirectoryRoute;
-  NotebookRoute: typeof NotebookRoute;
-  OnboardRoute: typeof OnboardRoute;
-  PresenceRoute: typeof PresenceRoute;
-  SwarmRoute: typeof SwarmRoute;
+  IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  BuzzRoute: typeof BuzzRoute
+  DirectoryRoute: typeof DirectoryRoute
+  NotebookRoute: typeof NotebookRoute
+  OnboardRoute: typeof OnboardRoute
+  PresenceRoute: typeof PresenceRoute
+  SwarmRoute: typeof SwarmRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/swarm": {
-      id: "/swarm";
-      path: "/swarm";
-      fullPath: "/swarm";
-      preLoaderRoute: typeof SwarmRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/presence": {
-      id: "/presence";
-      path: "/presence";
-      fullPath: "/presence";
-      preLoaderRoute: typeof PresenceRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/onboard": {
-      id: "/onboard";
-      path: "/onboard";
-      fullPath: "/onboard";
-      preLoaderRoute: typeof OnboardRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/notebook": {
-      id: "/notebook";
-      path: "/notebook";
-      fullPath: "/notebook";
-      preLoaderRoute: typeof NotebookRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/directory": {
-      id: "/directory";
-      path: "/directory";
-      fullPath: "/directory";
-      preLoaderRoute: typeof DirectoryRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/buzz": {
-      id: "/buzz";
-      path: "/buzz";
-      fullPath: "/buzz";
-      preLoaderRoute: typeof BuzzRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/admin": {
-      id: "/admin";
-      path: "/admin";
-      fullPath: "/admin";
-      preLoaderRoute: typeof AdminRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/swarm': {
+      id: '/swarm'
+      path: '/swarm'
+      fullPath: '/swarm'
+      preLoaderRoute: typeof SwarmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/presence': {
+      id: '/presence'
+      path: '/presence'
+      fullPath: '/presence'
+      preLoaderRoute: typeof PresenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboard': {
+      id: '/onboard'
+      path: '/onboard'
+      fullPath: '/onboard'
+      preLoaderRoute: typeof OnboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notebook': {
+      id: '/notebook'
+      path: '/notebook'
+      fullPath: '/notebook'
+      preLoaderRoute: typeof NotebookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/directory': {
+      id: '/directory'
+      path: '/directory'
+      fullPath: '/directory'
+      preLoaderRoute: typeof DirectoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/buzz': {
+      id: '/buzz'
+      path: '/buzz'
+      fullPath: '/buzz'
+      preLoaderRoute: typeof BuzzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,16 +204,16 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardRoute: OnboardRoute,
   PresenceRoute: PresenceRoute,
   SwarmRoute: SwarmRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx";
-
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }

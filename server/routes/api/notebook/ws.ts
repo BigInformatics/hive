@@ -11,6 +11,8 @@ interface DocEntry {
   peers: Map<string, { identity: string; peerId: string }>;
   saveTimer: ReturnType<typeof setTimeout> | null;
   lastSaved: number;
+  locked: boolean;
+  archivedAt: Date | null;
 }
 
 const docs = new Map<string, DocEntry>();
@@ -23,7 +25,11 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
 
   // Load from DB
   const [page] = await db
-    .select({ content: notebookPages.content })
+    .select({
+      content: notebookPages.content,
+      locked: notebookPages.locked,
+      archivedAt: notebookPages.archivedAt,
+    })
     .from(notebookPages)
     .where(eq(notebookPages.id, pageId))
     .limit(1);
@@ -41,6 +47,8 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
     peers: new Map(),
     saveTimer: null,
     lastSaved: Date.now(),
+    locked: page.locked,
+    archivedAt: page.archivedAt,
   };
 
   // Listen for updates to schedule saves
@@ -195,6 +203,19 @@ export default defineWebSocketHandler({
       );
 
       if (msg.type === "update" && Array.isArray(msg.update)) {
+        // Reject edits on locked or archived pages (cached state)
+        if (entry.archivedAt || entry.locked) {
+          const reason = entry.archivedAt ? "archived" : "locked";
+          peer.send(
+            JSON.stringify({
+              type: "readonly",
+              reason,
+              message: `Page is ${reason}`,
+            }),
+          );
+          return;
+        }
+
         // Apply Yjs update from client
         const update = new Uint8Array(msg.update);
         Y.applyUpdate(entry.ydoc, update, peerId);
@@ -245,3 +266,32 @@ export default defineWebSocketHandler({
     console.error("[notebook:ws] error:", error);
   },
 });
+
+/**
+ * Update cached lock/archive state for a page and notify connected peers.
+ * Call from PATCH endpoint when lock or archive state changes.
+ */
+export function notifyPageStateChange(
+  pageId: string,
+  state: { locked?: boolean; archivedAt?: Date | null },
+) {
+  const entry = docs.get(pageId);
+  if (!entry) return;
+
+  if (state.locked !== undefined) entry.locked = state.locked;
+  if (state.archivedAt !== undefined) entry.archivedAt = state.archivedAt;
+
+  // Notify all connected peers about the state change
+  const reason = entry.archivedAt ? "archived" : entry.locked ? "locked" : null;
+  const msg = reason
+    ? JSON.stringify({ type: "readonly", reason, message: `Page is ${reason}` })
+    : JSON.stringify({ type: "editable" });
+
+  for (const [, peer] of entry.peers) {
+    const ws = peerSockets.get(peer.peerId);
+    if (ws)
+      try {
+        ws.send(msg);
+      } catch {}
+  }
+}

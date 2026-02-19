@@ -7,6 +7,7 @@ services:
       - "3000"
     volumes:
       - avatar-data:/app/public/avatars
+      - attachment-data:/app/data/attachments
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -53,6 +54,7 @@ services:
 
 volumes:
   avatar-data:
+  attachment-data:
 
 networks:
   dokploy-network:

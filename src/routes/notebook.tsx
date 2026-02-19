@@ -52,6 +52,7 @@ interface PageSummary {
   lockedBy: string | null;
   expiresAt: string | null;
   reviewAt: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -457,6 +458,29 @@ function PageEditor({
       .finally(() => setLoading(false));
   }, [pageId]);
 
+  // Auto-refresh in preview mode (poll every 10s for changes)
+  useEffect(() => {
+    if (mode !== "preview") return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.getNotebookPage(pageId);
+        if (data.page) {
+          // Only update if content actually changed
+          if (data.page.content !== contentRef.current) {
+            setContent(data.page.content);
+            contentRef.current = data.page.content;
+          }
+          setPage(data.page);
+          // Only update title if it changed server-side (avoid overwriting in-progress edits)
+          setTitle((prev) =>
+            prev !== data.page.title ? data.page.title : prev,
+          );
+        }
+      } catch {}
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [mode, pageId]);
+
   const handleContentChange = useCallback((val: string) => {
     setContent(val);
     contentRef.current = val;
@@ -477,13 +501,15 @@ function PageEditor({
         locked: !page.locked,
       });
       setPage(data.page);
+      // Switch to preview when locking
+      if (data.page.locked) setMode("preview");
     } catch (e: any) {
       alert(e?.message ?? "Failed to toggle lock");
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this page permanently?")) return;
+    if (!confirm("Archive this page? It can be restored later.")) return;
     try {
       await api.deleteNotebookPage(pageId);
       onBack();
@@ -495,7 +521,8 @@ function PageEditor({
   const isOwnerOrAdmin = page
     ? identity === page.createdBy || identity === "chris"
     : false;
-  const isLocked = page?.locked && !isOwnerOrAdmin;
+  const isLocked = !!page?.locked;
+  const isArchived = !!page?.archivedAt;
 
   if (loading) {
     return (
@@ -611,7 +638,7 @@ function PageEditor({
                 size="icon"
                 className="h-7 w-7 text-muted-foreground hover:text-destructive"
                 onClick={handleDelete}
-                title="Delete page"
+                title="Archive page"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -625,9 +652,20 @@ function PageEditor({
           onChange={(e) => setTitle(e.target.value)}
           onBlur={handleTitleSave}
           className="text-lg font-semibold border-0 border-b rounded-none px-0 mb-2 focus-visible:ring-0"
-          disabled={isLocked}
+          disabled={isLocked || isArchived}
           placeholder="Page title"
         />
+
+        {/* Archived banner */}
+        {isArchived && (
+          <div className="flex items-center gap-2 rounded-md border border-muted-foreground/50 bg-muted px-3 py-2 mb-3 text-sm text-muted-foreground">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              This page was archived on {formatDate(page.archivedAt!)}. Content
+              is read-only.
+            </span>
+          </div>
+        )}
 
         {/* Expiration / Review banners */}
         {page.expiresAt && new Date(page.expiresAt) < new Date() && (
@@ -698,7 +736,15 @@ function PageEditor({
           <Button
             variant={mode === "source" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setMode("source")}
+            onClick={() => !isLocked && !isArchived && setMode("source")}
+            disabled={isLocked || isArchived}
+            title={
+              isArchived
+                ? "Page is archived"
+                : isLocked
+                  ? "Unlock the page to edit"
+                  : undefined
+            }
           >
             <Code2 className="h-3.5 w-3.5 mr-1" /> Source
           </Button>
@@ -714,6 +760,19 @@ function PageEditor({
             pageId={pageId}
             token={authToken || undefined}
             onViewersChange={setViewers}
+            onReadonlyChange={(ro) => {
+              if (ro) {
+                // Page became locked/archived while editing — reload page state and switch to preview
+                api.getNotebookPage(pageId).then((data: any) => {
+                  if (data.page) {
+                    setPage(data.page);
+                    setContent(data.page.content);
+                    contentRef.current = data.page.content;
+                  }
+                });
+                setMode("preview");
+              }
+            }}
           />
         ) : (
           <div

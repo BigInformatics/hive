@@ -370,6 +370,7 @@ export const notebookPages = pgTable(
     reviewAt: timestamp("review_at", { withTimezone: true }),
     locked: boolean("locked").notNull().default(false),
     lockedBy: varchar("locked_by", { length: 50 }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -401,6 +402,61 @@ export const directoryEntries = pgTable(
 );
 
 // ============================================================
+// CONTENT ↔ PROJECT TAGS (polymorphic tagging)
+// ============================================================
+
+export const contentProjectTags = pgTable(
+  "content_project_tags",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => swarmProjects.id, { onDelete: "cascade" }),
+    contentType: varchar("content_type", { length: 20 }).notNull(), // 'message' | 'chat_message' | 'notebook_page' | 'directory_link'
+    contentId: text("content_id").notNull(),
+    taggedBy: varchar("tagged_by", { length: 50 }).notNull(),
+    taggedAt: timestamp("tagged_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_content_project_tags_project").on(table.projectId),
+    index("idx_content_project_tags_content").on(
+      table.contentType,
+      table.contentId,
+    ),
+  ],
+);
+
+// ============================================================
+// ATTACHMENTS — files on tasks and notebook pages
+// ============================================================
+
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    entityType: varchar("entity_type", { length: 20 }).notNull(), // 'task' | 'notebook_page'
+    entityId: text("entity_id").notNull(),
+    filename: text("filename").notNull(), // stored filename (uuid + ext)
+    originalName: text("original_name").notNull(),
+    mimeType: varchar("mime_type", { length: 100 }).notNull(),
+    size: integer("size").notNull(), // bytes
+    createdBy: varchar("created_by", { length: 50 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_attachments_entity").on(table.entityType, table.entityId),
+  ],
+);
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -421,3 +477,5 @@ export type Invite = typeof invites.$inferSelect;
 export type DirectoryEntry = typeof directoryEntries.$inferSelect;
 export type NotebookPage = typeof notebookPages.$inferSelect;
 export type SwarmTaskNotebookPage = typeof swarmTaskNotebookPages.$inferSelect;
+export type Attachment = typeof attachments.$inferSelect;
+export type ContentProjectTag = typeof contentProjectTags.$inferSelect;

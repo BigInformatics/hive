@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
         or(
           sql`${directoryEntries.taggedUsers} IS NULL`,
           sql`${directoryEntries.taggedUsers} = '[]'::jsonb`,
-          sql`${directoryEntries.taggedUsers} @> ${sql.raw(`'${JSON.stringify([auth.identity]).replace(/'/g, "''")}'::jsonb`)}`,
+          sql`${directoryEntries.taggedUsers} @> ${sql`${JSON.stringify([auth.identity])}::jsonb`}`,
           sql`${directoryEntries.createdBy} = ${auth.identity}`,
         ),
       );

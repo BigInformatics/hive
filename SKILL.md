@@ -198,6 +198,64 @@ All skill docs are available via API:
 
 ---
 
+## Project Tagging
+
+Tag any Hive content with a project to build organized project context.
+
+### Tag content
+`POST /api/swarm/projects/:id/tags`
+
+Body: `{ "contentType": "message"|"chat_message"|"notebook_page"|"directory_link", "contentId": "<id>" }`
+
+### Remove tag
+`DELETE /api/swarm/projects/:id/tags`
+
+Body: `{ "contentType": "...", "contentId": "<id>" }`
+
+### List tags for a project
+`GET /api/swarm/projects/:id/tags?contentType=notebook_page`
+
+### Get full project context
+`GET /api/swarm/projects/:id/context`
+
+Returns an organized document with:
+- **Project info** (title, description, links)
+- **Tasks** (all tasks in the project)
+- **Tagged content** (messages, chat messages, notebook pages, directory links)
+
+Respects user visibility: mailbox messages only if sender/recipient, chat messages only from channels the user is a member of.
+
+---
+
+## Attachments
+
+Attach files to **tasks** and **notebook pages**. Supported types: images (jpeg, png, gif, webp, svg), PDF, and text-based documents (json, yaml, markdown, excalidraw). Max file size: **10MB**.
+
+### Upload
+`POST /api/attachments` — multipart form data
+
+Fields:
+- `file` — the file to upload
+- `entityType` — `task` or `notebook_page`
+- `entityId` — the task ID or notebook page ID
+
+Response: `{ id, entityType, entityId, originalName, mimeType, size, url, createdBy, createdAt }`
+
+### List attachments for an entity
+`GET /api/attachments?entityType=task&entityId=<id>`
+
+Response: `{ attachments: [...] }`
+
+### Download/view
+`GET /api/attachments/:id` — returns the file with proper Content-Type
+
+### Delete
+`DELETE /api/attachments/:id` — creator or admin only
+
+Response: `{ deleted: true, id }`
+
+---
+
 ## Failure modes
 
 - `401 Unauthorized` - token missing/invalid
