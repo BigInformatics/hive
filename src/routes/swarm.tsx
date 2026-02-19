@@ -467,34 +467,16 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
           />
         </div>
 
-        {/* Status tabs — mobile */}
-        <div className="flex overflow-x-auto px-3 pb-2 gap-1 no-scrollbar">
-          {visibleStatuses.map((status) => {
-            const config = STATUS_CONFIG[status];
-            if (!config) return null;
-            const count = filteredTasks.filter((t) => t.status === status).length;
-            const StatusIcon = config.icon;
-            return (
-              <button
-                key={status}
-                type="button"
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                  mobileStatus === status
-                    ? `${config.bgColor} ${config.color} ring-1 ring-current`
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-                onClick={() => setMobileStatus(status)}
-              >
-                <StatusIcon className="h-3 w-3" />
-                {config.label}
-                {count > 0 && (
-                  <span className="ml-0.5 bg-foreground/10 rounded-full px-1.5 text-[10px]">
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* Show completed toggle — mobile */}
+        <div className="flex items-center justify-between px-3 pb-2">
+          <Button
+            variant={showCompleted ? "secondary" : "ghost"}
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => setShowCompleted(!showCompleted)}
+          >
+            {showCompleted ? "Hide done" : "Show done"}
+          </Button>
         </div>
       </div>
 
@@ -560,30 +542,14 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
             </div>
           </div>
 
-          {/* Mobile board — single column based on selected status */}
-          <div className="flex md:hidden flex-1 overflow-y-auto p-3 space-y-2">
-            {(() => {
-              const statusTasks = filteredTasks.filter((t) => t.status === mobileStatus);
-              if (statusTasks.length === 0) {
-                return (
-                  <p className="text-sm text-muted-foreground text-center py-12">
-                    No tasks
-                  </p>
-                );
-              }
-              return statusTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  project={task.projectId ? projectMap.get(task.projectId) : undefined}
-                  onDragStart={() => {}}
-                  onDragEnd={() => {}}
-                  isDragging={false}
-                  onStatusChange={handleStatusChange}
-                  onClick={() => setEditTask(task)}
-                />
-              ));
-            })()}
+          {/* Mobile — always use list view */}
+          <div className="flex md:hidden flex-1 overflow-y-auto">
+            <ListView
+              groupedTasks={groupedTasks}
+              projectMap={projectMap}
+              onStatusChange={handleStatusChange}
+              onTaskClick={(t) => setEditTask(t)}
+            />
           </div>
         </>
       ) : (
