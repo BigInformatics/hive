@@ -370,6 +370,7 @@ export const notebookPages = pgTable(
     reviewAt: timestamp("review_at", { withTimezone: true }),
     locked: boolean("locked").notNull().default(false),
     lockedBy: varchar("locked_by", { length: 50 }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

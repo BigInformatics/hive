@@ -41,7 +41,10 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  await db.delete(notebookPages).where(eq(notebookPages.id, id));
+  await db
+    .update(notebookPages)
+    .set({ archivedAt: new Date() })
+    .where(eq(notebookPages.id, id));
 
   return { success: true };
 });

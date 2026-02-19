@@ -52,6 +52,7 @@ interface PageSummary {
   lockedBy: string | null;
   expiresAt: string | null;
   reviewAt: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -505,7 +506,7 @@ function PageEditor({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this page permanently?")) return;
+    if (!confirm("Archive this page? It can be restored later.")) return;
     try {
       await api.deleteNotebookPage(pageId);
       onBack();
@@ -518,6 +519,7 @@ function PageEditor({
     ? identity === page.createdBy || identity === "chris"
     : false;
   const isLocked = !!page?.locked;
+  const isArchived = !!page?.archivedAt;
 
   if (loading) {
     return (
@@ -633,7 +635,7 @@ function PageEditor({
                 size="icon"
                 className="h-7 w-7 text-muted-foreground hover:text-destructive"
                 onClick={handleDelete}
-                title="Delete page"
+                title="Archive page"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -647,9 +649,20 @@ function PageEditor({
           onChange={(e) => setTitle(e.target.value)}
           onBlur={handleTitleSave}
           className="text-lg font-semibold border-0 border-b rounded-none px-0 mb-2 focus-visible:ring-0"
-          disabled={isLocked}
+          disabled={isLocked || isArchived}
           placeholder="Page title"
         />
+
+        {/* Archived banner */}
+        {isArchived && (
+          <div className="flex items-center gap-2 rounded-md border border-muted-foreground/50 bg-muted px-3 py-2 mb-3 text-sm text-muted-foreground">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              This page was archived on {formatDate(page.archivedAt!)}. Content
+              is read-only.
+            </span>
+          </div>
+        )}
 
         {/* Expiration / Review banners */}
         {page.expiresAt && new Date(page.expiresAt) < new Date() && (
@@ -720,9 +733,15 @@ function PageEditor({
           <Button
             variant={mode === "source" ? "default" : "ghost"}
             size="sm"
-            onClick={() => !isLocked && setMode("source")}
-            disabled={isLocked}
-            title={isLocked ? "Unlock the page to edit" : undefined}
+            onClick={() => !isLocked && !isArchived && setMode("source")}
+            disabled={isLocked || isArchived}
+            title={
+              isArchived
+                ? "Page is archived"
+                : isLocked
+                  ? "Unlock the page to edit"
+                  : undefined
+            }
           >
             <Code2 className="h-3.5 w-3.5 mr-1" /> Source
           </Button>
