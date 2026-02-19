@@ -1,15 +1,15 @@
 import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
+import { eq } from "drizzle-orm";
 import {
   defineEventHandler,
   getRouterParam,
   sendStream,
   setResponseHeader,
 } from "h3";
-import { eq } from "drizzle-orm";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { attachments } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 
 const ATTACHMENT_DIR =
   process.env.ATTACHMENT_DIR || join(process.cwd(), "data", "attachments");

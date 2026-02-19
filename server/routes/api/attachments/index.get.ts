@@ -1,8 +1,8 @@
-import { defineEventHandler, getQuery } from "h3";
 import { and, eq } from "drizzle-orm";
-import { authenticateEvent } from "@/lib/auth";
+import { defineEventHandler, getQuery } from "h3";
 import { db } from "@/db";
 import { attachments } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 
 /**
  * GET /api/attachments?entityType=task&entityId=xxx
@@ -23,7 +23,9 @@ export default defineEventHandler(async (event) => {
 
   if (!entityType || !entityId) {
     return new Response(
-      JSON.stringify({ error: "entityType and entityId query params required" }),
+      JSON.stringify({
+        error: "entityType and entityId query params required",
+      }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }

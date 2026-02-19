@@ -3,7 +3,7 @@ import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
 import { authenticateEvent } from "@/lib/auth";
-import { notifyPageStateChange } from "../ws";
+import { notifyPageStateChange } from "./ws";
 
 function canAccess(
   page: { createdBy: string; taggedUsers: string[] | null },

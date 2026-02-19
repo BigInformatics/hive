@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { defineEventHandler, readMultipartFormData } from "h3";
 import { eq } from "drizzle-orm";
-import { authenticateEvent } from "@/lib/auth";
+import { defineEventHandler, readMultipartFormData } from "h3";
 import { db } from "@/db";
-import { attachments, swarmTasks, notebookPages } from "@/db/schema";
+import { attachments, notebookPages, swarmTasks } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 
 const ATTACHMENT_DIR =
   process.env.ATTACHMENT_DIR || join(process.cwd(), "data", "attachments");
@@ -115,10 +115,10 @@ export default defineEventHandler(async (event) => {
   const mimeType = file.type || "application/octet-stream";
 
   if (!ALLOWED_TYPES.has(mimeType) && !ALLOWED_EXTENSIONS.has(ext)) {
-    return new Response(
-      JSON.stringify({ error: "File type not allowed" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "File type not allowed" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // Verify the entity exists

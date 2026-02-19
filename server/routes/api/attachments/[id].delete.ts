@@ -1,10 +1,10 @@
 import { unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { defineEventHandler, getRouterParam } from "h3";
 import { eq } from "drizzle-orm";
-import { authenticateEvent } from "@/lib/auth";
+import { defineEventHandler, getRouterParam } from "h3";
 import { db } from "@/db";
 import { attachments } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 
 const ATTACHMENT_DIR =
   process.env.ATTACHMENT_DIR || join(process.cwd(), "data", "attachments");

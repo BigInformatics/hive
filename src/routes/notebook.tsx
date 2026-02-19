@@ -760,6 +760,19 @@ function PageEditor({
             pageId={pageId}
             token={authToken || undefined}
             onViewersChange={setViewers}
+            onReadonlyChange={(ro) => {
+              if (ro) {
+                // Page became locked/archived while editing — reload page state and switch to preview
+                api.getNotebookPage(pageId).then((data: any) => {
+                  if (data.page) {
+                    setPage(data.page);
+                    setContent(data.page.content);
+                    contentRef.current = data.page.content;
+                  }
+                });
+                setMode("preview");
+              }
+            }}
           />
         ) : (
           <div
