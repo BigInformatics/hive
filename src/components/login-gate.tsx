@@ -41,7 +41,10 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">🐝 Hive</CardTitle>
+          <div className="flex justify-center mb-2">
+            <img src="/logo-light.png" alt="Hive" className="h-12 w-auto dark:hidden" />
+            <img src="/logo-dark.png" alt="Hive" className="h-12 w-auto hidden dark:block" />
+          </div>
           <p className="text-sm text-muted-foreground">
             Enter your mailbox key to continue
           </p>
