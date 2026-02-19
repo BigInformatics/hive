@@ -1,12 +1,12 @@
+import { randomBytes } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  broadcastWebhooks,
-  broadcastEvents,
-  type BroadcastWebhook,
   type BroadcastEvent,
+  type BroadcastWebhook,
+  broadcastEvents,
+  broadcastWebhooks,
 } from "@/db/schema";
-import { randomBytes } from "crypto";
 
 function generateToken(): string {
   return randomBytes(7).toString("hex");
@@ -125,7 +125,7 @@ export async function listEvents(params?: {
     rows = rows.filter((e) => {
       if (!e.forUsers) return true;
       const users = e.forUsers.split(",").map((u) => u.trim().toLowerCase());
-      return users.includes(params.forUser!.toLowerCase());
+      return users.includes(params.forUser?.toLowerCase());
     });
   }
 

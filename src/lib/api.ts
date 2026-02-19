@@ -54,10 +54,11 @@ export const api = {
   sendMessage: (
     recipient: string,
     data: { title: string; body?: string; urgent?: boolean },
-  ) => apiFetch(`/mailboxes/${recipient}/messages`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  }),
+  ) =>
+    apiFetch(`/mailboxes/${recipient}/messages`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   ackMessage: (id: number) =>
     apiFetch(`/mailboxes/me/messages/${id}/ack`, { method: "POST" }),
@@ -98,7 +99,11 @@ export const api = {
 
   listWebhooks: () => apiFetch("/broadcast/webhooks"),
 
-  createWebhook: (data: { appName: string; title: string; forUsers?: string }) =>
+  createWebhook: (data: {
+    appName: string;
+    title: string;
+    forUsers?: string;
+  }) =>
     apiFetch("/broadcast/webhooks", {
       method: "POST",
       body: JSON.stringify(data),
@@ -152,8 +157,7 @@ export const api = {
     if (params?.statuses) searchParams.set("statuses", params.statuses);
     if (params?.assignee) searchParams.set("assignee", params.assignee);
     if (params?.projectId) searchParams.set("projectId", params.projectId);
-    if (params?.includeCompleted)
-      searchParams.set("includeCompleted", "true");
+    if (params?.includeCompleted) searchParams.set("includeCompleted", "true");
     const qs = searchParams.toString();
     return apiFetch(`/swarm/tasks${qs ? `?${qs}` : ""}`);
   },
@@ -162,6 +166,7 @@ export const api = {
     title: string;
     projectId?: string;
     detail?: string;
+    followUp?: string;
     issueUrl?: string;
     assigneeUserId?: string;
     status?: string;
@@ -187,9 +192,27 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Task notebook page links
+  getTaskNotebookPages: (taskId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/notebook-pages`),
+
+  linkNotebookPage: (taskId: string, notebookPageId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/notebook-pages`, {
+      method: "POST",
+      body: JSON.stringify({ notebookPageId }),
+    }),
+
+  unlinkNotebookPage: (taskId: string, notebookPageId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/notebook-pages`, {
+      method: "DELETE",
+      body: JSON.stringify({ notebookPageId }),
+    }),
+
   // Recurring templates
   listRecurringTemplates: (includeDisabled = false) =>
-    apiFetch(`/swarm/recurring${includeDisabled ? "?includeDisabled=true" : ""}`),
+    apiFetch(
+      `/swarm/recurring${includeDisabled ? "?includeDisabled=true" : ""}`,
+    ),
 
   createRecurringTemplate: (data: {
     title: string;
@@ -214,8 +237,7 @@ export const api = {
   deleteRecurringTemplate: (id: string) =>
     apiFetch(`/swarm/recurring/${id}`, { method: "DELETE" }),
 
-  tickRecurring: () =>
-    apiFetch("/swarm/recurring/tick", { method: "POST" }),
+  tickRecurring: () => apiFetch("/swarm/recurring/tick", { method: "POST" }),
 
   // Auth / Invites
   listInvites: () => apiFetch("/auth/invites"),
@@ -254,7 +276,10 @@ export const api = {
       body: JSON.stringify({ type: "group", name, members }),
     }),
 
-  getChatMessages: (channelId: string, params?: { limit?: number; before?: number }) => {
+  getChatMessages: (
+    channelId: string,
+    params?: { limit?: number; before?: number },
+  ) => {
     const qs = new URLSearchParams();
     if (params?.limit) qs.set("limit", String(params.limit));
     if (params?.before) qs.set("before", String(params.before));
@@ -334,6 +359,9 @@ export const api = {
     title: string;
     content?: string;
     taggedUsers?: string[];
+    tags?: string[];
+    expiresAt?: string | null;
+    reviewAt?: string | null;
   }) =>
     apiFetch("/notebook", {
       method: "POST",
@@ -346,7 +374,10 @@ export const api = {
       title?: string;
       content?: string;
       taggedUsers?: string[];
+      tags?: string[];
       locked?: boolean;
+      expiresAt?: string | null;
+      reviewAt?: string | null;
     },
   ) =>
     apiFetch(`/notebook/${id}`, {

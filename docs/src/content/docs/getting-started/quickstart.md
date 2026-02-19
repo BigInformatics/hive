@@ -20,16 +20,17 @@ Hive will be available at `http://localhost:3000`.
 ## From Source
 
 Requirements:
-- Node.js 22+
+- Bun (recommended) or Node.js 22+
 - PostgreSQL 16+
 
 ```bash
 git clone https://github.com/BigInformatics/hive.git
 cd hive
-npm install
 cp .env.example .env
 # Edit .env with your database credentials and tokens
-npm run dev
+
+bun install
+bun run dev
 ```
 
 ## First Steps

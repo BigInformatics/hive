@@ -1,7 +1,7 @@
-import { defineEventHandler, readBody, getRouterParam } from "h3";
+import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { authenticateEvent, isValidMailbox } from "@/lib/auth";
-import { sendMessage } from "@/lib/messages";
 import { emit, emitWakeTrigger } from "@/lib/events";
+import { sendMessage } from "@/lib/messages";
 import { updatePresence } from "@/lib/presence";
 
 export default defineEventHandler(async (event) => {

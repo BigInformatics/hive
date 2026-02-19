@@ -1,4 +1,9 @@
-import { defineEventHandler, getRequestPath, getRequestHeader, createError } from "h3";
+import {
+  createError,
+  defineEventHandler,
+  getRequestHeader,
+  getRequestPath,
+} from "h3";
 
 interface RateBucket {
   count: number;
@@ -28,7 +33,10 @@ const ROUTE_LIMITS: [RegExp, RateLimitConfig][] = [
   [/^\/api\/auth\/verify/, { maxRequests: 20, windowMs: 60_000 }],
   [/^\/api\/auth\/invites/, { maxRequests: 10, windowMs: 60_000 }],
   // Message send — moderate
-  [/^\/api\/mailboxes\/[^/]+\/messages$/, { maxRequests: 30, windowMs: 60_000 }],
+  [
+    /^\/api\/mailboxes\/[^/]+\/messages$/,
+    { maxRequests: 30, windowMs: 60_000 },
+  ],
   // Wake/presence — moderate
   [/^\/api\/wake/, { maxRequests: 20, windowMs: 60_000 }],
   [/^\/api\/presence/, { maxRequests: 30, windowMs: 60_000 }],
@@ -85,8 +93,14 @@ export default defineEventHandler((event) => {
 
   // Set rate limit headers
   event.node?.res?.setHeader?.("X-RateLimit-Limit", String(limit.maxRequests));
-  event.node?.res?.setHeader?.("X-RateLimit-Remaining", String(Math.max(0, limit.maxRequests - bucket.count)));
-  event.node?.res?.setHeader?.("X-RateLimit-Reset", String(Math.ceil(bucket.resetAt / 1000)));
+  event.node?.res?.setHeader?.(
+    "X-RateLimit-Remaining",
+    String(Math.max(0, limit.maxRequests - bucket.count)),
+  );
+  event.node?.res?.setHeader?.(
+    "X-RateLimit-Reset",
+    String(Math.ceil(bucket.resetAt / 1000)),
+  );
 
   if (bucket.count > limit.maxRequests) {
     throw createError({

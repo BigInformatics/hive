@@ -1,8 +1,8 @@
-import { defineEventHandler, getQuery } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { desc, eq } from "drizzle-orm";
+import { defineEventHandler, getQuery } from "h3";
 import { db } from "@/db";
 import { mailboxMessages } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

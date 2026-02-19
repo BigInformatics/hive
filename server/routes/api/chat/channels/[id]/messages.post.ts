@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { sendChatMessage, isMember, getChannelMembers } from "@/lib/chat";
+import { getChannelMembers, isMember, sendChatMessage } from "@/lib/chat";
 import { emit } from "@/lib/events";
 import { notifyChatMessage } from "@/lib/webhooks";
 
@@ -36,7 +36,11 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const message = await sendChatMessage(channelId, auth.identity, body.body.trim());
+  const message = await sendChatMessage(
+    channelId,
+    auth.identity,
+    body.body.trim(),
+  );
 
   // Emit SSE event to all channel members
   const members = await getChannelMembers(channelId);
@@ -54,7 +58,9 @@ export default defineEventHandler(async (event) => {
 
     // Notify agents via webhook (non-blocking, fire-and-forget)
     if (member !== auth.identity) {
-      notifyChatMessage(member, channelId, auth.identity, message.body).catch(() => {});
+      notifyChatMessage(member, channelId, auth.identity, message.body).catch(
+        () => {},
+      );
     }
   }
 

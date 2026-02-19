@@ -1,23 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { getMailboxKey, api } from "@/lib/api";
+import { Bookmark, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, ExternalLink, Bookmark } from "lucide-react";
 import { UserSelect } from "@/components/user-select";
+import { api, getMailboxKey } from "@/lib/api";
 
 export const Route = createFileRoute("/directory")({
   component: DirectoryPage,
@@ -41,7 +41,12 @@ function formatDate(iso: string) {
   });
 }
 
-const defaultForm = { title: "", url: "", description: "", taggedUsers: [] as string[] };
+const defaultForm = {
+  title: "",
+  url: "",
+  description: "",
+  taggedUsers: [] as string[],
+};
 
 function DirectoryPage() {
   const [authed, setAuthed] = useState(false);
@@ -195,10 +200,7 @@ function DirectoryContent() {
                 )}
               </div>
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                >
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
                 <Button

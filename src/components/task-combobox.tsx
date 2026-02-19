@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 interface TaskOption {
@@ -37,8 +37,7 @@ export function TaskCombobox({
       if (search) {
         const q = search.toLowerCase();
         return (
-          t.title.toLowerCase().includes(q) ||
-          t.id.toLowerCase().startsWith(q)
+          t.title.toLowerCase().includes(q) || t.id.toLowerCase().startsWith(q)
         );
       }
       // When no search, show same-project tasks first
@@ -57,7 +56,10 @@ export function TaskCombobox({
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     };
@@ -68,7 +70,15 @@ export function TaskCombobox({
   return (
     <div ref={wrapperRef} className="relative">
       <Input
-        value={focused ? search : selected ? selected.title : value ? value.slice(0, 8) : ""}
+        value={
+          focused
+            ? search
+            : selected
+              ? selected.title
+              : value
+                ? value.slice(0, 8)
+                : ""
+        }
         onChange={(e) => {
           setSearch(e.target.value);
           setOpen(true);
@@ -99,7 +109,9 @@ export function TaskCombobox({
       {open && focused && (
         <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-auto">
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">No tasks found</div>
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              No tasks found
+            </div>
           ) : (
             filtered.map((t) => (
               <button
@@ -117,7 +129,9 @@ export function TaskCombobox({
                 }}
               >
                 <span className="block truncate">{t.title}</span>
-                <span className="text-[10px] font-mono text-muted-foreground/50">{t.id.slice(0, 8)}</span>
+                <span className="text-[10px] font-mono text-muted-foreground/50">
+                  {t.id.slice(0, 8)}
+                </span>
               </button>
             ))
           )}

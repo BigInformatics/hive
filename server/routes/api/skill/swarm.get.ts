@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 
 const DOC = `# Hive Skill: Swarm (Tasks + Projects)
 
-Swarm is Hive\'s lightweight task system. Use it to:
+Swarm is Hive's lightweight task system. Use it to:
 - track work items
 - assign owners
 - move tasks through a simple status flow
@@ -72,6 +72,7 @@ Common optional fields:
 {
   "projectId": "<uuid>",
   "detail": "Description / acceptance criteria",
+  "followUp": "Latest status update (use this instead of overwriting detail)",
   "issueUrl": "https://dev...",
   "assigneeUserId": "domingo",
   "status": "ready",
@@ -120,5 +121,7 @@ Use SSE as **notification-only**; REST endpoints are source of truth.
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(DOC, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 });

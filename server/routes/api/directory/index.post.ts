@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { directoryEntries } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

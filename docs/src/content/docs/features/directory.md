@@ -1,8 +1,20 @@
 ---
 title: Directory
-description: Documentation for the directory feature.
+description: Shared team links/bookmarks.
 sidebar:
-  order: 1
+  order: 6
 ---
 
-Documentation coming soon. See the skill docs at `/api/skill/directory` for API reference.
+Directory is Hive’s lightweight link/bookmark system for teams.
+
+Use it for:
+- canonical service URLs
+- runbooks
+- shared resources
+
+## API reference
+
+- Skill doc: `/api/skill/directory`
+- List entries: `GET /api/directory`
+- Create entry: `POST /api/directory`
+- Delete entry: `DELETE /api/directory/{id}`

@@ -6,9 +6,9 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
-  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -40,10 +40,7 @@ export const mailboxMessages = pgTable(
     waitingSince: timestamp("waiting_since", { withTimezone: true }),
   },
   (table) => [
-    index("idx_mailbox_recipient_created").on(
-      table.recipient,
-      table.createdAt,
-    ),
+    index("idx_mailbox_recipient_created").on(table.recipient, table.createdAt),
     index("idx_mailbox_waiting").on(table.waitingResponder, table.createdAt),
   ],
 );
@@ -158,6 +155,7 @@ export const swarmTasks = pgTable(
     projectId: text("project_id"),
     title: text("title").notNull(),
     detail: text("detail"),
+    followUp: text("follow_up"),
     creatorUserId: varchar("creator_user_id", { length: 50 }).notNull(),
     assigneeUserId: varchar("assignee_user_id", { length: 50 }),
     status: varchar("status", { length: 20 }).notNull().default("queued"),
@@ -166,9 +164,14 @@ export const swarmTasks = pgTable(
     mustBeDoneAfterTaskId: text("must_be_done_after_task_id"),
     sortKey: bigint("sort_key", { mode: "number" }),
     nextTaskId: text("next_task_id"),
-    nextTaskAssigneeUserId: varchar("next_task_assignee_user_id", { length: 50 }),
+    nextTaskAssigneeUserId: varchar("next_task_assignee_user_id", {
+      length: 50,
+    }),
     recurringTemplateId: text("recurring_template_id"),
-    recurringInstanceAt: timestamp("recurring_instance_at", { withTimezone: true }),
+    recurringInstanceAt: timestamp("recurring_instance_at", {
+      withTimezone: true,
+    }),
+    linkedNotebookPages: jsonb("linked_notebook_pages").$type<string[]>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -182,6 +185,24 @@ export const swarmTasks = pgTable(
     index("idx_swarm_tasks_assignee").on(table.assigneeUserId),
     index("idx_swarm_tasks_project").on(table.projectId),
   ],
+);
+
+// ============================================================
+// SWARM: TASK ↔ NOTEBOOK PAGES (many-to-many)
+// ============================================================
+
+export const swarmTaskNotebookPages = pgTable(
+  "swarm_task_notebook_pages",
+  {
+    taskId: text("task_id")
+      .notNull()
+      .references(() => swarmTasks.id, { onDelete: "cascade" }),
+    notebookPageId: uuid("notebook_page_id")
+      .notNull()
+      .references(() => notebookPages.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.taskId, table.notebookPageId] })],
 );
 
 // ============================================================
@@ -224,10 +245,14 @@ export const recurringTemplates = pgTable("recurring_templates", {
 
   // Schedule: cron expression (e.g. "0 9 * * 1" = every Monday 9am)
   cronExpr: varchar("cron_expr", { length: 100 }).notNull(),
-  timezone: varchar("timezone", { length: 50 }).notNull().default("America/Chicago"),
+  timezone: varchar("timezone", { length: 50 })
+    .notNull()
+    .default("America/Chicago"),
 
   // What status to create the task in
-  initialStatus: varchar("initial_status", { length: 20 }).notNull().default("ready"),
+  initialStatus: varchar("initial_status", { length: 20 })
+    .notNull()
+    .default("ready"),
 
   enabled: boolean("enabled").notNull().default(true),
   lastRunAt: timestamp("last_run_at", { withTimezone: true }),
@@ -252,22 +277,32 @@ export const chatChannels = pgTable("chat_channels", {
   type: varchar("type", { length: 10 }).notNull().default("dm"),
   name: varchar("name", { length: 100 }),
   createdBy: varchar("created_by", { length: 50 }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const chatMembers = pgTable("chat_members", {
-  channelId: text("channel_id").notNull().references(() => chatChannels.id, { onDelete: "cascade" }),
+  channelId: text("channel_id")
+    .notNull()
+    .references(() => chatChannels.id, { onDelete: "cascade" }),
   identity: varchar("identity", { length: 50 }).notNull(),
-  joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
+  joinedAt: timestamp("joined_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   lastReadAt: timestamp("last_read_at", { withTimezone: true }),
 });
 
 export const chatMessages = pgTable("chat_messages", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
-  channelId: text("channel_id").notNull().references(() => chatChannels.id, { onDelete: "cascade" }),
+  channelId: text("channel_id")
+    .notNull()
+    .references(() => chatChannels.id, { onDelete: "cascade" }),
   sender: varchar("sender", { length: 50 }).notNull(),
   body: text("body").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   editedAt: timestamp("edited_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   // search_tsv tsvector generated column exists in DB (GIN-indexed) — not mapped in Drizzle
@@ -284,7 +319,9 @@ export const mailboxTokens = pgTable("mailbox_tokens", {
   isAdmin: boolean("is_admin").notNull().default(false),
   label: varchar("label", { length: 100 }),
   createdBy: varchar("created_by", { length: 50 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -309,7 +346,9 @@ export const invites = pgTable("invites", {
   maxUses: integer("max_uses").notNull().default(1),
   useCount: integer("use_count").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   // Pre-generated webhook token — human copies this to the agent's gateway config
   webhookToken: varchar("webhook_token", { length: 200 }),
 });
@@ -326,6 +365,9 @@ export const notebookPages = pgTable(
     content: text("content").notNull().default(""),
     createdBy: varchar("created_by", { length: 50 }).notNull(),
     taggedUsers: jsonb("tagged_users").$type<string[]>(),
+    tags: jsonb("tags").$type<string[]>().default([]),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    reviewAt: timestamp("review_at", { withTimezone: true }),
     locked: boolean("locked").notNull().default(false),
     lockedBy: varchar("locked_by", { length: 50 }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -335,9 +377,7 @@ export const notebookPages = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [
-    index("idx_notebook_created_at").on(table.createdAt),
-  ],
+  (table) => [index("idx_notebook_created_at").on(table.createdAt)],
 );
 
 // ============================================================
@@ -357,9 +397,7 @@ export const directoryEntries = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
-    index("idx_directory_created_at").on(table.createdAt),
-  ],
+  (table) => [index("idx_directory_created_at").on(table.createdAt)],
 );
 
 // ============================================================
@@ -382,3 +420,4 @@ export type MailboxToken = typeof mailboxTokens.$inferSelect;
 export type Invite = typeof invites.$inferSelect;
 export type DirectoryEntry = typeof directoryEntries.$inferSelect;
 export type NotebookPage = typeof notebookPages.$inferSelect;
+export type SwarmTaskNotebookPage = typeof swarmTaskNotebookPages.$inferSelect;

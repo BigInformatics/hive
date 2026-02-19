@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -13,13 +13,13 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event);
-  const { title, content, taggedUsers } = body ?? {};
+  const { title, content, taggedUsers, tags, expiresAt, reviewAt } = body ?? {};
 
   if (!title?.trim()) {
-    return new Response(
-      JSON.stringify({ error: "title is required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "title is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const [page] = await db
@@ -32,6 +32,9 @@ export default defineEventHandler(async (event) => {
         Array.isArray(taggedUsers) && taggedUsers.length > 0
           ? taggedUsers.map(String)
           : null,
+      tags: Array.isArray(tags) && tags.length > 0 ? tags.map(String) : null,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      reviewAt: reviewAt ? new Date(reviewAt) : null,
     })
     .returning();
 

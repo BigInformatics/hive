@@ -1,7 +1,7 @@
-import { defineEventHandler, readBody, getHeader } from "h3";
+import { and, eq, isNull } from "drizzle-orm";
+import { defineEventHandler, readBody } from "h3";
 import { db } from "@/db";
 import { mailboxTokens } from "@/db/schema";
-import { eq, isNull, and } from "drizzle-orm";
 import { authenticateEvent } from "@/lib/auth";
 import { clearWebhookCache } from "@/lib/webhooks";
 
@@ -9,7 +9,7 @@ import { clearWebhookCache } from "@/lib/webhooks";
  * POST /api/auth/webhook
  * Register or update webhook URL for the authenticated agent.
  * Body: { url: string | null, token?: string | null }
- * 
+ *
  * - url: The webhook endpoint URL (set to null to clear)
  * - token: Optional override for webhook auth token (defaults to agent's own API token)
  */
@@ -42,14 +42,22 @@ export default defineEventHandler(async (event) => {
   const [row] = await db
     .select({ id: mailboxTokens.id, token: mailboxTokens.token })
     .from(mailboxTokens)
-    .where(and(eq(mailboxTokens.identity, auth.identity), isNull(mailboxTokens.revokedAt)))
+    .where(
+      and(
+        eq(mailboxTokens.identity, auth.identity),
+        isNull(mailboxTokens.revokedAt),
+      ),
+    )
     .limit(1);
 
   if (!row) {
-    return new Response(JSON.stringify({ error: "No token found for identity" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "No token found for identity" }),
+      {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   // Update webhook config — if no token override, use the agent's own API token
@@ -57,7 +65,7 @@ export default defineEventHandler(async (event) => {
     .update(mailboxTokens)
     .set({
       webhookUrl: url,
-      webhookToken: url ? (token || row.token) : null,
+      webhookToken: url ? token || row.token : null,
     })
     .where(eq(mailboxTokens.id, row.id));
 

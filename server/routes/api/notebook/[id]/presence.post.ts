@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
   if (!pageViewers.has(pageId)) {
     pageViewers.set(pageId, new Map());
   }
-  pageViewers.get(pageId)!.set(auth.identity, Date.now());
+  pageViewers.get(pageId)?.set(auth.identity, Date.now());
 
   return { viewers: getActiveViewers(pageId) };
 });

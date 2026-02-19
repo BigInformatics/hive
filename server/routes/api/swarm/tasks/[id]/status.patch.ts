@@ -1,7 +1,7 @@
-import { defineEventHandler, readBody, getRouterParam } from "h3";
+import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { getTask, updateTaskStatus } from "@/lib/swarm";
 import { emit, emitWakeTrigger } from "@/lib/events";
+import { getTask, updateTaskStatus } from "@/lib/swarm";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

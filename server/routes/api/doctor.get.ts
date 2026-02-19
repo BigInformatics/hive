@@ -1,7 +1,7 @@
-import { defineEventHandler, getHeader } from "h3";
-import { authenticateEvent } from "@/lib/auth";
-import { db } from "@/db";
 import { sql } from "drizzle-orm";
+import { defineEventHandler, getHeader } from "h3";
+import { db } from "@/db";
+import { authenticateEvent } from "@/lib/auth";
 
 interface ProbeResult {
   id: string;
@@ -15,7 +15,11 @@ interface ProbeResult {
 async function runProbe(
   id: string,
   name: string,
-  fn: () => Promise<{ status: "pass" | "warn" | "fail"; summary: string; details?: string }>
+  fn: () => Promise<{
+    status: "pass" | "warn" | "fail";
+    summary: string;
+    details?: string;
+  }>,
 ): Promise<ProbeResult> {
   const start = Date.now();
   try {
@@ -50,9 +54,14 @@ export default defineEventHandler(async (event) => {
     await runProbe("env", "Environment", async () => {
       const warnings: string[] = [];
       const required = ["PGHOST", "PGUSER", "PGPASSWORD"];
-      const missing = required.filter((k) => !process.env[k] && !process.env[`HIVE_${k}`]);
+      const missing = required.filter(
+        (k) => !process.env[k] && !process.env[`HIVE_${k}`],
+      );
       if (missing.length > 0) {
-        return { status: "warn", summary: `Missing env vars: ${missing.join(", ")}` };
+        return {
+          status: "warn",
+          summary: `Missing env vars: ${missing.join(", ")}`,
+        };
       }
       // Check for deprecated vars
       if (process.env.MAILBOX_TOKEN) {
@@ -62,7 +71,7 @@ export default defineEventHandler(async (event) => {
         return { status: "warn", summary: warnings.join("; ") };
       }
       return { status: "pass", summary: "All required env vars present" };
-    })
+    }),
   );
 
   // Probe 2: Connectivity (health check, self-test)
@@ -70,7 +79,7 @@ export default defineEventHandler(async (event) => {
     await runProbe("connectivity", "Connectivity", async () => {
       // Self-check: can we respond? (trivial but confirms server is up)
       return { status: "pass", summary: "Server responding" };
-    })
+    }),
   );
 
   // Probe 3: Authentication
@@ -79,7 +88,11 @@ export default defineEventHandler(async (event) => {
       // We already authenticated above, check Accept header gotcha
       const accept = getHeader(event, "accept") || "";
       const warnings: string[] = [];
-      if (accept && !accept.includes("application/json") && !accept.includes("*/*")) {
+      if (
+        accept &&
+        !accept.includes("application/json") &&
+        !accept.includes("*/*")
+      ) {
         warnings.push("Accept header may cause 406 errors with H3/Nitro");
       }
       return {
@@ -87,7 +100,7 @@ export default defineEventHandler(async (event) => {
         summary: `Authenticated as ${auth.identity}${auth.isAdmin ? " (admin)" : ""}`,
         details: warnings.length > 0 ? warnings.join("; ") : undefined,
       };
-    })
+    }),
   );
 
   // Probe 4: Identity & Presence
@@ -97,7 +110,7 @@ export default defineEventHandler(async (event) => {
         status: "pass",
         summary: `Identity: ${auth.identity}, admin: ${auth.isAdmin}`,
       };
-    })
+    }),
   );
 
   // Probe 5: Chat channels
@@ -105,17 +118,20 @@ export default defineEventHandler(async (event) => {
     await runProbe("chat", "Chat Channels", async () => {
       try {
         const result = await db.execute(
-          sql`SELECT COUNT(*) as count FROM chat_channels`
+          sql`SELECT COUNT(*) as count FROM chat_channels`,
         );
         const count = Number(result[0]?.count ?? 0);
         if (count === 0) {
           return { status: "warn", summary: "No chat channels found" };
         }
-        return { status: "pass", summary: `${count} chat channel(s) available` };
+        return {
+          status: "pass",
+          summary: `${count} chat channel(s) available`,
+        };
       } catch (err: any) {
         return { status: "fail", summary: `Chat query failed: ${err.message}` };
       }
-    })
+    }),
   );
 
   // Probe 6: Webhooks
@@ -123,17 +139,23 @@ export default defineEventHandler(async (event) => {
     await runProbe("webhooks", "Webhooks", async () => {
       try {
         const result = await db.execute(
-          sql`SELECT webhook_url FROM mailbox_tokens WHERE identity = ${auth!.identity} AND revoked_at IS NULL AND webhook_url IS NOT NULL LIMIT 1`
+          sql`SELECT webhook_url FROM mailbox_tokens WHERE identity = ${auth?.identity} AND revoked_at IS NULL AND webhook_url IS NOT NULL LIMIT 1`,
         );
         if (!result[0]?.webhook_url) {
-          return { status: "warn", summary: "No webhook URL registered — use POST /api/auth/webhook" };
+          return {
+            status: "warn",
+            summary: "No webhook URL registered — use POST /api/auth/webhook",
+          };
         }
         return { status: "pass", summary: `Webhook: ${result[0].webhook_url}` };
       } catch (err: any) {
         // Table might not exist
-        return { status: "warn", summary: `Webhook check skipped: ${err.message}` };
+        return {
+          status: "warn",
+          summary: `Webhook check skipped: ${err.message}`,
+        };
       }
-    })
+    }),
   );
 
   // Rollup

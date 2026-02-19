@@ -1,6 +1,6 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { defineEventHandler } from "h3";
-import { readFileSync, existsSync } from "fs";
-import { resolve, join } from "path";
 
 let cached: string | null = null;
 

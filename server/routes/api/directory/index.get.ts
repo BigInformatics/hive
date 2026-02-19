@@ -1,8 +1,8 @@
+import { and, desc, ilike, or, sql } from "drizzle-orm";
 import { defineEventHandler, getQuery } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { directoryEntries } from "@/db/schema";
-import { and, desc, ilike, or, sql } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
   try {
@@ -16,8 +16,11 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event);
     const q = (query.q as string | undefined)?.trim() ?? "";
-    const limit = Math.min(parseInt((query.limit as string) || "50") || 50, 100);
-    const offset = parseInt((query.offset as string) || "0") || 0;
+    const limit = Math.min(
+      parseInt((query.limit as string) || "50", 10) || 50,
+      100,
+    );
+    const offset = parseInt((query.offset as string) || "0", 10) || 0;
 
     const conditions: any[] = [];
 
@@ -37,7 +40,7 @@ export default defineEventHandler(async (event) => {
       conditions.push(
         or(
           ilike(directoryEntries.title, `%${q}%`),
-          sql`${directoryEntries.description} ILIKE ${"%" + q + "%"}`,
+          sql`${directoryEntries.description} ILIKE ${`%${q}%`}`,
         ),
       );
     }
@@ -54,7 +57,10 @@ export default defineEventHandler(async (event) => {
   } catch (err: any) {
     console.error("[directory:list]", err);
     return new Response(
-      JSON.stringify({ error: err?.message ?? "Unknown error", stack: err?.stack }),
+      JSON.stringify({
+        error: err?.message ?? "Unknown error",
+        stack: err?.stack,
+      }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }

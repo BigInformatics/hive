@@ -11,7 +11,8 @@ const host = process.env.HIVE_PGHOST || process.env.PGHOST || "localhost";
 const port = Number(process.env.PGPORT || 5432);
 const user = process.env.PGUSER || "postgres";
 const password = process.env.PGPASSWORD || "";
-const database = process.env.PGDATABASE_TEAM || process.env.PGDATABASE || "postgres";
+const database =
+  process.env.PGDATABASE_TEAM || process.env.PGDATABASE || "postgres";
 
 console.log(`[db] Connecting to ${user}@${host}:${port}/${database}`);
 

@@ -1,10 +1,16 @@
-import { and, asc, eq, lte, isNull, or, sql as rawSql } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
-import { recurringTemplates, type RecurringTemplate } from "@/db/schema";
+import { type RecurringTemplate, recurringTemplates } from "@/db/schema";
 import { createTask, type TaskStatus } from "./swarm";
 
 // Minimal cron parser — supports standard 5-field cron (min hour dom month dow)
-function parseCron(expr: string): { minute: number[]; hour: number[]; dom: number[]; month: number[]; dow: number[] } {
+function parseCron(expr: string): {
+  minute: number[];
+  hour: number[];
+  dom: number[];
+  month: number[];
+  dow: number[];
+} {
   const parts = expr.trim().split(/\s+/);
   if (parts.length !== 5) throw new Error(`Invalid cron: ${expr}`);
 
@@ -97,8 +103,12 @@ export async function createRecurringTemplate(input: {
   return row;
 }
 
-export async function listRecurringTemplates(includeDisabled = false): Promise<RecurringTemplate[]> {
-  const conditions = includeDisabled ? [] : [eq(recurringTemplates.enabled, true)];
+export async function listRecurringTemplates(
+  includeDisabled = false,
+): Promise<RecurringTemplate[]> {
+  const conditions = includeDisabled
+    ? []
+    : [eq(recurringTemplates.enabled, true)];
 
   return db
     .select()
@@ -107,7 +117,9 @@ export async function listRecurringTemplates(includeDisabled = false): Promise<R
     .orderBy(asc(recurringTemplates.title));
 }
 
-export async function getRecurringTemplate(id: string): Promise<RecurringTemplate | null> {
+export async function getRecurringTemplate(
+  id: string,
+): Promise<RecurringTemplate | null> {
   const [row] = await db
     .select()
     .from(recurringTemplates)
@@ -156,7 +168,10 @@ export async function deleteRecurringTemplate(id: string): Promise<boolean> {
 // TICK — called periodically to create tasks from due templates
 // ============================================================
 
-export async function tickRecurring(): Promise<{ created: number; errors: number }> {
+export async function tickRecurring(): Promise<{
+  created: number;
+  errors: number;
+}> {
   const now = new Date();
   let created = 0;
   let errors = 0;
@@ -196,7 +211,10 @@ export async function tickRecurring(): Promise<{ created: number; errors: number
 
       created++;
     } catch (err) {
-      console.error(`[recurring] Failed to create task from template ${template.id}:`, err);
+      console.error(
+        `[recurring] Failed to create task from template ${template.id}:`,
+        err,
+      );
       errors++;
     }
   }

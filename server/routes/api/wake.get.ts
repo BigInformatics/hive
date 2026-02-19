@@ -1,7 +1,7 @@
 import { defineEventHandler, getQuery } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { getWakeItems, markBuzzEventsDelivered } from "@/lib/wake";
 import { updatePresence } from "@/lib/presence";
+import { getWakeItems, markBuzzEventsDelivered } from "@/lib/wake";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

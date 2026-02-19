@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, sql as rawSql, gt } from "drizzle-orm";
+import { and, desc, eq, isNull, sql as rawSql } from "drizzle-orm";
 import { db } from "@/db";
 import { chatChannels, chatMembers, chatMessages } from "@/db/schema";
 
@@ -53,9 +53,11 @@ export async function createGroupChannel(
     .values({ type: "group", name, createdBy })
     .returning();
 
-  await db.insert(chatMembers).values(
-    allMembers.map((identity) => ({ channelId: channel.id, identity })),
-  );
+  await db
+    .insert(chatMembers)
+    .values(
+      allMembers.map((identity) => ({ channelId: channel.id, identity })),
+    );
 
   return channel.id;
 }
@@ -127,9 +129,7 @@ export async function getMessages(
   ];
 
   if (options.before) {
-    conditions.push(
-      rawSql`${chatMessages.id} < ${options.before}` as any,
-    );
+    conditions.push(rawSql`${chatMessages.id} < ${options.before}` as any);
   }
 
   return db
@@ -207,9 +207,11 @@ export async function searchChatMessages(
   if (query) {
     if (query.length < 3) {
       // Short queries: fallback to ILIKE since tsquery needs meaningful terms
-      conditions.push(rawSql`m.body ILIKE ${'%' + query + '%'}`);
+      conditions.push(rawSql`m.body ILIKE ${`%${query}%`}`);
     } else {
-      conditions.push(rawSql`m.search_tsv @@ plainto_tsquery('english', ${query})`);
+      conditions.push(
+        rawSql`m.search_tsv @@ plainto_tsquery('english', ${query})`,
+      );
     }
   }
   if (options.channelId) {

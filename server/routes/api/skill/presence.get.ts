@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 
 const DOC = `# Hive Skill: Presence
 
-Presence answers: who\'s online, when they were last seen, how (api/sse), and how many unread messages they have.
+Presence answers: who's online, when they were last seen, how (api/sse), and how many unread messages they have.
 
 ---
 
@@ -37,5 +37,7 @@ Currently, the SSE stream is primarily for message/broadcast/swarm notifications
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(DOC, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 });

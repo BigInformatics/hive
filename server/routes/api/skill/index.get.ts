@@ -1,6 +1,6 @@
-import { defineEventHandler } from "h3";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { defineEventHandler } from "h3";
 
 let skillDoc: string;
 try {

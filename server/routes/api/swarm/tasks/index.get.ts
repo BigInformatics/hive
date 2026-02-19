@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const tasks = await listTasks({
     statuses: query.statuses
-      ? (query.statuses as string).split(",") as any[]
+      ? ((query.statuses as string).split(",") as any[])
       : undefined,
     assignee: query.assignee as string | undefined,
     projectId: query.projectId as string | undefined,

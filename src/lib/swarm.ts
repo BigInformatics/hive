@@ -1,12 +1,21 @@
-import { and, asc, desc, eq, isNull, inArray, sql as rawSql, ne } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  sql as rawSql,
+} from "drizzle-orm";
 import { db } from "@/db";
 import {
-  swarmProjects,
-  swarmTasks,
-  swarmTaskEvents,
   type SwarmProject,
   type SwarmTask,
   type SwarmTaskEvent,
+  swarmProjects,
+  swarmTaskEvents,
+  swarmTasks,
 } from "@/db/schema";
 
 export type TaskStatus =
@@ -121,6 +130,7 @@ export async function createTask(input: {
   projectId?: string;
   title: string;
   detail?: string;
+  followUp?: string;
   issueUrl?: string;
   creatorUserId: string;
   assigneeUserId?: string;
@@ -131,6 +141,7 @@ export async function createTask(input: {
   nextTaskAssigneeUserId?: string;
   recurringTemplateId?: string;
   recurringInstanceAt?: Date;
+  linkedNotebookPages?: string[];
 }): Promise<SwarmTask> {
   const [row] = await db
     .insert(swarmTasks)
@@ -138,6 +149,7 @@ export async function createTask(input: {
       projectId: input.projectId || null,
       title: input.title,
       detail: input.detail || null,
+      followUp: input.followUp || null,
       issueUrl: input.issueUrl || null,
       creatorUserId: input.creatorUserId,
       assigneeUserId: input.assigneeUserId || null,
@@ -148,6 +160,7 @@ export async function createTask(input: {
       nextTaskAssigneeUserId: input.nextTaskAssigneeUserId || null,
       recurringTemplateId: input.recurringTemplateId || null,
       recurringInstanceAt: input.recurringInstanceAt || null,
+      linkedNotebookPages: input.linkedNotebookPages || null,
     })
     .returning();
 
@@ -163,10 +176,7 @@ export async function createTask(input: {
 }
 
 export async function getTask(id: string): Promise<SwarmTask | null> {
-  const [row] = await db
-    .select()
-    .from(swarmTasks)
-    .where(eq(swarmTasks.id, id));
+  const [row] = await db.select().from(swarmTasks).where(eq(swarmTasks.id, id));
   return row || null;
 }
 
@@ -216,6 +226,7 @@ export async function updateTask(
     projectId: string | null;
     title: string;
     detail: string | null;
+    followUp: string | null;
     issueUrl: string | null;
     assigneeUserId: string | null;
     onOrAfterAt: Date | null;
@@ -223,6 +234,7 @@ export async function updateTask(
     sortKey: number;
     nextTaskId: string | null;
     nextTaskAssigneeUserId: string | null;
+    linkedNotebookPages: string[] | null;
   }>,
 ): Promise<SwarmTask | null> {
   const [row] = await db

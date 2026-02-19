@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 
 const DOC = `# Hive Skill: Broadcast (Buzz)
 
-Broadcast webhooks let external systems push events into Hive\'s Buzz feed.
+Broadcast webhooks let external systems push events into Hive's Buzz feed.
 
 There are two halves:
 1) **Management** (authenticated): create/list/update/delete webhooks
@@ -68,5 +68,7 @@ curl -fsS -X POST \
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(DOC, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 });

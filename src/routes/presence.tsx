@@ -1,30 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { getMailboxKey, api } from "@/lib/api";
-import { useChatSSE, type ChatSSEEvent } from "@/lib/use-chat-sse";
+import {
+  ArrowLeft,
+  MessageCircle,
+  Plus,
+  RefreshCw,
+  Send,
+  Users,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  RefreshCw,
-  Mail,
-  Clock,
-  MessageCircle,
-  Send,
-  ArrowLeft,
-  Users,
-  Plus,
-  X,
-} from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { UserAvatar } from "@/components/user-avatar";
+import { api, getMailboxKey } from "@/lib/api";
+import { type ChatSSEEvent, useChatSSE } from "@/lib/use-chat-sse";
 
 export const Route = createFileRoute("/presence")({
   component: PresencePage,
@@ -60,12 +58,7 @@ interface ChatMessage {
   createdAt: string;
 }
 
-const AVATARS: Record<string, string> = {
-  chris: "/avatars/chris.jpg",
-  clio: "/avatars/clio.png",
-  domingo: "/avatars/domingo.jpg",
-  zumie: "/avatars/zumie.png",
-};
+// Avatars served via /api/avatars/:identity with UserAvatar component
 
 const ALL_USERS = ["chris", "clio", "domingo", "zumie"];
 
@@ -87,7 +80,8 @@ function formatMessageTime(date: string): string {
   const d = new Date(date);
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-  if (diffDays === 0) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (diffDays === 0)
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return d.toLocaleDateString([], { weekday: "short" });
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
@@ -248,7 +242,9 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left side: Presence + Chat list */}
-        <div className={`flex flex-col border-r ${activeChannel ? "hidden md:flex" : "flex"} w-full md:w-80 shrink-0`}>
+        <div
+          className={`flex flex-col border-r ${activeChannel ? "hidden md:flex" : "flex"} w-full md:w-80 shrink-0`}
+        >
           {/* Presence header */}
           <div className="flex items-center justify-between border-b px-4 py-2">
             <span className="font-medium text-sm">Team</span>
@@ -262,13 +258,24 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                 <MessageCircle className="h-3.5 w-3.5" />
                 Chats
                 {totalUnread > 0 && (
-                  <Badge variant="destructive" className="h-4 min-w-4 text-[10px] px-1">
+                  <Badge
+                    variant="destructive"
+                    className="h-4 min-w-4 text-[10px] px-1"
+                  >
                     {totalUnread}
                   </Badge>
                 )}
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={fetchPresence} disabled={loading}>
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={fetchPresence}
+                disabled={loading}
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+                />
               </Button>
             </div>
           </div>
@@ -278,8 +285,10 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-1">
                 {users.map(({ name, info }) => {
-                  const borderOpacity = getBorderOpacity(info.online, info.lastSeen);
-                  const avatar = AVATARS[name];
+                  const borderOpacity = getBorderOpacity(
+                    info.online,
+                    info.lastSeen,
+                  );
                   return (
                     <div
                       key={name}
@@ -292,13 +301,7 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                           boxShadow: `0 0 0 2px rgba(34, 197, 94, ${borderOpacity})`,
                         }}
                       >
-                        {avatar ? (
-                          <img src={avatar} alt={name} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold uppercase text-muted-foreground">
-                            {name[0]}
-                          </div>
-                        )}
+                        <UserAvatar name={name} size="lg" />
                         {info.online && (
                           <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
                         )}
@@ -338,15 +341,17 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                   const name = getChannelName(ch);
                   const isGroup = ch.type === "group";
                   const otherUser = !isGroup
-                    ? ch.members.find((m) => m.identity !== myIdentity)?.identity
+                    ? ch.members.find((m) => m.identity !== myIdentity)
+                        ?.identity
                     : null;
-                  const avatar = otherUser ? AVATARS[otherUser] : null;
 
                   return (
                     <div
                       key={ch.id}
                       className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors ${
-                        activeChannel === ch.id ? "bg-muted" : "hover:bg-muted/50"
+                        activeChannel === ch.id
+                          ? "bg-muted"
+                          : "hover:bg-muted/50"
                       }`}
                       onClick={() => setActiveChannel(ch.id)}
                     >
@@ -354,16 +359,24 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                         <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0">
                           <Users className="h-4 w-4 text-muted-foreground" />
                         </div>
-                      ) : avatar ? (
-                        <img src={avatar} alt={name} className="h-9 w-9 rounded-full object-cover shrink-0" />
+                      ) : otherUser ? (
+                        <UserAvatar
+                          name={otherUser}
+                          size="lg"
+                          className="h-9 w-9 shrink-0"
+                        />
                       ) : (
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-bold uppercase text-muted-foreground shrink-0">
-                          {name[0]}
-                        </div>
+                        <UserAvatar
+                          name={name}
+                          size="lg"
+                          className="h-9 w-9 shrink-0"
+                        />
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="font-medium text-sm capitalize truncate">{name}</p>
+                          <p className="font-medium text-sm capitalize truncate">
+                            {name}
+                          </p>
                           {ch.last_message && (
                             <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
                               {formatMessageTime(ch.last_message.created_at)}
@@ -377,7 +390,10 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                               : "No messages yet"}
                           </p>
                           {ch.unread_count > 0 && (
-                            <Badge variant="destructive" className="h-4 min-w-4 text-[10px] px-1 ml-1 shrink-0">
+                            <Badge
+                              variant="destructive"
+                              className="h-4 min-w-4 text-[10px] px-1 ml-1 shrink-0"
+                            >
                               {ch.unread_count}
                             </Badge>
                           )}
@@ -392,7 +408,9 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {/* Right side: Active chat */}
-        <div className={`flex-1 flex flex-col ${activeChannel ? "flex" : "hidden md:flex"}`}>
+        <div
+          className={`flex-1 flex flex-col ${activeChannel ? "flex" : "hidden md:flex"}`}
+        >
           {activeChannel ? (
             <ChatPanel
               channelId={activeChannel}
@@ -446,14 +464,20 @@ function ChatPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map());
+  const [typingUsers, setTypingUsers] = useState<Map<string, number>>(
+    new Map(),
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastTypingSent = useRef(0);
 
   const channel = channels.find((c) => c.id === channelId);
   const channelName = channel
-    ? channel.name || channel.members.map((m) => m.identity).filter((id) => id !== myIdentity).join(", ")
+    ? channel.name ||
+      channel.members
+        .map((m) => m.identity)
+        .filter((id) => id !== myIdentity)
+        .join(", ")
     : "Chat";
 
   const fetchMessages = useCallback(async () => {
@@ -474,14 +498,17 @@ function ChatPanel({
   useEffect(() => {
     if (!chatEvent) return;
 
-    if (chatEvent.type === "chat_message" && chatEvent.channelId === channelId) {
+    if (
+      chatEvent.type === "chat_message" &&
+      chatEvent.channelId === channelId
+    ) {
       const msg = chatEvent.message;
       setMessages((prev) => {
         // Avoid duplicates (from optimistic add or double-delivery)
         if (prev.some((m) => m.id === msg.id)) return prev;
         // Replace optimistic message (fake ID > 1e12) from same sender with same body
         const optimisticIdx = prev.findIndex(
-          (m) => m.id > 1e12 && m.sender === msg.sender && m.body === msg.body
+          (m) => m.id > 1e12 && m.sender === msg.sender && m.body === msg.body,
         );
         if (optimisticIdx !== -1) {
           const next = [...prev];
@@ -494,13 +521,16 @@ function ChatPanel({
           };
           return next;
         }
-        return [...prev, {
-          id: msg.id,
-          channelId,
-          sender: msg.sender,
-          body: msg.body,
-          createdAt: msg.createdAt,
-        }];
+        return [
+          ...prev,
+          {
+            id: msg.id,
+            channelId,
+            sender: msg.sender,
+            body: msg.body,
+            createdAt: msg.createdAt,
+          },
+        ];
       });
       // Clear typing indicator for this sender
       setTypingUsers((prev) => {
@@ -547,7 +577,7 @@ function ChatPanel({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, []);
 
   // Send typing indicator (throttled to once per 3s)
   const sendTyping = useCallback(() => {
@@ -594,21 +624,27 @@ function ChatPanel({
     <>
       {/* Chat header */}
       <div className="flex items-center gap-2 border-b px-3 py-2">
-        <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden" onClick={onBack}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 md:hidden"
+          onClick={onBack}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         {channel?.type === "group" ? (
           <Users className="h-5 w-5 text-muted-foreground" />
         ) : (
           (() => {
-            const other = channel?.members.find((m) => m.identity !== myIdentity)?.identity;
-            const avatar = other ? AVATARS[other] : null;
-            return avatar ? (
-              <img src={avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold uppercase">
-                {channelName[0]}
-              </div>
+            const other = channel?.members.find(
+              (m) => m.identity !== myIdentity,
+            )?.identity;
+            return (
+              <UserAvatar
+                name={other || channelName}
+                size="md"
+                className="h-7 w-7"
+              />
             );
           })()
         )}
@@ -633,11 +669,14 @@ function ChatPanel({
           const isMe = msg.sender === myIdentity;
           const showSender =
             !isMe && (i === 0 || messages[i - 1].sender !== msg.sender);
-          const avatar = AVATARS[msg.sender];
-
           return (
-            <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
+            <div
+              key={msg.id}
+              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[75%] ${isMe ? "items-end" : "items-start"}`}
+              >
                 {showSender && (
                   <p className="text-[10px] text-muted-foreground ml-1 mb-0.5 capitalize">
                     {msg.sender}
@@ -652,8 +691,13 @@ function ChatPanel({
                 >
                   {msg.body}
                 </div>
-                <p className={`text-[9px] text-muted-foreground/50 mt-0.5 ${isMe ? "text-right mr-1" : "ml-1"}`}>
-                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                <p
+                  className={`text-[9px] text-muted-foreground/50 mt-0.5 ${isMe ? "text-right mr-1" : "ml-1"}`}
+                >
+                  {new Date(msg.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </p>
               </div>
             </div>
@@ -665,7 +709,8 @@ function ChatPanel({
       {activeTypers.length > 0 && (
         <div className="px-4 py-1">
           <p className="text-xs text-muted-foreground animate-pulse capitalize">
-            {activeTypers.join(", ")} {activeTypers.length === 1 ? "is" : "are"} typing...
+            {activeTypers.join(", ")} {activeTypers.length === 1 ? "is" : "are"}{" "}
+            typing...
           </p>
         </div>
       )}
@@ -763,10 +808,17 @@ function NewGroupDialog({
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={creating || !name.trim() || selected.size === 0}>
+            <Button
+              type="submit"
+              disabled={creating || !name.trim() || selected.size === 0}
+            >
               {creating ? "Creating..." : "Create"}
             </Button>
           </div>

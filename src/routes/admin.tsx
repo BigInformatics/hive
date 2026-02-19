@@ -1,51 +1,54 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
-import { getMailboxKey, api } from "@/lib/api";
+import {
+  Activity,
+  Ban,
+  Check,
+  Copy,
+  FileText,
+  KeyRound,
+  LayoutList,
+  Mail,
+  MessageSquare,
+  Pencil,
+  Play,
+  Plus,
+  Power,
+  PowerOff,
+  Radio,
+  RefreshCw,
+  Timer,
+  Trash2,
+  UserPlus,
+  Users,
+  Webhook,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  RefreshCw,
-  Activity,
-  Users,
-  MessageSquare,
-  Mail,
-  Radio,
-  LayoutList,
-  Webhook,
-  Copy,
-  Check,
-  Trash2,
-  Timer,
-  Plus,
-  Power,
-  PowerOff,
-  Play,
-  Settings,
-  Pencil,
-  KeyRound,
-  UserPlus,
-  Ban,
-  FileText,
-} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { UserAvatar } from "@/components/user-avatar";
+import { api, getMailboxKey } from "@/lib/api";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
 interface SystemStats {
-  presence: Record<string, { online: boolean; lastSeen: string | null; unread: number }>;
+  presence: Record<
+    string,
+    { online: boolean; lastSeen: string | null; unread: number }
+  >;
   webhooks: Array<{
     id: string;
     appName: string;
@@ -149,12 +152,22 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
           <StatCard
             icon={<MessageSquare className="h-4 w-4 text-sky-500" />}
             label="Unread Messages"
-            value={stats ? Object.values(stats.presence).reduce((sum: number, p: any) => sum + (p.unread || 0), 0).toString() : "—"}
+            value={
+              stats
+                ? Object.values(stats.presence)
+                    .reduce((sum: number, p: any) => sum + (p.unread || 0), 0)
+                    .toString()
+                : "—"
+            }
           />
           <StatCard
             icon={<LayoutList className="h-4 w-4 text-purple-500" />}
             label="Active Tasks"
-            value={stats ? (totalTasks - (stats.taskCounts.complete || 0)).toString() : "—"}
+            value={
+              stats
+                ? (totalTasks - (stats.taskCounts.complete || 0)).toString()
+                : "—"
+            }
           />
           <StatCard
             icon={<Radio className="h-4 w-4 text-amber-500" />}
@@ -166,19 +179,24 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
         <Tabs defaultValue="presence" className="px-4 pb-4">
           <TabsList className="w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="presence" className="gap-1.5">
-              <Users className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Presence</span>
+              <Users className="h-3.5 w-3.5" />{" "}
+              <span className="hidden sm:inline">Presence</span>
             </TabsTrigger>
             <TabsTrigger value="tasks" className="gap-1.5">
-              <LayoutList className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Tasks</span>
+              <LayoutList className="h-3.5 w-3.5" />{" "}
+              <span className="hidden sm:inline">Tasks</span>
             </TabsTrigger>
             <TabsTrigger value="recurring" className="gap-1.5">
-              <Timer className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Recurring</span>
+              <Timer className="h-3.5 w-3.5" />{" "}
+              <span className="hidden sm:inline">Recurring</span>
             </TabsTrigger>
             <TabsTrigger value="webhooks" className="gap-1.5">
-              <Webhook className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Webhooks</span>
+              <Webhook className="h-3.5 w-3.5" />{" "}
+              <span className="hidden sm:inline">Webhooks</span>
             </TabsTrigger>
             <TabsTrigger value="invites" className="gap-1.5">
-              <KeyRound className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Auth</span>
+              <KeyRound className="h-3.5 w-3.5" />{" "}
+              <span className="hidden sm:inline">Auth</span>
             </TabsTrigger>
           </TabsList>
 
@@ -198,7 +216,10 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
           </TabsContent>
 
           <TabsContent value="webhooks" className="mt-4">
-            <WebhooksPanel webhooks={stats?.webhooks || []} onRefresh={fetchStats} />
+            <WebhooksPanel
+              webhooks={stats?.webhooks || []}
+              onRefresh={fetchStats}
+            />
           </TabsContent>
 
           <TabsContent value="invites" className="mt-4">
@@ -232,12 +253,7 @@ function StatCard({
   );
 }
 
-const AVATARS: Record<string, string> = {
-  chris: "/avatars/chris.jpg",
-  clio: "/avatars/clio.png",
-  domingo: "/avatars/domingo.jpg",
-  zumie: "/avatars/zumie.png",
-};
+// Avatars are served via /api/avatars/:identity with initials fallback
 
 interface UserStats {
   inbox: { unread: number; pending: number; read: number; total: number };
@@ -273,17 +289,25 @@ const CONNECTION_LABELS: Record<string, { label: string; color: string }> = {
 function PresencePanel({
   presence,
 }: {
-  presence: Record<string, { online: boolean; lastSeen: string | null; unread: number }>;
+  presence: Record<
+    string,
+    { online: boolean; lastSeen: string | null; unread: number }
+  >;
 }) {
-  const [userStats, setUserStats] = useState<Record<string, UserStats> | null>(null);
+  const [userStats, setUserStats] = useState<Record<string, UserStats> | null>(
+    null,
+  );
   const [wakeData, setWakeData] = useState<WakePayload | null>(null);
   const [wakeUser, setWakeUser] = useState<string | null>(null);
   const [wakeLoading, setWakeLoading] = useState(false);
 
   useEffect(() => {
-    api.getUserStats().then((data: { users: Record<string, UserStats> }) => {
-      setUserStats(data.users);
-    }).catch(console.error);
+    api
+      .getUserStats()
+      .then((data: { users: Record<string, UserStats> }) => {
+        setUserStats(data.users);
+      })
+      .catch(console.error);
   }, []);
 
   const openWake = async (identity: string) => {
@@ -327,20 +351,51 @@ function PresencePanel({
               <CardContent className="p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    {AVATARS[name] ? (
-                      <img src={AVATARS[name]} alt={name} className="h-10 w-10 rounded-full" />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold uppercase">
-                        {name[0]}
-                      </div>
-                    )}
+                    <div className="relative group">
+                      <UserAvatar name={name} size="lg" />
+                      <label
+                        className="absolute inset-0 rounded-full bg-black/50 text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                        title="Upload avatar"
+                      >
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const form = new FormData();
+                            form.append("avatar", file);
+                            try {
+                              await fetch(`/api/avatars/${name}`, {
+                                method: "POST",
+                                headers: {
+                                  Authorization: `Bearer ${getMailboxKey()}`,
+                                },
+                                body: form,
+                              });
+                              // Force re-render by toggling a dummy state
+                              window.location.reload();
+                            } catch (err) {
+                              console.error("Avatar upload failed:", err);
+                            }
+                          }}
+                        />
+                        Edit
+                      </label>
+                    </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm capitalize">{name}</p>
-                        <Badge variant={info.online ? "default" : "secondary"} className="text-[10px] h-5">
+                        <Badge
+                          variant={info.online ? "default" : "secondary"}
+                          className="text-[10px] h-5"
+                        >
                           {info.online ? "Online" : "Offline"}
                         </Badge>
-                        <span className={`text-[10px] font-medium ${connInfo.color}`}>
+                        <span
+                          className={`text-[10px] font-medium ${connInfo.color}`}
+                        >
                           {connInfo.label}
                         </span>
                       </div>
@@ -369,11 +424,25 @@ function PresencePanel({
                     <div className="flex items-center gap-1">
                       <Mail className="h-3 w-3 shrink-0" />
                       <span>
-                        <strong className={stats.inbox.unread > 0 ? "text-destructive" : ""}>{stats.inbox.unread}</strong> unread
+                        <strong
+                          className={
+                            stats.inbox.unread > 0 ? "text-destructive" : ""
+                          }
+                        >
+                          {stats.inbox.unread}
+                        </strong>{" "}
+                        unread
                         {stats.inbox.pending > 0 && (
-                          <> · <strong className="text-amber-500">{stats.inbox.pending}</strong> pending</>
-                        )}
-                        {" "}· {stats.inbox.read} read
+                          <>
+                            {" "}
+                            ·{" "}
+                            <strong className="text-amber-500">
+                              {stats.inbox.pending}
+                            </strong>{" "}
+                            pending
+                          </>
+                        )}{" "}
+                        · {stats.inbox.read} read
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -382,10 +451,12 @@ function PresencePanel({
                         <strong>{swarmTotal}</strong> tasks
                         {swarmTotal > 0 && (
                           <span className="ml-1">
-                            ({Object.entries(stats.swarm)
+                            (
+                            {Object.entries(stats.swarm)
                               .filter(([s]) => s !== "complete")
                               .map(([s, c]) => `${c} ${s.replace("_", " ")}`)
-                              .join(", ")})
+                              .join(", ")}
+                            )
                           </span>
                         )}
                       </span>
@@ -399,7 +470,10 @@ function PresencePanel({
       </div>
 
       {/* Wake Dialog */}
-      <Dialog open={!!wakeUser} onOpenChange={(open) => !open && setWakeUser(null)}>
+      <Dialog
+        open={!!wakeUser}
+        onOpenChange={(open) => !open && setWakeUser(null)}
+      >
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="capitalize flex items-center gap-2">
@@ -407,7 +481,9 @@ function PresencePanel({
             </DialogTitle>
           </DialogHeader>
           {wakeLoading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Loading...</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Loading...
+            </p>
           ) : wakeData ? (
             <div className="space-y-3">
               {wakeData.summary ? (
@@ -443,29 +519,49 @@ function PresencePanel({
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {item.age && (
-                            <span className="text-[10px] text-muted-foreground">{item.age}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {item.age}
+                            </span>
                           )}
                           {item.ephemeral && (
-                            <Badge variant="outline" className="text-[9px] h-4">ephemeral</Badge>
+                            <Badge variant="outline" className="text-[9px] h-4">
+                              ephemeral
+                            </Badge>
                           )}
                           {item.status && (
-                            <Badge variant="secondary" className="text-[10px] h-4">{item.status}</Badge>
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] h-4"
+                            >
+                              {item.status}
+                            </Badge>
                           )}
                           {item.role && (
-                            <Badge variant={item.role === "wake" ? "destructive" : "secondary"} className="text-[10px] h-4">
+                            <Badge
+                              variant={
+                                item.role === "wake"
+                                  ? "destructive"
+                                  : "secondary"
+                              }
+                              className="text-[10px] h-4"
+                            >
                               {item.role}
                             </Badge>
                           )}
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground italic">{item.action}</p>
+                      <p className="text-xs text-muted-foreground italic">
+                        {item.action}
+                      </p>
                     </CardContent>
                   </Card>
                 );
               })}
             </div>
           ) : (
-            <p className="text-sm text-destructive py-4 text-center">Failed to load wake data.</p>
+            <p className="text-sm text-destructive py-4 text-center">
+              Failed to load wake data.
+            </p>
           )}
         </DialogContent>
       </Dialog>
@@ -489,7 +585,14 @@ function TasksPanel({
   taskCounts: Record<string, number>;
   projects: Array<{ id: string; title: string; color: string }>;
 }) {
-  const statuses = ["queued", "ready", "in_progress", "holding", "review", "complete"];
+  const statuses = [
+    "queued",
+    "ready",
+    "in_progress",
+    "holding",
+    "review",
+    "complete",
+  ];
 
   return (
     <div className="space-y-4">
@@ -502,8 +605,12 @@ function TasksPanel({
             return (
               <Card key={s}>
                 <CardContent className="p-3 text-center">
-                  <p className={`text-2xl font-bold ${config?.color}`}>{count}</p>
-                  <p className="text-xs text-muted-foreground">{config?.label || s}</p>
+                  <p className={`text-2xl font-bold ${config?.color}`}>
+                    {count}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {config?.label || s}
+                  </p>
                 </CardContent>
               </Card>
             );
@@ -518,7 +625,10 @@ function TasksPanel({
             {projects.map((p) => (
               <Card key={p.id}>
                 <CardContent className="p-3 flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color }} />
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: p.color }}
+                  />
                   <span className="text-sm font-medium">{p.title}</span>
                 </CardContent>
               </Card>
@@ -550,7 +660,7 @@ function WebhooksPanel({
   const [editTitle, setEditTitle] = useState("");
   const [editAppName, setEditAppName] = useState("");
 
-  const startEdit = (wh: typeof webhooks[0]) => {
+  const startEdit = (wh: (typeof webhooks)[0]) => {
     setEditingId(wh.id);
     setEditTitle(wh.title);
     setEditAppName(wh.appName);
@@ -558,7 +668,10 @@ function WebhooksPanel({
 
   const saveEdit = async (id: string) => {
     try {
-      await api.updateWebhook(Number(id), { title: editTitle, appName: editAppName });
+      await api.updateWebhook(Number(id), {
+        title: editTitle,
+        appName: editAppName,
+      });
       setEditingId(null);
       onRefresh();
     } catch (err) {
@@ -566,7 +679,7 @@ function WebhooksPanel({
     }
   };
 
-  const copyUrl = (wh: typeof webhooks[0]) => {
+  const copyUrl = (wh: (typeof webhooks)[0]) => {
     const url = `https://messages.biginformatics.net/api/ingest/${wh.appName}/${wh.token}`;
     navigator.clipboard.writeText(url);
     setCopied(wh.id);
@@ -582,7 +695,10 @@ function WebhooksPanel({
     if (!newAppName.trim() || !newTitle.trim()) return;
     setCreating(true);
     try {
-      await api.createWebhook({ appName: newAppName.trim(), title: newTitle.trim() });
+      await api.createWebhook({
+        appName: newAppName.trim(),
+        title: newTitle.trim(),
+      });
       setNewAppName("");
       setNewTitle("");
       onRefresh();
@@ -600,12 +716,18 @@ function WebhooksPanel({
         <CardContent className="p-3">
           <form onSubmit={handleCreate} className="flex items-end gap-2">
             <div className="flex-1">
-              <p className="text-xs text-muted-foreground mb-1">App name (slug)</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                App name (slug)
+              </p>
               <input
                 className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
                 placeholder="e.g. onedev"
                 value={newAppName}
-                onChange={(e) => setNewAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                onChange={(e) =>
+                  setNewAppName(
+                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                  )
+                }
                 required
               />
             </div>
@@ -647,13 +769,30 @@ function WebhooksPanel({
                   <input
                     className="w-32 rounded-md border bg-transparent px-2 py-1 text-sm font-mono"
                     value={editAppName}
-                    onChange={(e) => setEditAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    onChange={(e) =>
+                      setEditAppName(
+                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                      )
+                    }
                     placeholder="app-name"
                   />
                 </div>
                 <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditingId(null)}>Cancel</Button>
-                  <Button size="sm" className="h-7 text-xs" onClick={() => saveEdit(wh.id)}>Save</Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setEditingId(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => saveEdit(wh.id)}
+                  >
+                    Save
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -666,27 +805,46 @@ function WebhooksPanel({
                       size="sm"
                       className="h-5 px-1.5 text-[10px]"
                       onClick={async () => {
-                        await api.updateWebhook(Number(wh.id), { enabled: !wh.enabled });
+                        await api.updateWebhook(Number(wh.id), {
+                          enabled: !wh.enabled,
+                        });
                         onRefresh();
                       }}
                     >
-                      <Badge variant={wh.enabled ? "default" : "secondary"} className="text-xs cursor-pointer">
+                      <Badge
+                        variant={wh.enabled ? "default" : "secondary"}
+                        className="text-xs cursor-pointer"
+                      >
                         {wh.enabled ? "Active" : "Disabled"}
                       </Badge>
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    App: <strong>{wh.appName}</strong> · Owner: {wh.owner} · Created: {new Date(wh.createdAt).toLocaleDateString()}
+                    App: <strong>{wh.appName}</strong> · Owner: {wh.owner} ·
+                    Created: {new Date(wh.createdAt).toLocaleDateString()}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 font-mono">
                     /api/ingest/{wh.appName}/{wh.token}
                   </p>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" onClick={() => copyUrl(wh)}>
-                    {copied === wh.id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => copyUrl(wh)}
+                  >
+                    {copied === wh.id ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => startEdit(wh)} title="Edit webhook">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => startEdit(wh)}
+                    title="Edit webhook"
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
@@ -695,7 +853,10 @@ function WebhooksPanel({
                     className="text-destructive"
                     onClick={async () => {
                       if (!confirm(`Delete webhook "${wh.title}"?`)) return;
-                      try { await api.deleteWebhook(Number(wh.id)); onRefresh(); } catch {}
+                      try {
+                        await api.deleteWebhook(Number(wh.id));
+                        onRefresh();
+                      } catch {}
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -744,9 +905,10 @@ function RecurringPanel({
   projects: Array<{ id: string; title: string; color: string }>;
 }) {
   const [templates, setTemplates] = useState<RecurringTemplate[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<RecurringTemplate | null>(null);
+  const [editingTemplate, setEditingTemplate] =
+    useState<RecurringTemplate | null>(null);
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -786,7 +948,9 @@ function RecurringPanel({
   const handleTick = async () => {
     try {
       const result = await api.tickRecurring();
-      alert(`Tick complete: ${result.created} tasks created, ${result.errors} errors`);
+      alert(
+        `Tick complete: ${result.created} tasks created, ${result.errors} errors`,
+      );
       fetchTemplates();
     } catch (err) {
       console.error("Failed to tick:", err);
@@ -800,7 +964,12 @@ function RecurringPanel({
           Recurring templates automatically create tasks on a schedule.
         </p>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleTick} title="Run tick now — creates any due tasks">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTick}
+            title="Run tick now — creates any due tasks"
+          >
             <Play className="h-3.5 w-3.5 mr-1" /> Tick Now
           </Button>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
@@ -824,12 +993,18 @@ function RecurringPanel({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-sm">{t.title}</p>
-                        <Badge variant={t.enabled ? "default" : "secondary"} className="text-xs">
+                        <Badge
+                          variant={t.enabled ? "default" : "secondary"}
+                          className="text-xs"
+                        >
                           {t.enabled ? "Active" : "Disabled"}
                         </Badge>
                         {project && (
                           <Badge variant="outline" className="text-xs gap-1">
-                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: project.color }}
+                            />
                             {project.title}
                           </Badge>
                         )}
@@ -846,10 +1021,14 @@ function RecurringPanel({
                       </div>
                       <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                         {t.lastRunAt && (
-                          <span>Last: {new Date(t.lastRunAt).toLocaleString()}</span>
+                          <span>
+                            Last: {new Date(t.lastRunAt).toLocaleString()}
+                          </span>
                         )}
                         {t.nextRunAt && (
-                          <span>Next: {new Date(t.nextRunAt).toLocaleString()}</span>
+                          <span>
+                            Next: {new Date(t.nextRunAt).toLocaleString()}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -993,7 +1172,10 @@ function CreateRecurringDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+      <DialogContent
+        className="sm:max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>New Recurring Template</DialogTitle>
         </DialogHeader>
@@ -1014,7 +1196,9 @@ function CreateRecurringDialog({
 
           {/* Cron expression */}
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Schedule (cron)</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Schedule (cron)
+            </p>
             <Input
               placeholder="0 9 * * 1"
               value={cronExpr}
@@ -1048,7 +1232,9 @@ function CreateRecurringDialog({
               >
                 <option value="">No project</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.title}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1061,7 +1247,9 @@ function CreateRecurringDialog({
               >
                 <option value="">Unassigned</option>
                 {KNOWN_USERS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1086,10 +1274,17 @@ function CreateRecurringDialog({
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={sending || !title.trim() || !cronExpr.trim()}>
+            <Button
+              type="submit"
+              disabled={sending || !title.trim() || !cronExpr.trim()}
+            >
               {sending ? "Creating..." : "Create Template"}
             </Button>
           </div>
@@ -1162,7 +1357,10 @@ function EditRecurringDialog({
 
   return (
     <Dialog open={!!template} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+      <DialogContent
+        className="sm:max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>Edit Recurring Template</DialogTitle>
         </DialogHeader>
@@ -1182,7 +1380,9 @@ function EditRecurringDialog({
           />
 
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Schedule (cron)</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Schedule (cron)
+            </p>
             <Input
               placeholder="0 9 * * 1"
               value={cronExpr}
@@ -1216,7 +1416,9 @@ function EditRecurringDialog({
               >
                 <option value="">No project</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.title}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1229,7 +1431,9 @@ function EditRecurringDialog({
               >
                 <option value="">Unassigned</option>
                 {KNOWN_USERS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1257,7 +1461,10 @@ function EditRecurringDialog({
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !title.trim() || !cronExpr.trim()}>
+            <Button
+              type="submit"
+              disabled={saving || !title.trim() || !cronExpr.trim()}
+            >
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>
@@ -1270,28 +1477,32 @@ function EditRecurringDialog({
 /* ─── Auth Panel (Invites + Tokens) ─── */
 
 function AuthPanel() {
-  const [invitesList, setInvitesList] = useState<Array<{
-    id: number;
-    code: string;
-    createdBy: string;
-    identityHint: string | null;
-    isAdmin: boolean;
-    maxUses: number;
-    useCount: number;
-    expiresAt: string | null;
-    createdAt: string;
-  }>>([]);
-  const [tokensList, setTokensList] = useState<Array<{
-    id: number;
-    identity: string;
-    isAdmin: boolean;
-    label: string | null;
-    createdBy: string | null;
-    createdAt: string;
-    lastUsedAt: string | null;
-    revokedAt: string | null;
-    webhookToken: string | null;
-  }>>([]);
+  const [invitesList, setInvitesList] = useState<
+    Array<{
+      id: number;
+      code: string;
+      createdBy: string;
+      identityHint: string | null;
+      isAdmin: boolean;
+      maxUses: number;
+      useCount: number;
+      expiresAt: string | null;
+      createdAt: string;
+    }>
+  >([]);
+  const [tokensList, setTokensList] = useState<
+    Array<{
+      id: number;
+      identity: string;
+      isAdmin: boolean;
+      label: string | null;
+      createdBy: string | null;
+      createdAt: string;
+      lastUsedAt: string | null;
+      revokedAt: string | null;
+      webhookToken: string | null;
+    }>
+  >([]);
   const [loading, setLoading] = useState(false);
   const [identityHint, setIdentityHint] = useState("");
   const [inviteAdmin, setInviteAdmin] = useState(false);
@@ -1314,7 +1525,9 @@ function AuthPanel() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const handleCreateInvite = async () => {
     setCreating(true);
@@ -1393,10 +1606,16 @@ Register a webhook for instant message delivery (recommended):
           </h3>
           <div className="flex gap-2 items-end">
             <div className="flex-1">
-              <p className="text-xs text-muted-foreground mb-1">Identity hint (optional)</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Identity hint (optional)
+              </p>
               <Input
                 value={identityHint}
-                onChange={(e) => setIdentityHint(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                onChange={(e) =>
+                  setIdentityHint(
+                    e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""),
+                  )
+                }
                 placeholder="e.g., clio"
               />
             </div>
@@ -1414,7 +1633,8 @@ Register a webhook for instant message delivery (recommended):
             </Button>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
-            Creates a one-time invite link (expires in 72h). URL is copied to clipboard.
+            Creates a one-time invite link (expires in 72h). URL is copied to
+            clipboard.
           </p>
         </CardContent>
       </Card>
@@ -1426,8 +1646,15 @@ Register a webhook for instant message delivery (recommended):
             <h3 className="text-sm font-semibold flex items-center gap-1.5">
               <KeyRound className="h-4 w-4" /> Invites
             </h3>
-            <Button variant="ghost" size="icon" onClick={fetchAll} disabled={loading}>
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={fetchAll}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              />
             </Button>
           </div>
           <div className="flex gap-1 mb-3">
@@ -1439,8 +1666,19 @@ Register a webhook for instant message delivery (recommended):
             >
               Active
               {(() => {
-                const count = invitesList.filter((i) => i.useCount < i.maxUses && (!i.expiresAt || new Date(i.expiresAt) > new Date())).length;
-                return count > 0 ? <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{count}</Badge> : null;
+                const count = invitesList.filter(
+                  (i) =>
+                    i.useCount < i.maxUses &&
+                    (!i.expiresAt || new Date(i.expiresAt) > new Date()),
+                ).length;
+                return count > 0 ? (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 h-4 text-[10px] px-1"
+                  >
+                    {count}
+                  </Badge>
+                ) : null;
               })()}
             </Button>
             <Button
@@ -1454,33 +1692,54 @@ Register a webhook for instant message delivery (recommended):
           </div>
           {(() => {
             const filtered = invitesList.filter((inv) => {
-              const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+              const expired =
+                inv.expiresAt && new Date(inv.expiresAt) < new Date();
               const used = inv.useCount >= inv.maxUses;
-              return inviteTab === "active" ? !expired && !used : expired || used;
+              return inviteTab === "active"
+                ? !expired && !used
+                : expired || used;
             });
             if (filtered.length === 0) {
-              return <p className="text-xs text-muted-foreground text-center py-4">{inviteTab === "active" ? "No active invites" : "No used or expired invites"}</p>;
+              return (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  {inviteTab === "active"
+                    ? "No active invites"
+                    : "No used or expired invites"}
+                </p>
+              );
             }
             return (
               <div className="space-y-2">
                 {filtered.map((inv) => {
-                  const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+                  const expired =
+                    inv.expiresAt && new Date(inv.expiresAt) < new Date();
                   const used = inv.useCount >= inv.maxUses;
                   return (
-                    <div key={inv.id} className={`flex items-center justify-between p-2 rounded-md border text-xs ${expired || used ? "opacity-50" : ""}`}>
+                    <div
+                      key={inv.id}
+                      className={`flex items-center justify-between p-2 rounded-md border text-xs ${expired || used ? "opacity-50" : ""}`}
+                    >
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          {inv.identityHint && <Badge variant="outline">{inv.identityHint}</Badge>}
-                          {inv.isAdmin && <Badge variant="destructive">admin</Badge>}
+                          {inv.identityHint && (
+                            <Badge variant="outline">{inv.identityHint}</Badge>
+                          )}
+                          {inv.isAdmin && (
+                            <Badge variant="destructive">admin</Badge>
+                          )}
                           {used && <Badge variant="secondary">used</Badge>}
-                          {expired && !used && <Badge variant="secondary">expired</Badge>}
+                          {expired && !used && (
+                            <Badge variant="secondary">expired</Badge>
+                          )}
                           <span className="text-muted-foreground">
                             {inv.useCount}/{inv.maxUses} used
                           </span>
                         </div>
                         <p className="text-muted-foreground">
-                          by {inv.createdBy} · {new Date(inv.createdAt).toLocaleDateString()}
-                          {inv.expiresAt && ` · expires ${new Date(inv.expiresAt).toLocaleDateString()}`}
+                          by {inv.createdBy} ·{" "}
+                          {new Date(inv.createdAt).toLocaleDateString()}
+                          {inv.expiresAt &&
+                            ` · expires ${new Date(inv.expiresAt).toLocaleDateString()}`}
                         </p>
                       </div>
                       <div className="flex gap-1">
@@ -1493,16 +1752,26 @@ Register a webhook for instant message delivery (recommended):
                               title="Copy invite link"
                               onClick={() => copyCode(inv.id, inv.code)}
                             >
-                              {copiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                              {copiedId === inv.id ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
                               title="Copy onboarding instructions"
-                              onClick={() => copyDetail(inv.id, inv.code, inv.identityHint)}
+                              onClick={() =>
+                                copyDetail(inv.id, inv.code, inv.identityHint)
+                              }
                             >
-                              {detailCopiedId === inv.id ? <Check className="h-3 w-3 text-green-500" /> : <FileText className="h-3 w-3" />}
+                              {detailCopiedId === inv.id ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <FileText className="h-3 w-3" />
+                              )}
                             </Button>
                           </>
                         )}
@@ -1540,7 +1809,14 @@ Register a webhook for instant message delivery (recommended):
               Active
               {(() => {
                 const count = tokensList.filter((t) => !t.revokedAt).length;
-                return count > 0 ? <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{count}</Badge> : null;
+                return count > 0 ? (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 h-4 text-[10px] px-1"
+                  >
+                    {count}
+                  </Badge>
+                ) : null;
               })()}
             </Button>
             <Button
@@ -1557,24 +1833,43 @@ Register a webhook for instant message delivery (recommended):
               tokenTab === "active" ? !tok.revokedAt : !!tok.revokedAt,
             );
             if (filtered.length === 0) {
-              return <p className="text-xs text-muted-foreground text-center py-4">{tokenTab === "active" ? "No active tokens" : "No revoked tokens"}</p>;
+              return (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  {tokenTab === "active"
+                    ? "No active tokens"
+                    : "No revoked tokens"}
+                </p>
+              );
             }
             return (
               <div className="space-y-2">
                 {filtered.map((tok) => (
-                  <div key={tok.id} className={`flex items-center justify-between p-2 rounded-md border text-xs ${tok.revokedAt ? "opacity-50" : ""}`}>
+                  <div
+                    key={tok.id}
+                    className={`flex items-center justify-between p-2 rounded-md border text-xs ${tok.revokedAt ? "opacity-50" : ""}`}
+                  >
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">{tok.identity}</Badge>
-                        {tok.isAdmin && <Badge variant="destructive">admin</Badge>}
-                        {tok.revokedAt && <Badge variant="outline">revoked</Badge>}
-                        {tok.label && <span className="text-muted-foreground">{tok.label}</span>}
+                        {tok.isAdmin && (
+                          <Badge variant="destructive">admin</Badge>
+                        )}
+                        {tok.revokedAt && (
+                          <Badge variant="outline">revoked</Badge>
+                        )}
+                        {tok.label && (
+                          <span className="text-muted-foreground">
+                            {tok.label}
+                          </span>
+                        )}
                       </div>
                       <p className="text-muted-foreground">
                         {tok.createdBy && `by ${tok.createdBy} · `}
                         {new Date(tok.createdAt).toLocaleDateString()}
-                        {tok.lastUsedAt && ` · last used ${new Date(tok.lastUsedAt).toLocaleString()}`}
-                        {tok.revokedAt && ` · revoked ${new Date(tok.revokedAt).toLocaleDateString()}`}
+                        {tok.lastUsedAt &&
+                          ` · last used ${new Date(tok.lastUsedAt).toLocaleString()}`}
+                        {tok.revokedAt &&
+                          ` · revoked ${new Date(tok.revokedAt).toLocaleDateString()}`}
                       </p>
                     </div>
                     {!tok.revokedAt && (

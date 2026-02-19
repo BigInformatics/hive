@@ -1,8 +1,8 @@
+import { sql as rawSql } from "drizzle-orm";
 import { defineEventHandler } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
-import { mailboxMessages, swarmTasks, mailboxTokens } from "@/db/schema";
-import { eq, and, inArray, sql as rawSql } from "drizzle-orm";
+import { mailboxMessages, mailboxTokens, swarmTasks } from "@/db/schema";
+import { authenticateEvent } from "@/lib/auth";
 import { getPresence } from "@/lib/presence";
 
 /**
@@ -70,7 +70,11 @@ export default defineEventHandler(async (event) => {
     {
       inbox: { unread: number; pending: number; read: number; total: number };
       swarm: Record<string, number>;
-      presence: { online: boolean; lastSeen: string | null; source: string | null };
+      presence: {
+        online: boolean;
+        lastSeen: string | null;
+        source: string | null;
+      };
       connection: string;
     }
   > = {};

@@ -2,7 +2,7 @@
  * Auth API tests — these test the authentication logic patterns.
  * For full integration tests, set TEST_HIVE_URL and TEST_HIVE_TOKEN env vars.
  */
-import { describe, it, expect, beforeAll, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const BASE = process.env.TEST_HIVE_URL || "";
 const TOKEN = process.env.TEST_HIVE_TOKEN || "";

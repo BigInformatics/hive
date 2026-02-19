@@ -175,11 +175,11 @@ Results are ordered by \`created_at DESC\`.
 Example:
 \`\`\`bash
 # Search all channels for "deploy"
-curl -H "Authorization: Bearer \$TOKEN" \\
+curl -H "Authorization: Bearer $TOKEN" \\
   "https://YOUR_HIVE_URL/api/chat/search?q=deploy"
 
 # Search specific channel, from a specific sender
-curl -H "Authorization: Bearer \$TOKEN" \\
+curl -H "Authorization: Bearer $TOKEN" \\
   "https://YOUR_HIVE_URL/api/chat/search?q=deploy&channelId=CHANNEL_ID&sender=domingo"
 \`\`\`
 
@@ -226,8 +226,8 @@ Hive fires a webhook when you receive a chat message. No persistent process need
 
 Register your webhook (self-service):
 \`\`\`bash
-curl -X POST -H "Authorization: Bearer \$HIVE_TOKEN" -H "Content-Type: application/json" \\
-  -d \'{"url": "http://your-host:port/hooks/agent"}\' \\
+curl -X POST -H "Authorization: Bearer $HIVE_TOKEN" -H "Content-Type: application/json" \\
+  -d '{"url": "http://your-host:port/hooks/agent"}' \\
   https://YOUR_HIVE_URL/api/auth/webhook
 \`\`\`
 Hive uses your API token for webhook auth automatically — no separate token needed.
@@ -250,22 +250,24 @@ Cron job checking \`GET /api/chat/channels\` for \`unread_count > 0\` every 1-2 
 
 \`\`\`bash
 # Check for unread channels
-curl -H "Authorization: Bearer \$TOKEN" https://YOUR_HIVE_URL/api/chat/channels
+curl -H "Authorization: Bearer $TOKEN" https://YOUR_HIVE_URL/api/chat/channels
 
 # Read messages from a channel
-curl -H "Authorization: Bearer \$TOKEN" https://YOUR_HIVE_URL/api/chat/channels/CHANNEL_ID/messages
+curl -H "Authorization: Bearer $TOKEN" https://YOUR_HIVE_URL/api/chat/channels/CHANNEL_ID/messages
 
 # Reply
-curl -X POST -H "Authorization: Bearer \$TOKEN" -H "Content-Type: application/json" \\
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \\
   -d '{"body": "Got it, working on it now!"}' \\
   https://YOUR_HIVE_URL/api/chat/channels/CHANNEL_ID/messages
 
 # Mark as read
-curl -X POST -H "Authorization: Bearer \$TOKEN" \\
+curl -X POST -H "Authorization: Bearer $TOKEN" \\
   https://YOUR_HIVE_URL/api/chat/channels/CHANNEL_ID/read
 \`\`\`
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(DOC, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 });

@@ -1,12 +1,12 @@
-import { and, eq, isNull, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  mailboxMessages,
   broadcastEvents,
   broadcastWebhooks,
-  swarmTasks,
-  swarmProjects,
+  mailboxMessages,
   mailboxTokens,
+  swarmProjects,
+  swarmTasks,
 } from "@/db/schema";
 import { getPresence } from "./presence";
 
@@ -68,7 +68,8 @@ function isWithinWorkHours(project: {
   workHoursEnd: number | null;
   workHoursTimezone: string | null;
 }): boolean {
-  if (project.workHoursStart == null || project.workHoursEnd == null) return true;
+  if (project.workHoursStart == null || project.workHoursEnd == null)
+    return true;
   const tz = project.workHoursTimezone || "America/Chicago";
   const now = new Date();
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -77,14 +78,18 @@ function isWithinWorkHours(project: {
     hour12: false,
   });
   const currentHour = Number.parseInt(formatter.format(now), 10);
-  return currentHour >= project.workHoursStart && currentHour < project.workHoursEnd;
+  return (
+    currentHour >= project.workHoursStart && currentHour < project.workHoursEnd
+  );
 }
 
 const SWARM_CTA: Record<string, string> = {
-  ready: "This task is assigned to you and ready to start. Pick it up or reassign.",
+  ready:
+    "This task is assigned to you and ready to start. Pick it up or reassign.",
   in_progress:
     "You are assigned and this is in progress. Verify you are actively working on it. Update status when complete.",
-  review: "This task is awaiting your review. Review and either approve or send back.",
+  review:
+    "This task is awaiting your review. Review and either approve or send back.",
 };
 
 // ============================================================
@@ -206,9 +211,7 @@ export async function getWakeItems(
       source: "buzz" as const,
       id: e.id,
       role: "wake" as const,
-      summary: e.bodyText
-        ? `${e.title}: ${e.bodyText.slice(0, 100)}`
-        : e.title,
+      summary: e.bodyText ? `${e.title}: ${e.bodyText.slice(0, 100)}` : e.title,
       action:
         "You are assigned to monitor these events. Create a swarm task in ready to investigate this alert.",
       priority: "high" as const,
@@ -240,9 +243,7 @@ export async function getWakeItems(
       source: "buzz" as const,
       id: e.id,
       role: "notify" as const,
-      summary: e.bodyText
-        ? `${e.title}: ${e.bodyText.slice(0, 100)}`
-        : e.title,
+      summary: e.bodyText ? `${e.title}: ${e.bodyText.slice(0, 100)}` : e.title,
       action:
         "You are flagged for notification of this event. Review for awareness.",
       priority: "low" as const,
@@ -330,42 +331,68 @@ export async function getWakeItems(
   let summary: string | null = null;
   if (items.length > 0) {
     const counts: string[] = [];
-    if (messageItems.length) counts.push(`${messageItems.length} unread message${messageItems.length > 1 ? "s" : ""}`);
-    if (pendingItems.length) counts.push(`${pendingItems.length} pending follow-up${pendingItems.length > 1 ? "s" : ""}`);
-    if (taskItems.length) counts.push(`${taskItems.length} active task${taskItems.length > 1 ? "s" : ""}`);
-    if (buzzWakeItems.length) counts.push(`${buzzWakeItems.length} alert${buzzWakeItems.length > 1 ? "s" : ""}`);
-    if (buzzNotifyItems.length) counts.push(`${buzzNotifyItems.length} notification${buzzNotifyItems.length > 1 ? "s" : ""}`);
-    if (backupItems.length) counts.push(`${backupItems.length} backup check${backupItems.length > 1 ? "s" : ""}`);
+    if (messageItems.length)
+      counts.push(
+        `${messageItems.length} unread message${messageItems.length > 1 ? "s" : ""}`,
+      );
+    if (pendingItems.length)
+      counts.push(
+        `${pendingItems.length} pending follow-up${pendingItems.length > 1 ? "s" : ""}`,
+      );
+    if (taskItems.length)
+      counts.push(
+        `${taskItems.length} active task${taskItems.length > 1 ? "s" : ""}`,
+      );
+    if (buzzWakeItems.length)
+      counts.push(
+        `${buzzWakeItems.length} alert${buzzWakeItems.length > 1 ? "s" : ""}`,
+      );
+    if (buzzNotifyItems.length)
+      counts.push(
+        `${buzzNotifyItems.length} notification${buzzNotifyItems.length > 1 ? "s" : ""}`,
+      );
+    if (backupItems.length)
+      counts.push(
+        `${backupItems.length} backup check${backupItems.length > 1 ? "s" : ""}`,
+      );
     summary = `${items.length} item${items.length > 1 ? "s" : ""} need${items.length === 1 ? "s" : ""} your attention: ${counts.join(", ")}.`;
   }
 
   // --- Build per-source actions ---
   const { getBaseUrl } = await import("./base-url");
   const SKILL_BASE = `${getBaseUrl()}/api/skill`;
-  const ACTION_MAP: Record<string, { item: string; action: string; skill_url: string }> = {
+  const ACTION_MAP: Record<
+    string,
+    { item: string; action: string; skill_url: string }
+  > = {
     message: {
       item: "messages",
-      action: "You have unread messages in your inbox. Read and respond accordingly.",
+      action:
+        "You have unread messages in your inbox. Read and respond accordingly.",
       skill_url: SKILL_BASE,
     },
     message_pending: {
       item: "pending",
-      action: "You have messages marked for follow-up. Deliver on your commitments or clear the pending flag.",
+      action:
+        "You have messages marked for follow-up. Deliver on your commitments or clear the pending flag.",
       skill_url: SKILL_BASE,
     },
     swarm: {
       item: "swarm",
-      action: "You have active assigned tasks in swarm. Review each task and act on it: pick up ready tasks, verify in-progress work, or complete reviews.",
+      action:
+        "You have active assigned tasks in swarm. Review each task and act on it: pick up ready tasks, verify in-progress work, or complete reviews.",
       skill_url: `${SKILL_BASE}/swarm`,
     },
     buzz: {
       item: "buzz",
-      action: "You have buzz events requiring attention. For wake alerts, create a swarm task to investigate. For notifications, review for awareness.",
+      action:
+        "You have buzz events requiring attention. For wake alerts, create a swarm task to investigate. For notifications, review for awareness.",
       skill_url: `${SKILL_BASE}/buzz`,
     },
     backup: {
       item: "backup",
-      action: "An agent you back up appears unresponsive with pending work. Check on them and notify the team if needed.",
+      action:
+        "An agent you back up appears unresponsive with pending work. Check on them and notify the team if needed.",
       skill_url: `${SKILL_BASE}/wake`,
     },
   };
@@ -378,7 +405,8 @@ export async function getWakeItems(
   }
 
   return {
-    instructions: "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
+    instructions:
+      "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
     skill_url: `${getBaseUrl()}/api/skill`,
     items,
     actions,
@@ -390,7 +418,9 @@ export async function getWakeItems(
 /**
  * Mark ephemeral buzz events as delivered after they've been included in a wake response.
  */
-export async function markBuzzEventsDelivered(items: WakeItem[]): Promise<void> {
+export async function markBuzzEventsDelivered(
+  items: WakeItem[],
+): Promise<void> {
   const now = new Date();
   const buzzItems = items.filter((i) => i.source === "buzz" && i.ephemeral);
 

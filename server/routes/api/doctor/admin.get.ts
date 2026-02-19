@@ -1,7 +1,7 @@
-import { defineEventHandler } from "h3";
-import { authenticateEvent } from "@/lib/auth";
-import { db } from "@/db";
 import { sql } from "drizzle-orm";
+import { defineEventHandler } from "h3";
+import { db } from "@/db";
+import { authenticateEvent } from "@/lib/auth";
 
 interface ProbeResult {
   id: string;
@@ -15,7 +15,11 @@ interface ProbeResult {
 async function runProbe(
   id: string,
   name: string,
-  fn: () => Promise<{ status: "pass" | "warn" | "fail"; summary: string; details?: string }>
+  fn: () => Promise<{
+    status: "pass" | "warn" | "fail";
+    summary: string;
+    details?: string;
+  }>,
 ): Promise<ProbeResult> {
   const start = Date.now();
   try {
@@ -49,7 +53,7 @@ export default defineEventHandler(async (event) => {
         error: "Admin access required",
         hint: "This endpoint requires an admin token. Use /api/doctor for standard probes.",
       }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
+      { status: 403, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -60,7 +64,9 @@ export default defineEventHandler(async (event) => {
     await runProbe("database", "Database", async () => {
       try {
         // Test connectivity
-        const result = await db.execute(sql`SELECT current_database() as db, current_user as usr`);
+        const result = await db.execute(
+          sql`SELECT current_database() as db, current_user as usr`,
+        );
         const dbName = result[0]?.db;
         const dbUser = result[0]?.usr;
 
@@ -107,7 +113,7 @@ export default defineEventHandler(async (event) => {
           summary: `DB connection failed: ${err.message}`,
         };
       }
-    })
+    }),
   );
 
   // Probe 8: Infrastructure
@@ -155,7 +161,7 @@ export default defineEventHandler(async (event) => {
         summary: `All infra checks passed (${checks.length} checks)`,
         details: checks.join("; "),
       };
-    })
+    }),
   );
 
   const statuses = probes.map((p) => p.status);

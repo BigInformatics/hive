@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, getRouterParam, getHeader } from "h3";
+import { defineEventHandler, getHeader, getRouterParam, readBody } from "h3";
 import { getWebhookByToken, recordEvent } from "@/lib/broadcast";
 import { emitWakeTrigger } from "@/lib/events";
 
@@ -7,10 +7,13 @@ export default defineEventHandler(async (event) => {
   const token = getRouterParam(event, "token");
 
   if (!appName || !token) {
-    return new Response(JSON.stringify({ error: "Missing app name or token" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Missing app name or token" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   const webhook = await getWebhookByToken(appName, token);

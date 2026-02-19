@@ -208,9 +208,7 @@
         "broadcast_webhooks_token_unique": {
           "name": "broadcast_webhooks_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -298,12 +296,8 @@
           "name": "chat_members_channel_id_chat_channels_id_fk",
           "tableFrom": "chat_members",
           "tableTo": "chat_channels",
-          "columnsFrom": [
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["channel_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -368,12 +362,8 @@
           "name": "chat_messages_channel_id_chat_channels_id_fk",
           "tableFrom": "chat_messages",
           "tableTo": "chat_channels",
-          "columnsFrom": [
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["channel_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -514,9 +504,7 @@
         "invites_code_unique": {
           "name": "invites_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -778,9 +766,7 @@
         "mailbox_tokens_token_unique": {
           "name": "mailbox_tokens_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},

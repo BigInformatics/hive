@@ -1,14 +1,14 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 
 const KNOWN_RECIPIENTS = ["chris", "clio", "domingo", "zumie"];
@@ -45,7 +45,11 @@ export function ComposeDialog({
     setError("");
 
     try {
-      await api.sendMessage(recipient, { title, body: body || undefined, urgent });
+      await api.sendMessage(recipient, {
+        title,
+        body: body || undefined,
+        urgent,
+      });
       reset();
       onOpenChange(false);
       onSent();

@@ -1,8 +1,8 @@
+import { eq, sql } from "drizzle-orm";
 import { defineEventHandler, getRouterParam, readBody } from "h3";
-import { authenticateEvent } from "@/lib/auth";
 import { db } from "@/db";
 import { notebookPages } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
 function canAccess(
   page: { createdBy: string; taggedUsers: string[] | null },
@@ -63,12 +63,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event);
-  const { title, content, taggedUsers, locked } = body ?? {};
+  const { title, content, taggedUsers, tags, locked, expiresAt, reviewAt } =
+    body ?? {};
 
   // Only owner/admin can change lock or access settings
   if ((locked !== undefined || taggedUsers !== undefined) && !isOwnerOrAdmin) {
     return new Response(
-      JSON.stringify({ error: "Only creator or admin can change access settings" }),
+      JSON.stringify({
+        error: "Only creator or admin can change access settings",
+      }),
       { status: 403, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -81,6 +84,16 @@ export default defineEventHandler(async (event) => {
       Array.isArray(taggedUsers) && taggedUsers.length > 0
         ? taggedUsers.map(String)
         : null;
+  }
+  if (tags !== undefined) {
+    updates.tags =
+      Array.isArray(tags) && tags.length > 0 ? tags.map(String) : null;
+  }
+  if (expiresAt !== undefined) {
+    updates.expiresAt = expiresAt ? new Date(expiresAt) : null;
+  }
+  if (reviewAt !== undefined) {
+    updates.reviewAt = reviewAt ? new Date(reviewAt) : null;
   }
   if (locked !== undefined) {
     updates.locked = !!locked;

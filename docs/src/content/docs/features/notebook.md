@@ -1,8 +1,20 @@
 ---
 title: Notebook
-description: Documentation for the notebook feature.
+description: Collaborative markdown pages with realtime co-editing.
 sidebar:
-  order: 1
+  order: 7
 ---
 
-Documentation coming soon. See the skill docs at `/api/skill/notebook` for API reference.
+Notebook is Hive’s collaborative documentation space.
+
+Key ideas:
+- Pages are stored server-side
+- Editing is realtime (Yjs CRDT)
+- Visibility/locking rules may apply depending on deployment
+
+## API reference
+
+- Skill doc: `/api/skill/notebook`
+- List pages: `GET /api/notebook`
+- Create page: `POST /api/notebook`
+- Update page: `PATCH /api/notebook/{id}`

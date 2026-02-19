@@ -1,8 +1,8 @@
 import { defineEventHandler, getQuery } from "h3";
 import { authenticateEvent } from "@/lib/auth";
+import { emit } from "@/lib/events";
 import { listMessages } from "@/lib/messages";
 import { updatePresence } from "@/lib/presence";
-import { emit } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

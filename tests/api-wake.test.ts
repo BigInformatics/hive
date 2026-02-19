@@ -2,7 +2,7 @@
  * Wake API tests — validates the wake endpoint contract.
  * Requires TEST_HIVE_URL and TEST_HIVE_TOKEN env vars.
  */
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const BASE = process.env.TEST_HIVE_URL || "";
 const TOKEN = process.env.TEST_HIVE_TOKEN || "";
@@ -41,7 +41,13 @@ describe.skipIf(skip)("Wake API", () => {
       expect(item).toHaveProperty("summary");
       expect(item).toHaveProperty("priority");
       expect(item).toHaveProperty("ephemeral");
-      expect(["message", "message_pending", "swarm", "buzz", "backup"]).toContain(item.source);
+      expect([
+        "message",
+        "message_pending",
+        "swarm",
+        "buzz",
+        "backup",
+      ]).toContain(item.source);
       expect(["low", "normal", "high"]).toContain(item.priority);
     }
   });

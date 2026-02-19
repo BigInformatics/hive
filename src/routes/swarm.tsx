@@ -1,44 +1,44 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { getMailboxKey, api } from "@/lib/api";
-import { useSwarmSSE } from "@/lib/use-swarm-sse";
+import {
+  Check,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Code,
+  Columns3,
+  Copy,
+  Crown,
+  Eye,
+  GitBranch,
+  Github,
+  Globe,
+  List,
+  Pause,
+  Pencil,
+  PlayCircle,
+  Plus,
+  RefreshCw,
+  Search,
+  User,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
+import { TaskCombobox } from "@/components/task-combobox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { TaskCombobox } from "@/components/task-combobox";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  RefreshCw,
-  Plus,
-  Circle,
-  CheckCircle2,
-  Clock,
-  Pause,
-  Eye,
-  PlayCircle,
-  User,
-  GripVertical,
-  Columns3,
-  List,
-  Globe,
-  GitBranch,
-  Github,
-  Crown,
-  Code,
-  ExternalLink,
-  Pencil,
-  Copy,
-  Check,
-} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { UserAvatar } from "@/components/user-avatar";
+import { api, getMailboxKey } from "@/lib/api";
+import { useSwarmSSE } from "@/lib/use-swarm-sse";
 
 export const Route = createFileRoute("/swarm")({
   component: SwarmPage,
@@ -49,6 +49,7 @@ interface SwarmTask {
   projectId: string | null;
   title: string;
   detail: string | null;
+  followUp: string | null;
   issueUrl: string | null;
   creatorUserId: string;
   assigneeUserId: string | null;
@@ -57,6 +58,7 @@ interface SwarmTask {
   onOrAfterAt: string | null;
   nextTaskId: string | null;
   nextTaskAssigneeUserId: string | null;
+  linkedNotebookPages: string[] | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -79,7 +81,13 @@ interface SwarmProject {
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; icon: typeof Circle; color: string; bgColor: string; borderColor: string }
+  {
+    label: string;
+    icon: typeof Circle;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+  }
 > = {
   queued: {
     label: "Queued",
@@ -136,13 +144,6 @@ const ALL_STATUSES = [
 
 const KNOWN_USERS = ["chris", "clio", "domingo", "zumie"];
 
-const AVATARS: Record<string, string> = {
-  chris: "/avatars/chris.jpg",
-  clio: "/avatars/clio.png",
-  domingo: "/avatars/domingo.jpg",
-  zumie: "/avatars/zumie.png",
-};
-
 function SwarmPage() {
   const [authed, setAuthed] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -167,12 +168,60 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [editTask, setEditTask] = useState<SwarmTask | null>(null);
-  const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
-  const [filterProject, setFilterProject] = useState<string | null>(null);
-  const [editingProject, setEditingProject] = useState<SwarmProject | null>(null);
+  const [filterAssignee, setFilterAssignee] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("swarm-filter-assignee") || null;
+    } catch {
+      return null;
+    }
+  });
+  const [filterProject, setFilterProject] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("swarm-filter-project") || null;
+    } catch {
+      return null;
+    }
+  });
+  // Persist filters to localStorage
+  useEffect(() => {
+    try {
+      if (filterAssignee)
+        localStorage.setItem("swarm-filter-assignee", filterAssignee);
+      else localStorage.removeItem("swarm-filter-assignee");
+    } catch {}
+  }, [filterAssignee]);
+  useEffect(() => {
+    try {
+      if (filterProject)
+        localStorage.setItem("swarm-filter-project", filterProject);
+      else localStorage.removeItem("swarm-filter-project");
+    } catch {}
+  }, [filterProject]);
+
+  const [editingProject, setEditingProject] = useState<SwarmProject | null>(
+    null,
+  );
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
-  const [mobileStatus, setMobileStatus] = useState<string>("ready");
+  const [_mobileStatus, _setMobileStatus] = useState<string>("ready");
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Persist filter selections to localStorage
+  useEffect(() => {
+    try {
+      if (filterAssignee)
+        localStorage.setItem("swarm-filter-assignee", filterAssignee);
+      else localStorage.removeItem("swarm-filter-assignee");
+    } catch {}
+  }, [filterAssignee]);
+
+  useEffect(() => {
+    try {
+      if (filterProject)
+        localStorage.setItem("swarm-filter-project", filterProject);
+      else localStorage.removeItem("swarm-filter-project");
+    } catch {}
+  }, [filterProject]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -195,18 +244,27 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   }, [fetchData]);
 
   // Live updates via SSE
-  useSwarmSSE(useCallback(() => {
-    fetchData();
-  }, [fetchData]));
+  useSwarmSSE(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData]),
+  );
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     // Optimistic update
     setTasks((prev) =>
       prev.map((t) =>
         t.id === taskId
-          ? { ...t, status: newStatus, completedAt: newStatus === "complete" ? new Date().toISOString() : t.completedAt }
-          : t
-      )
+          ? {
+              ...t,
+              status: newStatus,
+              completedAt:
+                newStatus === "complete"
+                  ? new Date().toISOString()
+                  : t.completedAt,
+            }
+          : t,
+      ),
     );
     try {
       await api.updateTaskStatus(taskId, newStatus);
@@ -228,6 +286,12 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const filteredTasks = tasks.filter((t) => {
     if (filterAssignee && t.assigneeUserId !== filterAssignee) return false;
     if (filterProject && t.projectId !== filterProject) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = t.title.toLowerCase().includes(q);
+      const matchDetail = t.detail?.toLowerCase().includes(q);
+      if (!matchTitle && !matchDetail) return false;
+    }
     return true;
   });
 
@@ -236,12 +300,17 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   ] as string[];
 
   const visibleStatuses = ALL_STATUSES.filter(
-    (s) => showCompleted || s !== "complete"
+    (s) => showCompleted || s !== "complete",
   );
 
   const groupedTasks = visibleStatuses.map((status) => ({
     status,
-    tasks: filteredTasks.filter((t) => t.status === status),
+    tasks: filteredTasks
+      .filter((t) => t.status === status)
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      ),
   }));
 
   const projectMap = new Map(projects.map((p) => [p.id, p]));
@@ -266,6 +335,19 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
 
           <div className="h-4 w-px bg-border mx-1" />
 
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-7 w-48 pl-7 text-xs"
+            />
+          </div>
+
+          <div className="h-4 w-px bg-border mx-1" />
+
           {/* Assignee filter */}
           <div className="flex gap-1">
             <Button
@@ -286,9 +368,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                   setFilterAssignee(filterAssignee === a ? null : a)
                 }
               >
-                {AVATARS[a] ? (
-                  <img src={AVATARS[a]} alt={a} className="h-4 w-4 rounded-full" />
-                ) : null}
+                <UserAvatar name={a} size="xs" />
                 {a}
               </Button>
             ))}
@@ -373,9 +453,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
             onClick={fetchData}
             disabled={loading}
           >
-            <RefreshCw
-              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </div>
@@ -385,7 +463,11 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         {/* Actions row */}
         <div className="flex items-center justify-between px-3 py-2">
           <div className="flex items-center gap-1.5">
-            <Button size="sm" className="h-8" onClick={() => setCreateOpen(true)}>
+            <Button
+              size="sm"
+              className="h-8"
+              onClick={() => setCreateOpen(true)}
+            >
               <Plus className="h-3.5 w-3.5 mr-1" /> Task
             </Button>
             {/* Assignee filter as avatars */}
@@ -395,52 +477,47 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                   key={a}
                   type="button"
                   className={`rounded-full p-0.5 transition-all ${filterAssignee === a ? "ring-2 ring-primary" : "opacity-50"}`}
-                  onClick={() => setFilterAssignee(filterAssignee === a ? null : a)}
+                  onClick={() =>
+                    setFilterAssignee(filterAssignee === a ? null : a)
+                  }
                 >
-                  {AVATARS[a] ? (
-                    <img src={AVATARS[a]} alt={a} className="h-6 w-6 rounded-full" />
-                  ) : (
-                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold uppercase">
-                      {a[0]}
-                    </div>
-                  )}
+                  <UserAvatar name={a} size="md" className="h-6 w-6" />
                 </button>
               ))}
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchData} disabled={loading}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={fetchData}
+            disabled={loading}
+          >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>
 
-        {/* Status tabs — mobile */}
-        <div className="flex overflow-x-auto px-3 pb-2 gap-1 no-scrollbar">
-          {visibleStatuses.map((status) => {
-            const config = STATUS_CONFIG[status];
-            if (!config) return null;
-            const count = filteredTasks.filter((t) => t.status === status).length;
-            const StatusIcon = config.icon;
-            return (
-              <button
-                key={status}
-                type="button"
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                  mobileStatus === status
-                    ? `${config.bgColor} ${config.color} ring-1 ring-current`
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-                onClick={() => setMobileStatus(status)}
-              >
-                <StatusIcon className="h-3 w-3" />
-                {config.label}
-                {count > 0 && (
-                  <span className="ml-0.5 bg-foreground/10 rounded-full px-1.5 text-[10px]">
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* Search — mobile */}
+        <div className="relative px-3 pb-2">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
+
+        {/* Show completed toggle — mobile */}
+        <div className="flex items-center justify-between px-3 pb-2">
+          <Button
+            variant={showCompleted ? "secondary" : "ghost"}
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => setShowCompleted(!showCompleted)}
+          >
+            {showCompleted ? "Hide done" : "Show done"}
+          </Button>
         </div>
       </div>
 
@@ -449,7 +526,10 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         <>
           {/* Desktop board — multi-column */}
           <div className="hidden md:flex flex-1 overflow-x-auto overflow-y-hidden">
-            <div className="flex h-full gap-3 p-4" style={{ minWidth: `${visibleStatuses.length * 280}px` }}>
+            <div
+              className="flex h-full gap-3 p-4"
+              style={{ minWidth: `${visibleStatuses.length * 280}px` }}
+            >
               {groupedTasks.map(({ status, tasks: statusTasks }) => {
                 const config = STATUS_CONFIG[status];
                 if (!config) return null;
@@ -471,9 +551,13 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                     }}
                   >
                     {/* Column header */}
-                    <div className={`flex items-center gap-2 px-3 py-2 border-b ${config.borderColor} ${config.bgColor} rounded-t-lg`}>
+                    <div
+                      className={`flex items-center gap-2 px-3 py-2 border-b ${config.borderColor} ${config.bgColor} rounded-t-lg`}
+                    >
                       <StatusIcon className={`h-4 w-4 ${config.color}`} />
-                      <span className="font-medium text-sm">{config.label}</span>
+                      <span className="font-medium text-sm">
+                        {config.label}
+                      </span>
                       <Badge variant="secondary" className="text-xs ml-auto">
                         {statusTasks.length}
                       </Badge>
@@ -490,9 +574,16 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                           <TaskCard
                             key={task.id}
                             task={task}
-                            project={task.projectId ? projectMap.get(task.projectId) : undefined}
+                            project={
+                              task.projectId
+                                ? projectMap.get(task.projectId)
+                                : undefined
+                            }
                             onDragStart={() => setDragTaskId(task.id)}
-                            onDragEnd={() => { setDragTaskId(null); setDropTarget(null); }}
+                            onDragEnd={() => {
+                              setDragTaskId(null);
+                              setDropTarget(null);
+                            }}
                             isDragging={dragTaskId === task.id}
                             onStatusChange={handleStatusChange}
                             onClick={() => setEditTask(task)}
@@ -506,30 +597,14 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
             </div>
           </div>
 
-          {/* Mobile board — single column based on selected status */}
-          <div className="flex md:hidden flex-1 overflow-y-auto p-3 space-y-2">
-            {(() => {
-              const statusTasks = filteredTasks.filter((t) => t.status === mobileStatus);
-              if (statusTasks.length === 0) {
-                return (
-                  <p className="text-sm text-muted-foreground text-center py-12">
-                    No tasks
-                  </p>
-                );
-              }
-              return statusTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  project={task.projectId ? projectMap.get(task.projectId) : undefined}
-                  onDragStart={() => {}}
-                  onDragEnd={() => {}}
-                  isDragging={false}
-                  onStatusChange={handleStatusChange}
-                  onClick={() => setEditTask(task)}
-                />
-              ));
-            })()}
+          {/* Mobile — always use list view */}
+          <div className="flex md:hidden flex-1 overflow-y-auto">
+            <ListView
+              groupedTasks={groupedTasks}
+              projectMap={projectMap}
+              onStatusChange={handleStatusChange}
+              onTaskClick={(t) => setEditTask(t)}
+            />
           </div>
         </>
       ) : (
@@ -563,7 +638,9 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
 
       <TaskDetailDialog
         task={editTask}
-        project={editTask?.projectId ? projectMap.get(editTask.projectId) : undefined}
+        project={
+          editTask?.projectId ? projectMap.get(editTask.projectId) : undefined
+        }
         projects={projects}
         tasks={tasks}
         onClose={() => setEditTask(null)}
@@ -617,7 +694,9 @@ function TaskCard({
                 {project.title}
               </span>
             </div>
-          ) : <div />}
+          ) : (
+            <div />
+          )}
           <span className="text-[10px] font-mono text-muted-foreground/40 select-all">
             {task.id.slice(0, 8)}
           </span>
@@ -642,33 +721,35 @@ function TaskCard({
             {task.detail}
           </p>
         )}
+        {task.followUp && (
+          <p className="text-xs text-blue-400/80 mt-1 line-clamp-2 italic">
+            ↳ {task.followUp}
+          </p>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1.5">
             {task.mustBeDoneAfterTaskId && (
-              <Pause className="h-3 w-3 text-muted-foreground/50" title={`Blocked by ${task.mustBeDoneAfterTaskId.slice(0, 8)}`} />
+              <Pause
+                className="h-3 w-3 text-muted-foreground/50"
+                title={`Blocked by ${task.mustBeDoneAfterTaskId.slice(0, 8)}`}
+              />
             )}
             {task.onOrAfterAt && (
-              <Clock className="h-3 w-3 text-muted-foreground/50" title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`} />
+              <Clock
+                className="h-3 w-3 text-muted-foreground/50"
+                title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`}
+              />
             )}
             {task.nextTaskId && (
-              <PlayCircle className="h-3 w-3 text-muted-foreground/50" title={`Chains to ${task.nextTaskId.slice(0, 8)}`} />
+              <PlayCircle
+                className="h-3 w-3 text-muted-foreground/50"
+                title={`Chains to ${task.nextTaskId.slice(0, 8)}`}
+              />
             )}
             {task.assigneeUserId && (
-              AVATARS[task.assigneeUserId] ? (
-                <img
-                  src={AVATARS[task.assigneeUserId]}
-                  alt={task.assigneeUserId}
-                  className="h-5 w-5 rounded-full"
-                  title={task.assigneeUserId}
-                />
-              ) : (
-                <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                  <User className="h-3 w-3" />
-                  {task.assigneeUserId}
-                </span>
-              )
+              <UserAvatar name={task.assigneeUserId} size="sm" />
             )}
           </div>
 
@@ -769,6 +850,11 @@ function ListView({
                                 {task.detail}
                               </p>
                             )}
+                            {task.followUp && (
+                              <p className="text-xs text-blue-400/80 mt-0.5 line-clamp-2 italic">
+                                ↳ {task.followUp}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                               {task.assigneeUserId && (
                                 <span className="text-xs text-muted-foreground flex items-center gap-0.5">
@@ -788,23 +874,31 @@ function ListView({
                             </div>
                           </div>
 
-                          <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            {status !== "in_progress" && status !== "complete" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-xs px-2"
-                                onClick={() => onStatusChange(task.id, "in_progress")}
-                              >
-                                Start
-                              </Button>
-                            )}
+                          <div
+                            className="flex gap-1 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {status !== "in_progress" &&
+                              status !== "complete" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs px-2"
+                                  onClick={() =>
+                                    onStatusChange(task.id, "in_progress")
+                                  }
+                                >
+                                  Start
+                                </Button>
+                              )}
                             {status === "in_progress" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 text-xs px-2"
-                                onClick={() => onStatusChange(task.id, "review")}
+                                onClick={() =>
+                                  onStatusChange(task.id, "review")
+                                }
                               >
                                 Review
                               </Button>
@@ -814,7 +908,9 @@ function ListView({
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 text-xs px-2"
-                                onClick={() => onStatusChange(task.id, "complete")}
+                                onClick={() =>
+                                  onStatusChange(task.id, "complete")
+                                }
                               >
                                 ✓
                               </Button>
@@ -856,6 +952,7 @@ function TaskDetailDialog({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
+  const [followUp, setFollowUp] = useState("");
   const [issueUrl, setIssueUrl] = useState("");
   const [assignee, setAssignee] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -865,16 +962,78 @@ function TaskDetailDialog({
   const [nextTaskAssignee, setNextTaskAssignee] = useState("");
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [linkedPages, setLinkedPages] = useState<
+    Array<{ notebookPageId: string; pageTitle: string; pageCreatedBy: string }>
+  >([]);
+  const [availablePages, setAvailablePages] = useState<
+    Array<{ id: string; title: string }>
+  >([]);
+  const [showPagePicker, setShowPagePicker] = useState(false);
+
+  // Fetch linked notebook pages when task changes
+  useEffect(() => {
+    if (task) {
+      api
+        .getTaskNotebookPages(task.id)
+        .then((data: any) => {
+          setLinkedPages(data.pages || []);
+        })
+        .catch(() => setLinkedPages([]));
+    } else {
+      setLinkedPages([]);
+    }
+  }, [task?.id, task]);
+
+  // Fetch available notebook pages when picker opens
+  useEffect(() => {
+    if (showPagePicker) {
+      api
+        .listNotebookPages(undefined, 100)
+        .then((data: any) => {
+          setAvailablePages(
+            (data.pages || []).map((p: any) => ({ id: p.id, title: p.title })),
+          );
+        })
+        .catch(() => {});
+    }
+  }, [showPagePicker]);
+
+  const handleLinkPage = async (pageId: string) => {
+    if (!task) return;
+    try {
+      await api.linkNotebookPage(task.id, pageId);
+      const data = await api.getTaskNotebookPages(task.id);
+      setLinkedPages(data.pages || []);
+      setShowPagePicker(false);
+    } catch (err) {
+      console.error("Failed to link page:", err);
+    }
+  };
+
+  const handleUnlinkPage = async (pageId: string) => {
+    if (!task) return;
+    try {
+      await api.unlinkNotebookPage(task.id, pageId);
+      setLinkedPages((prev) => prev.filter((p) => p.notebookPageId !== pageId));
+    } catch (err) {
+      console.error("Failed to unlink page:", err);
+    }
+  };
 
   useEffect(() => {
     if (task) {
       setTitle(task.title);
       setDetail(task.detail || "");
+      setFollowUp(task.followUp || "");
       setIssueUrl(task.issueUrl || "");
       setAssignee(task.assigneeUserId || "");
       setProjectId(task.projectId || "");
       setMustBeDoneAfter(task.mustBeDoneAfterTaskId || "");
-      setOnOrAfter(task.onOrAfterAt ? new Date(task.onOrAfterAt).toISOString().slice(0, 16) : "");
+      setOnOrAfter(
+        task.onOrAfterAt
+          ? new Date(task.onOrAfterAt).toISOString().slice(0, 16)
+          : "",
+      );
       setNextTaskId(task.nextTaskId || "");
       setNextTaskAssignee(task.nextTaskAssigneeUserId || "");
       setEditing(false);
@@ -891,6 +1050,7 @@ function TaskDetailDialog({
       await api.updateTask(task.id, {
         title: title.trim(),
         detail: detail.trim() || null,
+        followUp: followUp.trim() || null,
         issueUrl: issueUrl.trim() || null,
         assigneeUserId: assignee || null,
         projectId: projectId || null,
@@ -913,7 +1073,10 @@ function TaskDetailDialog({
 
   return (
     <Dialog open={!!task} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg" onClick={(e) => e.stopPropagation()}>
+      <DialogContent
+        className="sm:max-w-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <StatusIcon className={`h-4 w-4 ${config?.color}`} />
@@ -929,7 +1092,11 @@ function TaskDetailDialog({
                 }}
                 title="Copy task ID"
               >
-                {copiedId ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copiedId ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
               </button>
             )}
           </DialogTitle>
@@ -948,6 +1115,12 @@ function TaskDetailDialog({
               placeholder="Details"
               rows={4}
             />
+            <Textarea
+              value={followUp}
+              onChange={(e) => setFollowUp(e.target.value)}
+              placeholder="Follow up / latest status update"
+              rows={2}
+            />
             <Input
               value={issueUrl}
               onChange={(e) => setIssueUrl(e.target.value)}
@@ -962,7 +1135,9 @@ function TaskDetailDialog({
               >
                 <option value="">No project</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.title}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
                 ))}
               </select>
               <select
@@ -972,13 +1147,17 @@ function TaskDetailDialog({
               >
                 <option value="">Unassigned</option>
                 {KNOWN_USERS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
             {/* Dependencies */}
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Blocked by task (must complete first)</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Blocked by task (must complete first)
+              </p>
               <TaskCombobox
                 value={mustBeDoneAfter}
                 onChange={setMustBeDoneAfter}
@@ -991,7 +1170,9 @@ function TaskDetailDialog({
 
             {/* Scheduling */}
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Not before (optional)</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Not before (optional)
+              </p>
               <input
                 type="datetime-local"
                 className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
@@ -1014,7 +1195,9 @@ function TaskDetailDialog({
                 />
               </div>
               <div className="flex-1">
-                <p className="text-xs text-muted-foreground mb-1">Next assignee</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Next assignee
+                </p>
                 <select
                   className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
                   value={nextTaskAssignee}
@@ -1022,14 +1205,18 @@ function TaskDetailDialog({
                 >
                   <option value="">None</option>
                   {KNOWN_USERS.map((u) => (
-                    <option key={u} value={u}>{u}</option>
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
               <Button onClick={handleSave} disabled={saving || !title.trim()}>
                 {saving ? "Saving..." : "Save"}
               </Button>
@@ -1041,17 +1228,16 @@ function TaskDetailDialog({
             <div className="flex flex-wrap gap-2">
               {project && (
                 <Badge variant="outline" className="gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: project.color }}
+                  />
                   {project.title}
                 </Badge>
               )}
               {task.assigneeUserId && (
                 <Badge variant="outline" className="gap-1">
-                  {AVATARS[task.assigneeUserId] ? (
-                    <img src={AVATARS[task.assigneeUserId]} alt="" className="h-3 w-3 rounded-full" />
-                  ) : (
-                    <User className="h-3 w-3" />
-                  )}
+                  <UserAvatar name={task.assigneeUserId} size="xs" />
                   {task.assigneeUserId}
                 </Badge>
               )}
@@ -1074,32 +1260,126 @@ function TaskDetailDialog({
 
             {/* Detail */}
             {task.detail ? (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{task.detail}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                {task.detail}
+              </p>
             ) : (
               <p className="text-sm text-muted-foreground italic">No details</p>
             )}
 
+            {/* Follow up */}
+            {task.followUp && (
+              <div className="mt-2 p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                <p className="text-xs font-medium text-blue-400 mb-0.5">
+                  Latest Update
+                </p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {task.followUp}
+                </p>
+              </div>
+            )}
+
+            {/* Linked notebook pages */}
+            {(linkedPages.length > 0 || !editing) && (
+              <div className="space-y-1.5 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Notebook Pages
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 text-[10px] px-1.5"
+                    onClick={() => setShowPagePicker(!showPagePicker)}
+                  >
+                    {showPagePicker ? "Cancel" : "+ Link Page"}
+                  </Button>
+                </div>
+                {linkedPages.map((lp) => (
+                  <div
+                    key={lp.notebookPageId}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <a
+                      href={`/notebook?page=${lp.notebookPageId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sky-500 hover:underline truncate flex-1"
+                    >
+                      📄 {lp.pageTitle}
+                    </a>
+                    <button
+                      type="button"
+                      className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs"
+                      onClick={() => handleUnlinkPage(lp.notebookPageId)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {linkedPages.length === 0 && !showPagePicker && (
+                  <p className="text-xs text-muted-foreground/50 italic">
+                    No linked pages
+                  </p>
+                )}
+                {showPagePicker && (
+                  <div className="space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
+                    {availablePages
+                      .filter(
+                        (p) =>
+                          !linkedPages.some((lp) => lp.notebookPageId === p.id),
+                      )
+                      .map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="w-full text-left text-sm px-2 py-1 rounded hover:bg-accent transition-colors truncate"
+                          onClick={() => handleLinkPage(p.id)}
+                        >
+                          📄 {p.title}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Dependencies, scheduling & chaining */}
-            {(task.mustBeDoneAfterTaskId || task.onOrAfterAt || task.nextTaskId) && (
+            {(task.mustBeDoneAfterTaskId ||
+              task.onOrAfterAt ||
+              task.nextTaskId) && (
               <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
                 {task.mustBeDoneAfterTaskId && (
                   <p className="flex items-center gap-1">
                     <Pause className="h-3 w-3" />
-                    Blocked by: <strong className="font-mono">{task.mustBeDoneAfterTaskId.slice(0, 8)}</strong>
+                    Blocked by:{" "}
+                    <strong className="font-mono">
+                      {task.mustBeDoneAfterTaskId.slice(0, 8)}
+                    </strong>
                   </p>
                 )}
                 {task.onOrAfterAt && (
                   <p className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    Not before: <strong>{new Date(task.onOrAfterAt).toLocaleString()}</strong>
+                    Not before:{" "}
+                    <strong>
+                      {new Date(task.onOrAfterAt).toLocaleString()}
+                    </strong>
                   </p>
                 )}
                 {task.nextTaskId && (
                   <p className="flex items-center gap-1">
                     <PlayCircle className="h-3 w-3" />
-                    Next task: <strong className="font-mono">{task.nextTaskId.slice(0, 8)}</strong>
+                    Next task:{" "}
+                    <strong className="font-mono">
+                      {task.nextTaskId.slice(0, 8)}
+                    </strong>
                     {task.nextTaskAssigneeUserId && (
-                      <span> → assigned to <strong>{task.nextTaskAssigneeUserId}</strong></span>
+                      <span>
+                        {" "}
+                        → assigned to{" "}
+                        <strong>{task.nextTaskAssigneeUserId}</strong>
+                      </span>
                     )}
                   </p>
                 )}
@@ -1131,20 +1411,23 @@ function TaskDetailDialog({
             </div>
 
             {/* Project leads */}
-            {project && (project.projectLeadUserId || project.developerLeadUserId) && (
-              <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
-                {project.projectLeadUserId && (
-                  <span className="flex items-center gap-1">
-                    <Crown className="h-3 w-3" /> Lead: <strong>{project.projectLeadUserId}</strong>
-                  </span>
-                )}
-                {project.developerLeadUserId && (
-                  <span className="flex items-center gap-1">
-                    <Code className="h-3 w-3" /> Dev: <strong>{project.developerLeadUserId}</strong>
-                  </span>
-                )}
-              </div>
-            )}
+            {project &&
+              (project.projectLeadUserId || project.developerLeadUserId) && (
+                <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
+                  {project.projectLeadUserId && (
+                    <span className="flex items-center gap-1">
+                      <Crown className="h-3 w-3" /> Lead:{" "}
+                      <strong>{project.projectLeadUserId}</strong>
+                    </span>
+                  )}
+                  {project.developerLeadUserId && (
+                    <span className="flex items-center gap-1">
+                      <Code className="h-3 w-3" /> Dev:{" "}
+                      <strong>{project.developerLeadUserId}</strong>
+                    </span>
+                  )}
+                </div>
+              )}
 
             {/* Timestamps */}
             <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
@@ -1156,32 +1439,51 @@ function TaskDetailDialog({
             </div>
 
             {/* Project links */}
-            {project && (project.websiteUrl || project.onedevUrl || project.githubUrl) && (
-              <div className="flex gap-2 pt-2 border-t">
-                {project.websiteUrl && (
-                  <a href={project.websiteUrl} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <Globe className="h-3.5 w-3.5" />
-                  </a>
-                )}
-                {project.onedevUrl && (
-                  <a href={project.onedevUrl} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <GitBranch className="h-3.5 w-3.5" />
-                  </a>
-                )}
-                {project.githubUrl && (
-                  <a href={project.githubUrl} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <Github className="h-3.5 w-3.5" />
-                  </a>
-                )}
-              </div>
-            )}
+            {project &&
+              (project.websiteUrl ||
+                project.onedevUrl ||
+                project.githubUrl) && (
+                <div className="flex gap-2 pt-2 border-t">
+                  {project.websiteUrl && (
+                    <a
+                      href={project.websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Globe className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  {project.onedevUrl && (
+                    <a
+                      href={project.onedevUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <GitBranch className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  {project.githubUrl && (
+                    <a
+                      href={project.githubUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Github className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </div>
+              )}
 
             {/* Edit button */}
             <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditing(true)}
+              >
                 Edit
               </Button>
             </div>
@@ -1259,7 +1561,10 @@ function CreateTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+      <DialogContent
+        className="sm:max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>New Task</DialogTitle>
         </DialogHeader>
@@ -1311,7 +1616,9 @@ function CreateTaskDialog({
           </div>
           {/* Dependencies */}
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Blocked by task (must complete first)</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Blocked by task (must complete first)
+            </p>
             <TaskCombobox
               value={mustBeDoneAfter}
               onChange={setMustBeDoneAfter}
@@ -1323,7 +1630,9 @@ function CreateTaskDialog({
 
           {/* Scheduling */}
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Not before (optional)</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Not before (optional)
+            </p>
             <input
               type="datetime-local"
               className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
@@ -1345,7 +1654,9 @@ function CreateTaskDialog({
               />
             </div>
             <div className="flex-1">
-              <p className="text-xs text-muted-foreground mb-1">Next assignee</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Next assignee
+              </p>
               <select
                 className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
                 value={nextTaskAssignee}
@@ -1353,7 +1664,9 @@ function CreateTaskDialog({
               >
                 <option value="">None</option>
                 {KNOWN_USERS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1380,8 +1693,16 @@ function CreateTaskDialog({
 /* ─── Create Project Dialog ─── */
 
 const PROJECT_COLORS = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4",
-  "#3b82f6", "#8b5cf6", "#ec4899", "#6366f1", "#14b8a6",
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#06b6d4",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ec4899",
+  "#6366f1",
+  "#14b8a6",
 ];
 
 function CreateProjectDialog({
@@ -1442,7 +1763,10 @@ function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+      <DialogContent
+        className="sm:max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>
         </DialogHeader>
@@ -1469,7 +1793,9 @@ function CreateProjectDialog({
                   key={c}
                   type="button"
                   className={`h-8 w-8 rounded-full transition-transform ${
-                    color === c ? "ring-2 ring-offset-2 ring-primary scale-110" : ""
+                    color === c
+                      ? "ring-2 ring-offset-2 ring-primary scale-110"
+                      : ""
                   }`}
                   style={{ backgroundColor: c }}
                   onClick={() => setColor(c)}
@@ -1488,7 +1814,9 @@ function CreateProjectDialog({
               >
                 <option value="">Select...</option>
                 {KNOWN_USERS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1501,7 +1829,9 @@ function CreateProjectDialog({
               >
                 <option value="">Select...</option>
                 {KNOWN_USERS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1547,8 +1877,16 @@ function CreateProjectDialog({
 /* ─── Edit Project Dialog ─── */
 
 const PROJECT_COLORS_EDIT = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4",
-  "#3b82f6", "#8b5cf6", "#ec4899", "#6366f1", "#14b8a6",
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#06b6d4",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ec4899",
+  "#6366f1",
+  "#14b8a6",
 ];
 
 function EditProjectDialog({
@@ -1584,8 +1922,12 @@ function EditProjectDialog({
       setWebsiteUrl(project.websiteUrl || "");
       setOnedevUrl(project.onedevUrl || "");
       setGithubUrl(project.githubUrl || "");
-      setWorkStart(project.workHoursStart != null ? String(project.workHoursStart) : "");
-      setWorkEnd(project.workHoursEnd != null ? String(project.workHoursEnd) : "");
+      setWorkStart(
+        project.workHoursStart != null ? String(project.workHoursStart) : "",
+      );
+      setWorkEnd(
+        project.workHoursEnd != null ? String(project.workHoursEnd) : "",
+      );
       setWorkTz(project.workHoursTimezone || "America/Chicago");
     }
   }, [project]);
@@ -1620,7 +1962,10 @@ function EditProjectDialog({
 
   return (
     <Dialog open={!!project} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+      <DialogContent
+        className="sm:max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>Edit Project</DialogTitle>
         </DialogHeader>
@@ -1647,7 +1992,9 @@ function EditProjectDialog({
                   key={c}
                   type="button"
                   className={`h-8 w-8 rounded-full transition-transform ${
-                    color === c ? "ring-2 ring-offset-2 ring-primary scale-110" : ""
+                    color === c
+                      ? "ring-2 ring-offset-2 ring-primary scale-110"
+                      : ""
                   }`}
                   style={{ backgroundColor: c }}
                   onClick={() => setColor(c)}
@@ -1666,7 +2013,9 @@ function EditProjectDialog({
               >
                 <option value="">Select...</option>
                 {KNOWN_USERS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1679,7 +2028,9 @@ function EditProjectDialog({
               >
                 <option value="">Select...</option>
                 {KNOWN_USERS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1705,7 +2056,9 @@ function EditProjectDialog({
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Work Hours (optional)</p>
+            <p className="text-xs text-muted-foreground">
+              Work Hours (optional)
+            </p>
             <div className="flex gap-2 items-center">
               <div className="flex-1">
                 <Input
@@ -1736,7 +2089,9 @@ function EditProjectDialog({
             >
               <option value="America/Chicago">America/Chicago (CST)</option>
               <option value="America/New_York">America/New_York (EST)</option>
-              <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+              <option value="America/Los_Angeles">
+                America/Los_Angeles (PST)
+              </option>
               <option value="UTC">UTC</option>
             </select>
           </div>
@@ -1748,7 +2103,13 @@ function EditProjectDialog({
               size="sm"
               disabled={archiving}
               onClick={async () => {
-                if (!project || !confirm(`Archive "${project.title}"? It will be hidden from the board but tasks will keep their project link.`)) return;
+                if (
+                  !project ||
+                  !confirm(
+                    `Archive "${project.title}"? It will be hidden from the board but tasks will keep their project link.`,
+                  )
+                )
+                  return;
                 setArchiving(true);
                 try {
                   await api.archiveProject(project.id);

@@ -38,7 +38,12 @@ const CALLBACK = process.env.MONITOR_CALLBACK;
 const VERBOSE = process.env.MONITOR_VERBOSE === "true";
 const AUTO_READ_CHAT = process.env.MONITOR_AUTO_READ_CHAT === "true";
 const MONITORED_EVENTS = new Set(
-  (process.env.MONITOR_EVENTS ?? "chat_message,message,broadcast,swarm_task_created,swarm_task_updated,swarm_task_deleted").split(",").map((s) => s.trim()),
+  (
+    process.env.MONITOR_EVENTS ??
+    "chat_message,message,broadcast,swarm_task_created,swarm_task_updated,swarm_task_deleted"
+  )
+    .split(",")
+    .map((s) => s.trim()),
 );
 
 if (!TOKEN) {
@@ -47,7 +52,8 @@ if (!TOKEN) {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const log = (...args: unknown[]) => console.log(`[${new Date().toISOString()}]`, ...args);
+const log = (...args: unknown[]) =>
+  console.log(`[${new Date().toISOString()}]`, ...args);
 
 // ─── Auth fetch helper ───
 
@@ -91,7 +97,9 @@ async function handleChatMessage(evt: SSEEvent) {
   // Mark as read (OPTIONAL)
   // Default is OFF for safety: auto-read can hide messages before an agent has actually processed them.
   if (AUTO_READ_CHAT && data.channelId) {
-    authFetch(`/chat/channels/${data.channelId}/read`, { method: "POST" }).catch(() => {});
+    authFetch(`/chat/channels/${data.channelId}/read`, {
+      method: "POST",
+    }).catch(() => {});
   }
 }
 
@@ -120,7 +128,9 @@ async function handleSwarmEvent(evt: SSEEvent) {
     actor?: string;
   };
 
-  log(`📋 Swarm: ${evt.type} — "${data?.title}" (${data?.status}) by ${data?.actor}`);
+  log(
+    `📋 Swarm: ${evt.type} — "${data?.title}" (${data?.status}) by ${data?.actor}`,
+  );
 
   if (WEBHOOK_URL) {
     await forwardToWebhook(
@@ -160,7 +170,9 @@ async function forwardToWebhook(message: string) {
   if (!WEBHOOK_URL) return;
 
   try {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     if (WEBHOOK_TOKEN) headers.Authorization = `Bearer ${WEBHOOK_TOKEN}`;
 
     const resp = await fetch(WEBHOOK_URL, {
@@ -207,7 +219,9 @@ async function dispatch(evt: SSEEvent) {
   // Run specific handler if available
   const handler = EVENT_HANDLERS[evt.type];
   if (handler) {
-    await handler(evt).catch((err) => log(`⚠️  Handler error (${evt.type}):`, err));
+    await handler(evt).catch((err) =>
+      log(`⚠️  Handler error (${evt.type}):`, err),
+    );
   }
 
   // Run generic callback if configured
@@ -221,7 +235,8 @@ async function connectOnce() {
   log(`🔌 Connecting to SSE...`);
 
   const res = await fetch(url, { headers: { Accept: "text/event-stream" } });
-  if (!res.ok || !res.body) throw new Error(`SSE connect failed: ${res.status}`);
+  if (!res.ok || !res.body)
+    throw new Error(`SSE connect failed: ${res.status}`);
 
   log(`✅ Connected`);
 
