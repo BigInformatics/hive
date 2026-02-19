@@ -1,7 +1,7 @@
 import { defineEventHandler, getRouterParam, readMultipartFormData } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { join } from "node:path";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
 
 const AVATAR_DIR = process.env.AVATAR_DIR || join(process.cwd(), "public", "avatars");
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB
@@ -62,6 +62,16 @@ export default defineEventHandler(async (event) => {
   const filename = `${identity}${ext}`;
 
   mkdirSync(AVATAR_DIR, { recursive: true });
+
+  // Remove any existing avatar files for this identity to prevent stale format conflicts
+  try {
+    for (const f of readdirSync(AVATAR_DIR)) {
+      if (f.startsWith(`${identity}.`) && f !== filename) {
+        unlinkSync(join(AVATAR_DIR, f));
+      }
+    }
+  } catch {}
+
   writeFileSync(join(AVATAR_DIR, filename), file.data);
 
   return {

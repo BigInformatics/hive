@@ -60,6 +60,13 @@ interface FullPage extends PageSummary {
   content: string;
 }
 
+/** Format an ISO timestamp as a local datetime-local input value (YYYY-MM-DDTHH:MM) */
+function toLocalDatetimeValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
@@ -711,7 +718,7 @@ function PageEditor({
                 <input
                   type="datetime-local"
                   className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
-                  value={page.expiresAt ? new Date(page.expiresAt).toISOString().slice(0, 16) : ""}
+                  value={page.expiresAt ? toLocalDatetimeValue(page.expiresAt) : ""}
                   onChange={async (e) => {
                     try {
                       const data = await api.updateNotebookPage(pageId, {
@@ -727,7 +734,7 @@ function PageEditor({
                 <input
                   type="datetime-local"
                   className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
-                  value={page.reviewAt ? new Date(page.reviewAt).toISOString().slice(0, 16) : ""}
+                  value={page.reviewAt ? toLocalDatetimeValue(page.reviewAt) : ""}
                   onChange={async (e) => {
                     try {
                       const data = await api.updateNotebookPage(pageId, {
