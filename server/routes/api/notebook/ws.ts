@@ -195,6 +195,20 @@ export default defineWebSocketHandler({
       );
 
       if (msg.type === "update" && Array.isArray(msg.update)) {
+        // Check if page is locked before accepting edits
+        const [currentPage] = await db
+          .select({ locked: notebookPages.locked })
+          .from(notebookPages)
+          .where(eq(notebookPages.id, pageId))
+          .limit(1);
+
+        if (currentPage?.locked) {
+          peer.send(
+            JSON.stringify({ type: "error", message: "Page is locked" }),
+          );
+          return;
+        }
+
         // Apply Yjs update from client
         const update = new Uint8Array(msg.update);
         Y.applyUpdate(entry.ydoc, update, peerId);

@@ -311,7 +311,7 @@ export function MarkdownEditor({
       initializedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disabled, placeholder, value]);
+  }, [disabled, placeholder]);
 
   // For non-collaborative mode, sync external value changes
   useEffect(() => {

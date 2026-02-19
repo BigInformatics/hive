@@ -477,6 +477,8 @@ function PageEditor({
         locked: !page.locked,
       });
       setPage(data.page);
+      // Switch to preview when locking
+      if (data.page.locked) setMode("preview");
     } catch (e: any) {
       alert(e?.message ?? "Failed to toggle lock");
     }
@@ -495,7 +497,7 @@ function PageEditor({
   const isOwnerOrAdmin = page
     ? identity === page.createdBy || identity === "chris"
     : false;
-  const isLocked = page?.locked && !isOwnerOrAdmin;
+  const isLocked = !!page?.locked;
 
   if (loading) {
     return (
@@ -698,7 +700,9 @@ function PageEditor({
           <Button
             variant={mode === "source" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setMode("source")}
+            onClick={() => !isLocked && setMode("source")}
+            disabled={isLocked}
+            title={isLocked ? "Unlock the page to edit" : undefined}
           >
             <Code2 className="h-3.5 w-3.5 mr-1" /> Source
           </Button>
