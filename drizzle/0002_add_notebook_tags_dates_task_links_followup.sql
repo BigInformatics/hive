@@ -14,8 +14,9 @@ CREATE TABLE IF NOT EXISTS swarm_task_notebook_pages (
   PRIMARY KEY (task_id, notebook_page_id)
 );
 
--- Swarm task follow_up field
+-- Swarm task follow_up and linked_notebook_pages fields
 ALTER TABLE swarm_tasks ADD COLUMN IF NOT EXISTS follow_up text;
+ALTER TABLE swarm_tasks ADD COLUMN IF NOT EXISTS linked_notebook_pages jsonb;
 
 -- GRANTs for Docker container user
 GRANT ALL ON swarm_task_notebook_pages TO team_user;

@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     : sql`${swarmTaskNotebookPages.taskId} = ${id} AND (
         ${notebookPages.taggedUsers} IS NULL
         OR jsonb_array_length(${notebookPages.taggedUsers}) = 0
-        OR ${notebookPages.taggedUsers} @> ${sql.raw(`'["${auth.identity}"]'::jsonb`)}
+        OR ${notebookPages.taggedUsers} @> ${sql`${JSON.stringify([auth.identity])}::jsonb`}
         OR ${notebookPages.createdBy} = ${auth.identity}
       )`;
 
