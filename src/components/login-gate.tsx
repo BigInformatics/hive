@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { setMailboxKey } from "@/lib/api";
 
@@ -42,8 +42,16 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-2">
-            <img src="/logo-light.png" alt="Hive" className="h-12 w-auto dark:hidden" />
-            <img src="/logo-dark.png" alt="Hive" className="h-12 w-auto hidden dark:block" />
+            <img
+              src="/logo-light.png"
+              alt="Hive"
+              className="h-12 w-auto dark:hidden"
+            />
+            <img
+              src="/logo-dark.png"
+              alt="Hive"
+              className="h-12 w-auto hidden dark:block"
+            />
           </div>
           <p className="text-sm text-muted-foreground">
             Enter your mailbox key to continue
