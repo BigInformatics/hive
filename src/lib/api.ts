@@ -162,6 +162,7 @@ export const api = {
     title: string;
     projectId?: string;
     detail?: string;
+    followUp?: string;
     issueUrl?: string;
     assigneeUserId?: string;
     status?: string;

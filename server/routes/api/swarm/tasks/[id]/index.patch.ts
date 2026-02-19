@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
     projectId: body.projectId,
     title: body.title,
     detail: body.detail,
+    followUp: body.followUp,
     issueUrl: body.issueUrl,
     assigneeUserId: body.assigneeUserId,
     onOrAfterAt: body.onOrAfterAt ? new Date(body.onOrAfterAt) : body.onOrAfterAt,

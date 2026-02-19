@@ -51,6 +51,7 @@ interface SwarmTask {
   projectId: string | null;
   title: string;
   detail: string | null;
+  followUp: string | null;
   issueUrl: string | null;
   creatorUserId: string;
   assigneeUserId: string | null;
@@ -662,6 +663,11 @@ function TaskCard({
             {task.detail}
           </p>
         )}
+        {task.followUp && (
+          <p className="text-xs text-blue-400/80 mt-1 line-clamp-2 italic">
+            ↳ {task.followUp}
+          </p>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between mt-2">
@@ -777,6 +783,11 @@ function ListView({
                                 {task.detail}
                               </p>
                             )}
+                            {task.followUp && (
+                              <p className="text-xs text-blue-400/80 mt-0.5 line-clamp-2 italic">
+                                ↳ {task.followUp}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                               {task.assigneeUserId && (
                                 <span className="text-xs text-muted-foreground flex items-center gap-0.5">
@@ -864,6 +875,7 @@ function TaskDetailDialog({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
+  const [followUp, setFollowUp] = useState("");
   const [issueUrl, setIssueUrl] = useState("");
   const [assignee, setAssignee] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -923,6 +935,7 @@ function TaskDetailDialog({
     if (task) {
       setTitle(task.title);
       setDetail(task.detail || "");
+      setFollowUp(task.followUp || "");
       setIssueUrl(task.issueUrl || "");
       setAssignee(task.assigneeUserId || "");
       setProjectId(task.projectId || "");
@@ -944,6 +957,7 @@ function TaskDetailDialog({
       await api.updateTask(task.id, {
         title: title.trim(),
         detail: detail.trim() || null,
+        followUp: followUp.trim() || null,
         issueUrl: issueUrl.trim() || null,
         assigneeUserId: assignee || null,
         projectId: projectId || null,
@@ -1000,6 +1014,12 @@ function TaskDetailDialog({
               onChange={(e) => setDetail(e.target.value)}
               placeholder="Details"
               rows={4}
+            />
+            <Textarea
+              value={followUp}
+              onChange={(e) => setFollowUp(e.target.value)}
+              placeholder="Follow up / latest status update"
+              rows={2}
             />
             <Input
               value={issueUrl}
@@ -1126,6 +1146,14 @@ function TaskDetailDialog({
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{task.detail}</p>
             ) : (
               <p className="text-sm text-muted-foreground italic">No details</p>
+            )}
+
+            {/* Follow up */}
+            {task.followUp && (
+              <div className="mt-2 p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                <p className="text-xs font-medium text-blue-400 mb-0.5">Latest Update</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{task.followUp}</p>
+              </div>
             )}
 
             {/* Linked notebook pages */}

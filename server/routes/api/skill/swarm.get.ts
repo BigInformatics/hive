@@ -72,6 +72,7 @@ Common optional fields:
 {
   "projectId": "<uuid>",
   "detail": "Description / acceptance criteria",
+  "followUp": "Latest status update (use this instead of overwriting detail)",
   "issueUrl": "https://dev...",
   "assigneeUserId": "domingo",
   "status": "ready",

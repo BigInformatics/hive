@@ -158,6 +158,7 @@ export const swarmTasks = pgTable(
     projectId: text("project_id"),
     title: text("title").notNull(),
     detail: text("detail"),
+    followUp: text("follow_up"),
     creatorUserId: varchar("creator_user_id", { length: 50 }).notNull(),
     assigneeUserId: varchar("assignee_user_id", { length: 50 }),
     status: varchar("status", { length: 20 }).notNull().default("queued"),

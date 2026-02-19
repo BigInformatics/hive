@@ -121,6 +121,7 @@ export async function createTask(input: {
   projectId?: string;
   title: string;
   detail?: string;
+  followUp?: string;
   issueUrl?: string;
   creatorUserId: string;
   assigneeUserId?: string;
@@ -139,6 +140,7 @@ export async function createTask(input: {
       projectId: input.projectId || null,
       title: input.title,
       detail: input.detail || null,
+      followUp: input.followUp || null,
       issueUrl: input.issueUrl || null,
       creatorUserId: input.creatorUserId,
       assigneeUserId: input.assigneeUserId || null,
@@ -218,6 +220,7 @@ export async function updateTask(
     projectId: string | null;
     title: string;
     detail: string | null;
+    followUp: string | null;
     issueUrl: string | null;
     assigneeUserId: string | null;
     onOrAfterAt: Date | null;

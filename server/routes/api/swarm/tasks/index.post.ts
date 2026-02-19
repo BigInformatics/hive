@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
     projectId: body.projectId,
     title: body.title,
     detail: body.detail,
+    followUp: body.followUp,
     issueUrl: body.issueUrl,
     creatorUserId: auth.identity,
     assigneeUserId: body.assigneeUserId,
