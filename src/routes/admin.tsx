@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { UserAvatar } from "@/components/user-avatar";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -232,12 +233,7 @@ function StatCard({
   );
 }
 
-const AVATARS: Record<string, string> = {
-  chris: "/avatars/chris.jpg",
-  clio: "/avatars/clio.png",
-  domingo: "/avatars/domingo.jpg",
-  zumie: "/avatars/zumie.png",
-};
+// Avatars are served via /api/avatars/:identity with initials fallback
 
 interface UserStats {
   inbox: { unread: number; pending: number; read: number; total: number };
@@ -327,13 +323,37 @@ function PresencePanel({
               <CardContent className="p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    {AVATARS[name] ? (
-                      <img src={AVATARS[name]} alt={name} className="h-10 w-10 rounded-full" />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold uppercase">
-                        {name[0]}
-                      </div>
-                    )}
+                    <div className="relative group">
+                      <UserAvatar name={name} size="lg" />
+                      <label
+                        className="absolute inset-0 rounded-full bg-black/50 text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                        title="Upload avatar"
+                      >
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const form = new FormData();
+                            form.append("avatar", file);
+                            try {
+                              await fetch(`/api/avatars/${name}`, {
+                                method: "POST",
+                                headers: { Authorization: `Bearer ${getMailboxKey()}` },
+                                body: form,
+                              });
+                              // Force re-render by toggling a dummy state
+                              window.location.reload();
+                            } catch (err) {
+                              console.error("Avatar upload failed:", err);
+                            }
+                          }}
+                        />
+                        Edit
+                      </label>
+                    </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm capitalize">{name}</p>

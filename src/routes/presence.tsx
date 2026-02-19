@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getMailboxKey, api } from "@/lib/api";
 import { useChatSSE, type ChatSSEEvent } from "@/lib/use-chat-sse";
 import { LoginGate } from "@/components/login-gate";
+import { UserAvatar } from "@/components/user-avatar";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,12 +61,7 @@ interface ChatMessage {
   createdAt: string;
 }
 
-const AVATARS: Record<string, string> = {
-  chris: "/avatars/chris.jpg",
-  clio: "/avatars/clio.png",
-  domingo: "/avatars/domingo.jpg",
-  zumie: "/avatars/zumie.png",
-};
+// Avatars served via /api/avatars/:identity with UserAvatar component
 
 const ALL_USERS = ["chris", "clio", "domingo", "zumie"];
 
@@ -279,7 +275,6 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
               <div className="p-4 space-y-1">
                 {users.map(({ name, info }) => {
                   const borderOpacity = getBorderOpacity(info.online, info.lastSeen);
-                  const avatar = AVATARS[name];
                   return (
                     <div
                       key={name}
@@ -292,13 +287,7 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                           boxShadow: `0 0 0 2px rgba(34, 197, 94, ${borderOpacity})`,
                         }}
                       >
-                        {avatar ? (
-                          <img src={avatar} alt={name} className="h-10 w-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold uppercase text-muted-foreground">
-                            {name[0]}
-                          </div>
-                        )}
+                        <UserAvatar name={name} size="lg" />
                         {info.online && (
                           <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
                         )}
@@ -340,7 +329,6 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                   const otherUser = !isGroup
                     ? ch.members.find((m) => m.identity !== myIdentity)?.identity
                     : null;
-                  const avatar = otherUser ? AVATARS[otherUser] : null;
 
                   return (
                     <div
@@ -354,12 +342,10 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                         <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0">
                           <Users className="h-4 w-4 text-muted-foreground" />
                         </div>
-                      ) : avatar ? (
-                        <img src={avatar} alt={name} className="h-9 w-9 rounded-full object-cover shrink-0" />
+                      ) : otherUser ? (
+                        <UserAvatar name={otherUser} size="lg" className="h-9 w-9 shrink-0" />
                       ) : (
-                        <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-bold uppercase text-muted-foreground shrink-0">
-                          {name[0]}
-                        </div>
+                        <UserAvatar name={name} size="lg" className="h-9 w-9 shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
@@ -602,14 +588,7 @@ function ChatPanel({
         ) : (
           (() => {
             const other = channel?.members.find((m) => m.identity !== myIdentity)?.identity;
-            const avatar = other ? AVATARS[other] : null;
-            return avatar ? (
-              <img src={avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold uppercase">
-                {channelName[0]}
-              </div>
-            );
+            return <UserAvatar name={other || channelName} size="md" className="h-7 w-7" />;
           })()
         )}
         <div>
@@ -633,8 +612,6 @@ function ChatPanel({
           const isMe = msg.sender === myIdentity;
           const showSender =
             !isMe && (i === 0 || messages[i - 1].sender !== msg.sender);
-          const avatar = AVATARS[msg.sender];
-
           return (
             <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>

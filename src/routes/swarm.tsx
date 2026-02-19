@@ -39,6 +39,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
+import { UserAvatar } from "@/components/user-avatar";
 
 export const Route = createFileRoute("/swarm")({
   component: SwarmPage,
@@ -135,13 +136,6 @@ const ALL_STATUSES = [
 ];
 
 const KNOWN_USERS = ["chris", "clio", "domingo", "zumie"];
-
-const AVATARS: Record<string, string> = {
-  chris: "/avatars/chris.jpg",
-  clio: "/avatars/clio.png",
-  domingo: "/avatars/domingo.jpg",
-  zumie: "/avatars/zumie.png",
-};
 
 function SwarmPage() {
   const [authed, setAuthed] = useState(false);
@@ -241,7 +235,9 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
 
   const groupedTasks = visibleStatuses.map((status) => ({
     status,
-    tasks: filteredTasks.filter((t) => t.status === status),
+    tasks: filteredTasks
+      .filter((t) => t.status === status)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
   }));
 
   const projectMap = new Map(projects.map((p) => [p.id, p]));
@@ -286,9 +282,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                   setFilterAssignee(filterAssignee === a ? null : a)
                 }
               >
-                {AVATARS[a] ? (
-                  <img src={AVATARS[a]} alt={a} className="h-4 w-4 rounded-full" />
-                ) : null}
+                <UserAvatar name={a} size="xs" />
                 {a}
               </Button>
             ))}
@@ -397,13 +391,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                   className={`rounded-full p-0.5 transition-all ${filterAssignee === a ? "ring-2 ring-primary" : "opacity-50"}`}
                   onClick={() => setFilterAssignee(filterAssignee === a ? null : a)}
                 >
-                  {AVATARS[a] ? (
-                    <img src={AVATARS[a]} alt={a} className="h-6 w-6 rounded-full" />
-                  ) : (
-                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold uppercase">
-                      {a[0]}
-                    </div>
-                  )}
+                  <UserAvatar name={a} size="md" className="h-6 w-6" />
                 </button>
               ))}
             </div>
@@ -656,19 +644,7 @@ function TaskCard({
               <PlayCircle className="h-3 w-3 text-muted-foreground/50" title={`Chains to ${task.nextTaskId.slice(0, 8)}`} />
             )}
             {task.assigneeUserId && (
-              AVATARS[task.assigneeUserId] ? (
-                <img
-                  src={AVATARS[task.assigneeUserId]}
-                  alt={task.assigneeUserId}
-                  className="h-5 w-5 rounded-full"
-                  title={task.assigneeUserId}
-                />
-              ) : (
-                <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                  <User className="h-3 w-3" />
-                  {task.assigneeUserId}
-                </span>
-              )
+              <UserAvatar name={task.assigneeUserId} size="sm" />
             )}
           </div>
 
@@ -1047,11 +1023,7 @@ function TaskDetailDialog({
               )}
               {task.assigneeUserId && (
                 <Badge variant="outline" className="gap-1">
-                  {AVATARS[task.assigneeUserId] ? (
-                    <img src={AVATARS[task.assigneeUserId]} alt="" className="h-3 w-3 rounded-full" />
-                  ) : (
-                    <User className="h-3 w-3" />
-                  )}
+                  <UserAvatar name={task.assigneeUserId} size="xs" />
                   {task.assigneeUserId}
                 </Badge>
               )}

@@ -3,6 +3,7 @@ import { Inbox, Radio, Users, LogOut, LayoutList, Settings, Bookmark, BookOpen }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./theme-toggle";
+import { UserAvatar } from "@/components/user-avatar";
 import { clearMailboxKey, api } from "@/lib/api";
 import { useState, useEffect } from "react";
 
@@ -16,12 +17,7 @@ const navItems = [
   { to: "/admin", label: "Admin", icon: Settings },
 ] as const;
 
-const AVATARS: Record<string, string> = {
-  chris: "/avatars/chris.jpg",
-  clio: "/avatars/clio.png",
-  domingo: "/avatars/domingo.jpg",
-  zumie: "/avatars/zumie.png",
-};
+// Avatars served via /api/avatars/:identity with UserAvatar component
 
 const ALL_USERS = ["chris", "clio", "domingo", "zumie"];
 
@@ -72,7 +68,6 @@ function PresenceDots() {
     <div className="flex items-center gap-1.5">
       {users.map(({ name, info }) => {
         const borderColor = getBorderColor(info.online, info.lastSeen);
-        const avatar = AVATARS[name];
         return (
           <div
             key={name}
@@ -80,17 +75,7 @@ function PresenceDots() {
             style={{ boxShadow: `0 0 0 2px ${borderColor}`, padding: "1.5px" }}
             title={`${name}${info.online ? " (online)" : ""}`}
           >
-            {avatar ? (
-              <img
-                src={avatar}
-                alt={name}
-                className="h-6 w-6 rounded-full object-cover"
-              />
-            ) : (
-              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold uppercase text-muted-foreground">
-                {name[0]}
-              </div>
-            )}
+            <UserAvatar name={name} size="md" className="h-6 w-6" />
           </div>
         );
       })}
