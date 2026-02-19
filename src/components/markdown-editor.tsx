@@ -103,6 +103,8 @@ export function MarkdownEditor({
   const ytextRef = useRef<any>(null);
   const _isExternalUpdate = useRef(false);
   const initializedRef = useRef(false);
+  const valueRef = useRef(value);
+  valueRef.current = value;
   onChangeRef.current = onChange;
   onViewersRef.current = onViewersChange;
 
@@ -292,7 +294,7 @@ export function MarkdownEditor({
 
     const view = new EditorView({
       state: EditorState.create({
-        doc: pageIdRef.current ? "" : value,
+        doc: pageIdRef.current ? "" : valueRef.current,
         extensions,
       }),
       parent: containerRef.current,
