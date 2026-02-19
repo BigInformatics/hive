@@ -457,6 +457,26 @@ function PageEditor({
       .finally(() => setLoading(false));
   }, [pageId]);
 
+  // Auto-refresh in preview mode (poll every 10s for changes)
+  useEffect(() => {
+    if (mode !== "preview") return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.getNotebookPage(pageId);
+        if (data.page) {
+          // Only update if content actually changed
+          if (data.page.content !== contentRef.current) {
+            setContent(data.page.content);
+            contentRef.current = data.page.content;
+          }
+          setPage(data.page);
+          setTitle(data.page.title);
+        }
+      } catch {}
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [mode, pageId]);
+
   const handleContentChange = useCallback((val: string) => {
     setContent(val);
     contentRef.current = val;
