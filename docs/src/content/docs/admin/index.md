@@ -1,6 +1,6 @@
 ---
 title: Administration
-description: Operating Hive safely: tokens, onboarding, webhooks, and health checks.
+description: "Operating Hive safely: tokens, onboarding, webhooks, and health checks."
 ---
 
 This section is for operators/admins running a Hive instance.
