@@ -6,6 +6,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -194,7 +195,9 @@ export const swarmTaskNotebookPages = pgTable("swarm_task_notebook_pages", {
   taskId: text("task_id").notNull().references(() => swarmTasks.id, { onDelete: "cascade" }),
   notebookPageId: uuid("notebook_page_id").notNull().references(() => notebookPages.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+}, (table) => [
+  primaryKey({ columns: [table.taskId, table.notebookPageId] }),
+]);
 
 // ============================================================
 // SWARM: TASK EVENTS (audit trail)
@@ -338,14 +341,11 @@ export const notebookPages = pgTable(
     content: text("content").notNull().default(""),
     createdBy: varchar("created_by", { length: 50 }).notNull(),
     taggedUsers: jsonb("tagged_users").$type<string[]>(),
-    tags: jsonb("tags").$type<string[]>(),
+    tags: jsonb("tags").$type<string[]>().default([]),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     reviewAt: timestamp("review_at", { withTimezone: true }),
-    tags: jsonb("tags").$type<string[]>().default([]),
     locked: boolean("locked").notNull().default(false),
     lockedBy: varchar("locked_by", { length: 50 }),
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
-    reviewAt: timestamp("review_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
