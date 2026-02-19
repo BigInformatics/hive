@@ -186,6 +186,16 @@ export const swarmTasks = pgTable(
 );
 
 // ============================================================
+// SWARM: TASK ↔ NOTEBOOK PAGES (many-to-many)
+// ============================================================
+
+export const swarmTaskNotebookPages = pgTable("swarm_task_notebook_pages", {
+  taskId: text("task_id").notNull().references(() => swarmTasks.id, { onDelete: "cascade" }),
+  notebookPageId: uuid("notebook_page_id").notNull().references(() => notebookPages.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// ============================================================
 // SWARM: TASK EVENTS (audit trail)
 // ============================================================
 
@@ -389,3 +399,4 @@ export type MailboxToken = typeof mailboxTokens.$inferSelect;
 export type Invite = typeof invites.$inferSelect;
 export type DirectoryEntry = typeof directoryEntries.$inferSelect;
 export type NotebookPage = typeof notebookPages.$inferSelect;
+export type SwarmTaskNotebookPage = typeof swarmTaskNotebookPages.$inferSelect;

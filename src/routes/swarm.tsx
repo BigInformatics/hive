@@ -907,6 +907,51 @@ function TaskDetailDialog({
   const [nextTaskAssignee, setNextTaskAssignee] = useState("");
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [linkedPages, setLinkedPages] = useState<Array<{ notebookPageId: string; pageTitle: string; pageCreatedBy: string }>>([]);
+  const [availablePages, setAvailablePages] = useState<Array<{ id: string; title: string }>>([]);
+  const [showPagePicker, setShowPagePicker] = useState(false);
+
+  // Fetch linked notebook pages when task changes
+  useEffect(() => {
+    if (task) {
+      api.getTaskNotebookPages(task.id).then((data: any) => {
+        setLinkedPages(data.pages || []);
+      }).catch(() => setLinkedPages([]));
+    } else {
+      setLinkedPages([]);
+    }
+  }, [task?.id]);
+
+  // Fetch available notebook pages when picker opens
+  useEffect(() => {
+    if (showPagePicker) {
+      api.listNotebookPages(undefined, 100).then((data: any) => {
+        setAvailablePages((data.pages || []).map((p: any) => ({ id: p.id, title: p.title })));
+      }).catch(() => {});
+    }
+  }, [showPagePicker]);
+
+  const handleLinkPage = async (pageId: string) => {
+    if (!task) return;
+    try {
+      await api.linkNotebookPage(task.id, pageId);
+      const data = await api.getTaskNotebookPages(task.id);
+      setLinkedPages(data.pages || []);
+      setShowPagePicker(false);
+    } catch (err) {
+      console.error("Failed to link page:", err);
+    }
+  };
+
+  const handleUnlinkPage = async (pageId: string) => {
+    if (!task) return;
+    try {
+      await api.unlinkNotebookPage(task.id, pageId);
+      setLinkedPages((prev) => prev.filter((p) => p.notebookPageId !== pageId));
+    } catch (err) {
+      console.error("Failed to unlink page:", err);
+    }
+  };
 
   useEffect(() => {
     if (task) {
@@ -1115,6 +1160,56 @@ function TaskDetailDialog({
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{task.detail}</p>
             ) : (
               <p className="text-sm text-muted-foreground italic">No details</p>
+            )}
+
+            {/* Linked notebook pages */}
+            {(linkedPages.length > 0 || !editing) && (
+              <div className="space-y-1.5 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">Notebook Pages</p>
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1.5" onClick={() => setShowPagePicker(!showPagePicker)}>
+                    {showPagePicker ? "Cancel" : "+ Link Page"}
+                  </Button>
+                </div>
+                {linkedPages.map((lp) => (
+                  <div key={lp.notebookPageId} className="flex items-center gap-2 text-sm">
+                    <a
+                      href={`/notebook?page=${lp.notebookPageId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sky-500 hover:underline truncate flex-1"
+                    >
+                      📄 {lp.pageTitle}
+                    </a>
+                    <button
+                      type="button"
+                      className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs"
+                      onClick={() => handleUnlinkPage(lp.notebookPageId)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {linkedPages.length === 0 && !showPagePicker && (
+                  <p className="text-xs text-muted-foreground/50 italic">No linked pages</p>
+                )}
+                {showPagePicker && (
+                  <div className="space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
+                    {availablePages
+                      .filter((p) => !linkedPages.some((lp) => lp.notebookPageId === p.id))
+                      .map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="w-full text-left text-sm px-2 py-1 rounded hover:bg-accent transition-colors truncate"
+                          onClick={() => handleLinkPage(p.id)}
+                        >
+                          📄 {p.title}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Dependencies, scheduling & chaining */}

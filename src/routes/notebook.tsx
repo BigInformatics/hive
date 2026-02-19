@@ -378,8 +378,6 @@ function PageEditor({
   const [identity, setIdentity] = useState<string | null>(null);
   const [viewers, setViewers] = useState<string[]>([]);
   const [copied, setCopied] = useState<"idle" | "url" | "content">("idle");
-  const [newTag, setNewTag] = useState("");
-  const [allTags, setAllTags] = useState<string[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
   const authToken = getMailboxKey();
@@ -396,53 +394,6 @@ function PageEditor({
         .catch(() => {});
     }
   }, [authToken]);
-
-  // Fetch all existing tags for autocomplete
-  useEffect(() => {
-    api.listNotebookPages(undefined, 100).then((data: any) => {
-      const tags = [...new Set((data.pages || []).flatMap((p: any) => p.tags ?? []))].sort();
-      setAllTags(tags as string[]);
-    }).catch(() => {});
-  }, []);
-
-  const handleAddTag = async (tag: string) => {
-    if (!page || !tag.trim()) return;
-    const trimmed = tag.trim().toLowerCase();
-    const currentTags = page.tags ?? [];
-    if (currentTags.includes(trimmed)) { setNewTag(""); return; }
-    const updated = [...currentTags, trimmed];
-    try {
-      const data = await api.updateNotebookPage(pageId, { tags: updated });
-      setPage(data.page);
-      setNewTag("");
-      if (!allTags.includes(trimmed)) setAllTags((prev) => [...prev, trimmed].sort());
-    } catch (e: any) {
-      alert(e?.message ?? "Failed to add tag");
-    }
-  };
-
-  const handleRemoveTag = async (tag: string) => {
-    if (!page) return;
-    const updated = (page.tags ?? []).filter((t) => t !== tag);
-    try {
-      const data = await api.updateNotebookPage(pageId, { tags: updated });
-      setPage(data.page);
-    } catch (e: any) {
-      alert(e?.message ?? "Failed to remove tag");
-    }
-  };
-
-  const handleDateChange = async (field: "expiresAt" | "reviewAt", value: string | null) => {
-    if (!page) return;
-    try {
-      const data = await api.updateNotebookPage(pageId, {
-        [field]: value ? new Date(value).toISOString() : null,
-      });
-      setPage(data.page);
-    } catch (e: any) {
-      alert(e?.message ?? "Failed to update date");
-    }
-  };
 
   const handleCopyUrl = () => {
     const url = `${window.location.origin}/notebook?page=${pageId}`;
@@ -734,20 +685,6 @@ function PageEditor({
             className="prose prose-sm dark:prose-invert max-w-none min-h-[400px] rounded-md border p-4"
             dangerouslySetInnerHTML={{ __html: renderedHtml }}
           />
-        )}
-
-        {/* Expiration / Review banners */}
-        {page.expiresAt && new Date(page.expiresAt) < new Date() && (
-          <div className="flex items-center gap-2 p-3 mt-4 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>This page expired on {formatDate(page.expiresAt)}. Content is historical only.</span>
-          </div>
-        )}
-        {page.reviewAt && new Date(page.reviewAt) < new Date() && !(page.expiresAt && new Date(page.expiresAt) < new Date()) && (
-          <div className="flex items-center gap-2 p-3 mt-4 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm">
-            <Clock className="h-4 w-4 shrink-0" />
-            <span>This page is past its review date ({formatDate(page.reviewAt)}). Content may be outdated and requires review.</span>
-          </div>
         )}
 
         {/* Page settings */}

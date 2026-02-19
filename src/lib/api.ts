@@ -187,6 +187,22 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Task notebook page links
+  getTaskNotebookPages: (taskId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/notebook-pages`),
+
+  linkNotebookPage: (taskId: string, notebookPageId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/notebook-pages`, {
+      method: "POST",
+      body: JSON.stringify({ notebookPageId }),
+    }),
+
+  unlinkNotebookPage: (taskId: string, notebookPageId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/notebook-pages`, {
+      method: "DELETE",
+      body: JSON.stringify({ notebookPageId }),
+    }),
+
   // Recurring templates
   listRecurringTemplates: (includeDisabled = false) =>
     apiFetch(`/swarm/recurring${includeDisabled ? "?includeDisabled=true" : ""}`),
