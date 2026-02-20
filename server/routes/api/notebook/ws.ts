@@ -13,6 +13,8 @@ interface DocEntry {
   lastSaved: number;
   locked: boolean;
   archivedAt: Date | null;
+  /** Serializes all saves — new saves chain off this to prevent out-of-order DB writes */
+  saveChain: Promise<void>;
 }
 
 const docs = new Map<string, DocEntry>();
@@ -49,6 +51,7 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
     lastSaved: Date.now(),
     locked: page.locked,
     archivedAt: page.archivedAt,
+    saveChain: Promise.resolve(),
   };
 
   // Listen for updates to schedule saves
@@ -60,12 +63,19 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
   return entry;
 }
 
+/** Enqueue a save through the serial chain — guarantees saves complete in order */
+function enqueueSave(pageId: string, entry: DocEntry): void {
+  entry.saveChain = entry.saveChain
+    .then(() => persistDoc(pageId, entry))
+    .catch(() => {});
+}
+
 function scheduleSave(pageId: string, entry: DocEntry) {
   if (entry.saveTimer) clearTimeout(entry.saveTimer);
-  entry.saveTimer = setTimeout(
-    () => persistDoc(pageId, entry),
-    SAVE_DEBOUNCE_MS,
-  );
+  entry.saveTimer = setTimeout(() => {
+    entry.saveTimer = null;
+    enqueueSave(pageId, entry);
+  }, SAVE_DEBOUNCE_MS);
 }
 
 async function persistDoc(pageId: string, entry: DocEntry) {
@@ -86,13 +96,22 @@ function destroyDocIfEmpty(pageId: string) {
   const entry = docs.get(pageId);
   if (!entry || entry.peers.size > 0) return;
 
-  // Save before destroying
-  if (entry.saveTimer) clearTimeout(entry.saveTimer);
-  persistDoc(pageId, entry).then(() => {
-    entry.ydoc.destroy();
-    docs.delete(pageId);
-    console.log(`[notebook:ws] Destroyed doc ${pageId.slice(0, 8)}…`);
-  });
+  // Cancel pending debounce and enqueue a final save through the chain,
+  // then destroy once all saves have completed in order.
+  if (entry.saveTimer) {
+    clearTimeout(entry.saveTimer);
+    entry.saveTimer = null;
+  }
+  entry.saveChain = entry.saveChain
+    .then(() => persistDoc(pageId, entry))
+    .then(() => {
+      entry.ydoc.destroy();
+      docs.delete(pageId);
+      console.log(`[notebook:ws] Destroyed doc ${pageId.slice(0, 8)}…`);
+    })
+    .catch((e) => {
+      console.error(`[notebook:ws] Failed to destroy doc ${pageId.slice(0, 8)}:`, e);
+    });
 }
 
 function broadcastToOthers(
@@ -257,13 +276,13 @@ export default defineWebSocketHandler({
           } catch {}
       }
 
-      // Save immediately when last peer leaves (don't wait for the debounce)
+      // Save immediately when last peer leaves (serialized through saveChain)
       if (entry.peers.size === 0) {
         if (entry.saveTimer) {
           clearTimeout(entry.saveTimer);
           entry.saveTimer = null;
         }
-        persistDoc(pageId, entry);
+        enqueueSave(pageId, entry);
       }
 
       // Destroy if no peers left
