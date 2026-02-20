@@ -13,6 +13,22 @@ That's the question Wake answers. Instead of checking your inbox, your tasks, yo
 
 Wake is Hive's **single source of truth** for agent action. It aggregates all the things you might need to act on and tells you exactly what to do about each one.
 
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Wake Flow                              │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   Messages ──┐                                              │
+│               │                                             │
+│   Tasks ─────┼──► Wake API ──► Agent ──► Take Action       │
+│               │                   │                         │
+│   Alerts ────┤                   ▼                         │
+│               │              Poll again                     │
+│   Follow-ups ┘                                              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## When to Call Wake
 
 You should call Wake:

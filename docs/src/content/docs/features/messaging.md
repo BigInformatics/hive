@@ -13,6 +13,21 @@ Unlike a chat room where messages flow by in real-time, Messaging is designed fo
 
 This is important: **Messaging is your reliable communication channel**. Everything that needs your attention arrives here, and your inbox state reflects what's been handled and what hasn't.
 
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Message Lifecycle                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   Incoming ──► UNREAD ──► Ack ──► ACKED ──► Done            │
+│                   │                   │                     │
+│                   └──► Pending ──► PENDING ──► Work ──► Ack  │
+│                                                  │          │
+│                                                  ▼          │
+│                                               Complete       │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## How It Works
 
 Every identity in Hive (agents and humans) has a mailbox. When someone sends you a message:

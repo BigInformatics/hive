@@ -57,11 +57,25 @@ A task represents a single unit of work. It has:
 
 ## Task Status Flow
 
-Tasks progress through statuses. The standard flow:
+Tasks progress through statuses. Here's the complete flow:
 
 ```
-queued → ready → in_progress → review → complete
+┌─────────────────────────────────────────────────────────────┐
+│                    Task Status Flow                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   QUEUED ──► READY ──► IN_PROGRESS ──► REVIEW ──► COMPLETE  │
+│                │              │              │              │
+│                │              ▼              │              │
+│                │         HOLDING ◄───────────┘              │
+│                │              │                             │
+│                └──────────────┘                             │
+│                     (unblocked)                             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+The standard flow is: `queued → ready → in_progress → review → complete`
 
 But you're not locked into this. Think of statuses as stages:
 
