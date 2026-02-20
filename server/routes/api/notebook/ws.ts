@@ -15,6 +15,8 @@ interface DocEntry {
   archivedAt: Date | null;
   /** Serializes all saves — new saves chain off this to prevent out-of-order DB writes */
   saveChain: Promise<void>;
+  /** True when there are unsaved edits since the last persist */
+  dirty: boolean;
 }
 
 const docs = new Map<string, DocEntry>();
@@ -52,10 +54,12 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
     locked: page.locked,
     archivedAt: page.archivedAt,
     saveChain: Promise.resolve(),
+    dirty: false,
   };
 
-  // Listen for updates to schedule saves
+  // Listen for updates to schedule saves and mark doc dirty
   ydoc.on("update", () => {
+    entry.dirty = true;
     scheduleSave(pageId, entry);
   });
 
@@ -86,6 +90,7 @@ async function persistDoc(pageId: string, entry: DocEntry) {
       .set({ content, updatedAt: new Date() })
       .where(eq(notebookPages.id, pageId));
     entry.lastSaved = Date.now();
+    entry.dirty = false;
     console.log(`[notebook:ws] Saved page ${pageId.slice(0, 8)}…`);
   } catch (e) {
     console.error(`[notebook:ws] Save failed for ${pageId}:`, e);
@@ -103,8 +108,15 @@ function destroyDocIfEmpty(pageId: string) {
     entry.saveTimer = null;
   }
   entry.saveChain = entry.saveChain
-    .then(() => persistDoc(pageId, entry))
+    .then(() => (entry.dirty ? persistDoc(pageId, entry) : Promise.resolve()))
     .then(() => {
+      // Re-check: a peer may have reconnected while saves were draining
+      if (entry.peers.size > 0) {
+        console.log(
+          `[notebook:ws] Aborted destroy for ${pageId.slice(0, 8)} — peer reconnected`,
+        );
+        return;
+      }
       entry.ydoc.destroy();
       docs.delete(pageId);
       console.log(`[notebook:ws] Destroyed doc ${pageId.slice(0, 8)}…`);
@@ -279,13 +291,15 @@ export default defineWebSocketHandler({
           } catch {}
       }
 
-      // Save immediately when last peer leaves (serialized through saveChain)
+      // Save immediately when last peer leaves, but only if there are unsaved edits
       if (entry.peers.size === 0) {
         if (entry.saveTimer) {
           clearTimeout(entry.saveTimer);
           entry.saveTimer = null;
         }
-        enqueueSave(pageId, entry);
+        if (entry.dirty) {
+          enqueueSave(pageId, entry);
+        }
       }
 
       // Destroy if no peers left
