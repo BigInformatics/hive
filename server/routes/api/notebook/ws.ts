@@ -257,6 +257,15 @@ export default defineWebSocketHandler({
           } catch {}
       }
 
+      // Save immediately when last peer leaves (don't wait for the debounce)
+      if (entry.peers.size === 0) {
+        if (entry.saveTimer) {
+          clearTimeout(entry.saveTimer);
+          entry.saveTimer = null;
+        }
+        persistDoc(pageId, entry);
+      }
+
       // Destroy if no peers left
       setTimeout(() => destroyDocIfEmpty(pageId), 10_000);
     }
