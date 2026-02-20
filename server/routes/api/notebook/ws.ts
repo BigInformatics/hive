@@ -110,7 +110,10 @@ function destroyDocIfEmpty(pageId: string) {
       console.log(`[notebook:ws] Destroyed doc ${pageId.slice(0, 8)}…`);
     })
     .catch((e) => {
-      console.error(`[notebook:ws] Failed to destroy doc ${pageId.slice(0, 8)}:`, e);
+      console.error(
+        `[notebook:ws] Failed to destroy doc ${pageId.slice(0, 8)}:`,
+        e,
+      );
     });
 }
 
