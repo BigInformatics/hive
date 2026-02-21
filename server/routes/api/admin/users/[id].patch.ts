@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { mailboxTokens, users } from "@/db/schema";
 import {
   authenticateEvent,
+  clearAuthCache,
   deregisterMailbox,
   registerMailbox,
 } from "@/lib/auth";
@@ -93,12 +94,21 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Sync in-memory mailbox set immediately — no restart required
+  // Sync in-memory mailbox set and token validity immediately
   if ("archivedAt" in patch) {
     if (patch.archivedAt) {
+      // Archive: remove from valid mailboxes and revoke all DB tokens
       deregisterMailbox(id);
+      await db
+        .update(mailboxTokens)
+        .set({ revokedAt: new Date() })
+        .where(eq(mailboxTokens.identity, id));
+      clearAuthCache();
     } else {
+      // Restore: re-add to valid mailboxes; revoked tokens remain revoked
+      // (admin must issue new tokens via invite or token endpoint)
       registerMailbox(id);
+      clearAuthCache();
     }
   }
 

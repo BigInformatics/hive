@@ -62,6 +62,15 @@ export function deregisterMailbox(name: string) {
   validMailboxes.delete(name);
 }
 
+/** Return all identities registered via env tokens (HIVE_TOKEN_* / MAILBOX_TOKEN_* / UI_MAILBOX_KEYS) */
+export function getEnvIdentities(): string[] {
+  const ids = new Set<string>();
+  for (const ctx of envTokens.values()) {
+    if (ctx.identity && ctx.identity !== "admin") ids.add(ctx.identity);
+  }
+  return [...ids].sort();
+}
+
 /** Check DB for a valid token */
 async function authenticateFromDb(token: string): Promise<AuthContext | null> {
   // Check cache first
