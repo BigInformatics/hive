@@ -159,7 +159,6 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [chatEvent, setChatEvent] = useState<ChatSSEEvent | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [hoveredChannel, setHoveredChannel] = useState<string | null>(null);
   const myIdentity = useVerifiedIdentity();
 
   // SSE for real-time chat events
@@ -407,8 +406,6 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                           : "hover:bg-muted/50"
                       }`}
                       onClick={() => setActiveChannel(ch.id)}
-                      onMouseEnter={() => setHoveredChannel(ch.id)}
-                      onMouseLeave={() => setHoveredChannel(null)}
                     >
                       {isGroup ? (
                         <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -432,29 +429,28 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                           <p className="font-medium text-sm capitalize truncate">
                             {name}
                           </p>
-                          <div className="shrink-0 ml-1 flex items-center">
-                            {hoveredChannel === ch.id ? (
-                              <button
-                                type="button"
-                                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                title={showArchived ? "Unarchive" : "Archive"}
-                                onClick={(e) =>
-                                  showArchived
-                                    ? handleUnarchive(e, ch.id)
-                                    : handleArchive(e, ch.id)
-                                }
-                              >
-                                {showArchived ? (
-                                  <ArchiveRestore className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Archive className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            ) : ch.last_message ? (
+                          <div className="shrink-0 ml-1 flex items-center gap-1">
+                            {ch.last_message && (
                               <span className="text-[10px] text-muted-foreground">
                                 {formatMessageTime(ch.last_message.created_at)}
                               </span>
-                            ) : null}
+                            )}
+                            <button
+                              type="button"
+                              className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/30 hover:text-muted-foreground hover:bg-muted transition-colors"
+                              title={showArchived ? "Unarchive" : "Archive"}
+                              onClick={(e) =>
+                                showArchived
+                                  ? handleUnarchive(e, ch.id)
+                                  : handleArchive(e, ch.id)
+                              }
+                            >
+                              {showArchived ? (
+                                <ArchiveRestore className="h-3.5 w-3.5" />
+                              ) : (
+                                <Archive className="h-3.5 w-3.5" />
+                              )}
+                            </button>
                           </div>
                         </div>
                         <div className="flex items-center justify-between">

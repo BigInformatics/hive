@@ -57,6 +57,11 @@ export function registerMailbox(name: string) {
   validMailboxes.add(name);
 }
 
+/** Remove an identity from the valid mailbox set (call when archiving/deactivating a user) */
+export function deregisterMailbox(name: string) {
+  validMailboxes.delete(name);
+}
+
 /** Check DB for a valid token */
 async function authenticateFromDb(token: string): Promise<AuthContext | null> {
   // Check cache first

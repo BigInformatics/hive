@@ -2,7 +2,11 @@ import { eq } from "drizzle-orm";
 import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { authenticateEvent } from "@/lib/auth";
+import {
+  authenticateEvent,
+  deregisterMailbox,
+  registerMailbox,
+} from "@/lib/auth";
 
 interface UserPatchBody {
   displayName?: string;
@@ -87,6 +91,15 @@ export default defineEventHandler(async (event) => {
       status: 404,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Sync in-memory mailbox set immediately — no restart required
+  if ("archivedAt" in patch) {
+    if (patch.archivedAt) {
+      deregisterMailbox(id);
+    } else {
+      registerMailbox(id);
+    }
   }
 
   return { user: updated };
