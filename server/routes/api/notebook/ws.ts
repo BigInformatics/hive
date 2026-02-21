@@ -83,16 +83,20 @@ function scheduleSave(pageId: string, entry: DocEntry) {
 }
 
 async function persistDoc(pageId: string, entry: DocEntry) {
+  // Snapshot content and clear dirty BEFORE the await so any edit that arrives
+  // during the DB write sets dirty=true again — preserving the "unsaved changes" signal.
+  const content = entry.ydoc.getText("content").toString();
+  entry.dirty = false;
   try {
-    const content = entry.ydoc.getText("content").toString();
     await db
       .update(notebookPages)
       .set({ content, updatedAt: new Date() })
       .where(eq(notebookPages.id, pageId));
     entry.lastSaved = Date.now();
-    entry.dirty = false;
     console.log(`[notebook:ws] Saved page ${pageId.slice(0, 8)}…`);
   } catch (e) {
+    // Restore dirty so the next save opportunity will retry
+    entry.dirty = true;
     console.error(`[notebook:ws] Save failed for ${pageId}:`, e);
   }
 }
