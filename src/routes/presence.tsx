@@ -240,20 +240,22 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
 
   const totalUnread = channels.reduce((sum, ch) => sum + ch.unread_count, 0);
 
-  const users = allUserIds.map((name) => ({
-    name,
-    info: presence[name] || {
-      online: false,
-      lastSeen: null,
-      source: null,
-      unread: 0,
-    },
-  })).sort((a, b) => {
-    if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
-    const aTime = a.info.lastSeen ? new Date(a.info.lastSeen).getTime() : 0;
-    const bTime = b.info.lastSeen ? new Date(b.info.lastSeen).getTime() : 0;
-    return bTime - aTime;
-  });
+  const users = allUserIds
+    .map((name) => ({
+      name,
+      info: presence[name] || {
+        online: false,
+        lastSeen: null,
+        source: null,
+        unread: 0,
+      },
+    }))
+    .sort((a, b) => {
+      if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
+      const aTime = a.info.lastSeen ? new Date(a.info.lastSeen).getTime() : 0;
+      const bTime = b.info.lastSeen ? new Date(b.info.lastSeen).getTime() : 0;
+      return bTime - aTime;
+    });
 
   const getChannelName = (ch: ChatChannel): string => {
     if (ch.name) return ch.name;
@@ -366,11 +368,16 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                     variant={showArchived ? "secondary" : "ghost"}
                     size="sm"
                     className="text-xs gap-1.5 shrink-0"
-                    onClick={() => { setShowArchived(!showArchived); setActiveChannel(null); }}
+                    onClick={() => {
+                      setShowArchived(!showArchived);
+                      setActiveChannel(null);
+                    }}
                     title={showArchived ? "Back to chats" : "Archived chats"}
                   >
                     {showArchived ? (
-                      <><ArchiveRestore className="h-3.5 w-3.5" /> Back</>
+                      <>
+                        <ArchiveRestore className="h-3.5 w-3.5" /> Back
+                      </>
                     ) : (
                       <Archive className="h-3.5 w-3.5" />
                     )}
@@ -378,7 +385,9 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                 </div>
                 {channels.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-8">
-                    {showArchived ? "No archived chats." : "No chats yet. Click a team member to start."}
+                    {showArchived
+                      ? "No archived chats."
+                      : "No chats yet. Click a team member to start."}
                   </p>
                 )}
                 {channels.map((ch) => {
@@ -429,12 +438,17 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                                 type="button"
                                 className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                                 title={showArchived ? "Unarchive" : "Archive"}
-                                onClick={(e) => showArchived ? handleUnarchive(e, ch.id) : handleArchive(e, ch.id)}
-                              >
-                                {showArchived
-                                  ? <ArchiveRestore className="h-3.5 w-3.5" />
-                                  : <Archive className="h-3.5 w-3.5" />
+                                onClick={(e) =>
+                                  showArchived
+                                    ? handleUnarchive(e, ch.id)
+                                    : handleArchive(e, ch.id)
                                 }
+                              >
+                                {showArchived ? (
+                                  <ArchiveRestore className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Archive className="h-3.5 w-3.5" />
+                                )}
                               </button>
                             ) : ch.last_message ? (
                               <span className="text-[10px] text-muted-foreground">

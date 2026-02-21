@@ -32,7 +32,9 @@ async function loadUsersFromDb() {
     for (const row of rows) {
       validMailboxes.add(row.id);
     }
-    console.log(`[auth] Loaded ${rows.length} user(s) from DB into validMailboxes`);
+    console.log(
+      `[auth] Loaded ${rows.length} user(s) from DB into validMailboxes`,
+    );
   } catch (err) {
     console.error("[auth] Failed to load users from DB:", err);
   }
@@ -212,7 +214,9 @@ export function initAuth() {
   console.log(`[auth] Loaded ${envTokens.size} env token(s), DB auth enabled`);
 
   // Load known users from DB into validMailboxes (fire-and-forget)
-  loadUsersFromDb().catch(err => console.error("[auth] Failed to load users from DB:", err));
+  loadUsersFromDb().catch((err) =>
+    console.error("[auth] Failed to load users from DB:", err),
+  );
 }
 
 /** Clear the DB token cache (e.g., after creating/revoking tokens) */

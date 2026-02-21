@@ -63,7 +63,10 @@ export async function createGroupChannel(
 }
 
 /** List channels for a user with last message and unread count */
-export async function listChannels(identity: string, options: { archived?: boolean } = {}) {
+export async function listChannels(
+  identity: string,
+  options: { archived?: boolean } = {},
+) {
   const archivedFilter = options.archived
     ? rawSql`m.archived_at IS NOT NULL`
     : rawSql`m.archived_at IS NULL`;

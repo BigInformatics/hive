@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useUserIds } from "@/lib/use-users";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
+import { useUserIds } from "@/lib/use-users";
 
 export function ComposeDialog({
   open,

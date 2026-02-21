@@ -32,7 +32,11 @@ export function UserSelect({ value, onChange, className }: UserSelectProps) {
     })
       .then((r) => r.json())
       .then((data) => {
-        const all = new Set([...(data.users || []), ...value]);
+        // data.users is HiveUser[] — extract ids for this string-based picker
+        const ids: string[] = (data.users || []).map(
+          (u: { id: string }) => u.id,
+        );
+        const all = new Set([...ids, ...value]);
         setUsers([...all].sort());
       })
       .catch(() => {});

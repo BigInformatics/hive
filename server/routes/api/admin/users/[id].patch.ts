@@ -1,8 +1,8 @@
-import { defineEventHandler, readBody, getRouterParam } from "h3";
-import { authenticateEvent } from "@/lib/auth";
+import { eq } from "drizzle-orm";
+import { defineEventHandler, getRouterParam, readBody } from "h3";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { authenticateEvent } from "@/lib/auth";
 
 interface UserPatchBody {
   displayName?: string;
@@ -47,9 +47,30 @@ export default defineEventHandler(async (event) => {
     updatedAt: new Date(),
   };
 
-  if ("displayName" in body && body.displayName !== undefined) patch.displayName = String(body.displayName);
-  if ("isAdmin" in body && body.isAdmin !== undefined) patch.isAdmin = Boolean(body.isAdmin);
-  if ("isAgent" in body && body.isAgent !== undefined) patch.isAgent = Boolean(body.isAgent);
+  if ("displayName" in body && body.displayName !== undefined)
+    patch.displayName = String(body.displayName);
+  if ("isAdmin" in body && body.isAdmin !== undefined) {
+    if (typeof body.isAdmin !== "boolean")
+      return new Response(
+        JSON.stringify({ error: "isAdmin must be a boolean" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    patch.isAdmin = body.isAdmin;
+  }
+  if ("isAgent" in body && body.isAgent !== undefined) {
+    if (typeof body.isAgent !== "boolean")
+      return new Response(
+        JSON.stringify({ error: "isAgent must be a boolean" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    patch.isAgent = body.isAgent;
+  }
   if ("avatarUrl" in body) patch.avatarUrl = body.avatarUrl ?? null;
   if ("archivedAt" in body) {
     patch.archivedAt = body.archivedAt ? new Date(body.archivedAt) : null;

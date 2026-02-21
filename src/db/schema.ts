@@ -466,12 +466,15 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   isAgent: boolean("is_agent").notNull().default(false), // true for AI agents
   avatarUrl: text("avatar_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   archivedAt: timestamp("archived_at", { withTimezone: true }), // soft-deactivate
 });
-
 
 // ============================================================
 // TYPES

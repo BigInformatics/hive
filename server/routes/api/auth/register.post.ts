@@ -86,12 +86,15 @@ export default defineEventHandler(async (event) => {
     .where(eq(invites.id, invite.id));
 
   // Ensure a users row exists for this identity
-  await db.insert(users).values({
-    id: identity,
-    displayName: body.displayName || identity,
-    isAdmin: invite.isAdmin,
-    isAgent: false, // humans registering via invite
-  }).onConflictDoNothing();
+  await db
+    .insert(users)
+    .values({
+      id: identity,
+      displayName: body.displayName || identity,
+      isAdmin: invite.isAdmin,
+      isAgent: false, // humans registering via invite
+    })
+    .onConflictDoNothing();
 
   // Register the mailbox and clear auth cache
   registerMailbox(identity);

@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { unarchiveChannel, isMember } from "@/lib/chat";
+import { isMember, unarchiveChannel } from "@/lib/chat";
 
 /**
  * POST /api/chat/channels/:id/unarchive

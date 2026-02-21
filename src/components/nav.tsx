@@ -69,20 +69,22 @@ function PresenceDots() {
     return () => clearInterval(interval);
   }, []);
 
-  const users = allUsers.map((name) => ({
-    name,
-    info: presence[name] || {
-      online: false,
-      lastSeen: null,
-      source: null,
-      unread: 0,
-    },
-  })).sort((a, b) => {
-    if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
-    const aTime = a.info.lastSeen ? new Date(a.info.lastSeen).getTime() : 0;
-    const bTime = b.info.lastSeen ? new Date(b.info.lastSeen).getTime() : 0;
-    return bTime - aTime;
-  });
+  const users = allUsers
+    .map((name) => ({
+      name,
+      info: presence[name] || {
+        online: false,
+        lastSeen: null,
+        source: null,
+        unread: 0,
+      },
+    }))
+    .sort((a, b) => {
+      if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
+      const aTime = a.info.lastSeen ? new Date(a.info.lastSeen).getTime() : 0;
+      const bTime = b.info.lastSeen ? new Date(b.info.lastSeen).getTime() : 0;
+      return bTime - aTime;
+    });
 
   return (
     <div className="flex items-center gap-1.5">
