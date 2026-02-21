@@ -306,6 +306,14 @@ export const api = {
   // Admin
   getUserStats: () => apiFetch("/admin/user-stats"),
 
+  listUsers: () => apiFetch("/admin/users"),
+
+  updateUser: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/admin/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   searchChatMessages: (params: {
     q: string;
     channelId?: string;

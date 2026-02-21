@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { defineEventHandler, readBody } from "h3";
 import { db } from "@/db";
-import { invites, mailboxTokens } from "@/db/schema";
+import { invites, mailboxTokens, users } from "@/db/schema";
 import { clearAuthCache, registerMailbox } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
@@ -84,6 +84,14 @@ export default defineEventHandler(async (event) => {
     .update(invites)
     .set({ useCount: invite.useCount + 1 })
     .where(eq(invites.id, invite.id));
+
+  // Ensure a users row exists for this identity
+  await db.insert(users).values({
+    id: identity,
+    displayName: body.displayName || identity,
+    isAdmin: invite.isAdmin,
+    isAgent: false, // humans registering via invite
+  }).onConflictDoNothing();
 
   // Register the mailbox and clear auth cache
   registerMailbox(identity);
