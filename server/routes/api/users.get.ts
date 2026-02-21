@@ -1,9 +1,12 @@
-import { isNull } from "drizzle-orm";
 import { defineEventHandler } from "h3";
-import { db } from "@/db";
-import { mailboxTokens } from "@/db/schema";
-import { authenticateEvent } from "@/lib/auth";
+import { authenticateEvent, getEnvIdentities, listUsers } from "@/lib/auth";
 
+/**
+ * GET /api/users
+ * Returns all active users. Requires authentication (not admin-only).
+ * Includes users from the users table AND env-token identities that haven't
+ * been backfilled yet (returned as minimal user objects).
+ */
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
   if (!auth) {
@@ -13,23 +16,23 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Get identities from DB tokens (non-revoked)
-  const dbTokens = await db
-    .select({ identity: mailboxTokens.identity })
-    .from(mailboxTokens)
-    .where(isNull(mailboxTokens.revokedAt));
+  const dbUsers = await listUsers();
+  const dbIds = new Set(dbUsers.map((u) => u.id));
 
-  const identities = new Set(dbTokens.map((t) => t.identity));
+  // Include env-token identities not yet in the users table
+  const envOnly = getEnvIdentities()
+    .filter((id) => !dbIds.has(id))
+    .map((id) => ({
+      id,
+      displayName: id,
+      isAdmin: false,
+      isAgent: false,
+      avatarUrl: null,
+      createdAt: null,
+      updatedAt: null,
+      lastSeenAt: null,
+      archivedAt: null,
+    }));
 
-  // Also include env token identities
-  for (const key of Object.keys(process.env)) {
-    if (key.startsWith("MAILBOX_TOKEN_")) {
-      identities.add(key.replace("MAILBOX_TOKEN_", "").toLowerCase());
-    }
-  }
-
-  // Remove the admin token key if it slipped in
-  identities.delete("admin");
-
-  return { users: [...identities].sort() };
+  return { users: [...dbUsers, ...envOnly] };
 });

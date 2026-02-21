@@ -3,7 +3,7 @@ import { and, eq, gt, isNull, or } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { getHeader } from "h3";
 import { db } from "@/db";
-import { mailboxTokens } from "@/db/schema";
+import { mailboxTokens, users } from "@/db/schema";
 
 config({ path: ".env" });
 config({ path: "/etc/clawdbot/vault.env" });
@@ -22,12 +22,53 @@ const validMailboxes = new Set<string>();
 const dbCache = new Map<string, { ctx: AuthContext | null; expires: number }>();
 const DB_CACHE_TTL = 30_000; // 30 seconds
 
+/** Load all active users from DB into validMailboxes at startup */
+async function loadUsersFromDb() {
+  try {
+    const rows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(isNull(users.archivedAt));
+    for (const row of rows) {
+      validMailboxes.add(row.id);
+    }
+    console.log(
+      `[auth] Loaded ${rows.length} user(s) from DB into validMailboxes`,
+    );
+  } catch (err) {
+    console.error("[auth] Failed to load users from DB:", err);
+  }
+}
+
+/** Return all non-archived users ordered by display name */
+export async function listUsers() {
+  return db
+    .select()
+    .from(users)
+    .where(isNull(users.archivedAt))
+    .orderBy(users.displayName);
+}
+
 export function isValidMailbox(name: string): boolean {
   return validMailboxes.has(name);
 }
 
 export function registerMailbox(name: string) {
   validMailboxes.add(name);
+}
+
+/** Remove an identity from the valid mailbox set (call when archiving/deactivating a user) */
+export function deregisterMailbox(name: string) {
+  validMailboxes.delete(name);
+}
+
+/** Return all identities registered via env tokens (HIVE_TOKEN_* / MAILBOX_TOKEN_* / UI_MAILBOX_KEYS) */
+export function getEnvIdentities(): string[] {
+  const ids = new Set<string>();
+  for (const ctx of envTokens.values()) {
+    if (ctx.identity && ctx.identity !== "admin") ids.add(ctx.identity);
+  }
+  return [...ids].sort();
 }
 
 /** Check DB for a valid token */
@@ -185,6 +226,11 @@ export function initAuth() {
   }
 
   console.log(`[auth] Loaded ${envTokens.size} env token(s), DB auth enabled`);
+
+  // Load known users from DB into validMailboxes (fire-and-forget)
+  loadUsersFromDb().catch((err) =>
+    console.error("[auth] Failed to load users from DB:", err),
+  );
 }
 
 /** Clear the DB token cache (e.g., after creating/revoking tokens) */

@@ -291,6 +291,7 @@ export const chatMembers = pgTable("chat_members", {
     .defaultNow()
     .notNull(),
   lastReadAt: timestamp("last_read_at", { withTimezone: true }),
+  archivedAt: timestamp("archived_at", { withTimezone: true }), // per-member soft delete
 });
 
 export const chatMessages = pgTable("chat_messages", {
@@ -455,6 +456,25 @@ export const attachments = pgTable(
     index("idx_attachments_entity").on(table.entityType, table.entityId),
   ],
 );
+// ============================================================
+// USERS (central registry)
+// ============================================================
+
+export const users = pgTable("users", {
+  id: varchar("id", { length: 50 }).primaryKey(), // = identity slug ("gonzo", "chris")
+  displayName: varchar("display_name", { length: 100 }).notNull(),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  isAgent: boolean("is_agent").notNull().default(false), // true for AI agents
+  avatarUrl: text("avatar_url"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  archivedAt: timestamp("archived_at", { withTimezone: true }), // soft-deactivate
+});
 
 // ============================================================
 // TYPES
@@ -479,3 +499,4 @@ export type NotebookPage = typeof notebookPages.$inferSelect;
 export type SwarmTaskNotebookPage = typeof swarmTaskNotebookPages.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
 export type ContentProjectTag = typeof contentProjectTags.$inferSelect;
+export type User = typeof users.$inferSelect;

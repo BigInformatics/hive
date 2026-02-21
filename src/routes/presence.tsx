@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   MessageCircle,
   Plus,
@@ -23,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserAvatar } from "@/components/user-avatar";
 import { api, getMailboxKey } from "@/lib/api";
 import { type ChatSSEEvent, useChatSSE } from "@/lib/use-chat-sse";
+import { useUserIds } from "@/lib/use-users";
 
 export const Route = createFileRoute("/presence")({
   component: PresencePage,
@@ -60,7 +63,7 @@ interface ChatMessage {
 
 // Avatars served via /api/avatars/:identity with UserAvatar component
 
-const ALL_USERS = ["chris", "clio", "domingo", "zumie"];
+// Users loaded dynamically via useUserIds()
 
 function getTimeSince(date: string | null): number {
   if (!date) return Infinity;
@@ -147,6 +150,7 @@ function PresencePage() {
 }
 
 function PresenceView({ onLogout }: { onLogout: () => void }) {
+  const allUserIds = useUserIds();
   const [presence, setPresence] = useState<Record<string, UserPresence>>({});
   const [loading, setLoading] = useState(false);
   const [channels, setChannels] = useState<ChatChannel[]>([]);
@@ -154,6 +158,7 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
   const [showChats, setShowChats] = useState(false);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [chatEvent, setChatEvent] = useState<ChatSSEEvent | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const myIdentity = useVerifiedIdentity();
 
   // SSE for real-time chat events
@@ -179,12 +184,12 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
 
   const fetchChannels = useCallback(async () => {
     try {
-      const data = await api.listChatChannels();
+      const data = await api.listChatChannels(showArchived);
       setChannels(data.channels || []);
     } catch (err) {
       console.error("Failed to fetch channels:", err);
     }
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     fetchPresence();
@@ -211,22 +216,45 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const handleArchive = async (e: React.MouseEvent, channelId: string) => {
+    e.stopPropagation();
+    try {
+      await api.archiveChat(channelId);
+      if (activeChannel === channelId) setActiveChannel(null);
+      fetchChannels();
+    } catch (err) {
+      console.error("Failed to archive channel:", err);
+    }
+  };
+
+  const handleUnarchive = async (e: React.MouseEvent, channelId: string) => {
+    e.stopPropagation();
+    try {
+      await api.unarchiveChat(channelId);
+      fetchChannels();
+    } catch (err) {
+      console.error("Failed to unarchive channel:", err);
+    }
+  };
+
   const totalUnread = channels.reduce((sum, ch) => sum + ch.unread_count, 0);
 
-  const users = ALL_USERS.map((name) => ({
-    name,
-    info: presence[name] || {
-      online: false,
-      lastSeen: null,
-      source: null,
-      unread: 0,
-    },
-  })).sort((a, b) => {
-    if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
-    const aTime = a.info.lastSeen ? new Date(a.info.lastSeen).getTime() : 0;
-    const bTime = b.info.lastSeen ? new Date(b.info.lastSeen).getTime() : 0;
-    return bTime - aTime;
-  });
+  const users = allUserIds
+    .map((name) => ({
+      name,
+      info: presence[name] || {
+        online: false,
+        lastSeen: null,
+        source: null,
+        unread: 0,
+      },
+    }))
+    .sort((a, b) => {
+      if (a.info.online !== b.info.online) return a.info.online ? -1 : 1;
+      const aTime = a.info.lastSeen ? new Date(a.info.lastSeen).getTime() : 0;
+      const bTime = b.info.lastSeen ? new Date(b.info.lastSeen).getTime() : 0;
+      return bTime - aTime;
+    });
 
   const getChannelName = (ch: ChatChannel): string => {
     if (ch.name) return ch.name;
@@ -324,17 +352,41 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
             /* Chat list */
             <ScrollArea className="flex-1">
               <div className="p-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start text-xs gap-1.5 mb-1"
-                  onClick={() => setGroupDialogOpen(true)}
-                >
-                  <Plus className="h-3.5 w-3.5" /> New group chat
-                </Button>
+                <div className="flex items-center gap-1 mb-1">
+                  {!showArchived && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 justify-start text-xs gap-1.5"
+                      onClick={() => setGroupDialogOpen(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> New group chat
+                    </Button>
+                  )}
+                  <Button
+                    variant={showArchived ? "secondary" : "ghost"}
+                    size="sm"
+                    className="text-xs gap-1.5 shrink-0"
+                    onClick={() => {
+                      setShowArchived(!showArchived);
+                      setActiveChannel(null);
+                    }}
+                    title={showArchived ? "Back to chats" : "Archived chats"}
+                  >
+                    {showArchived ? (
+                      <>
+                        <ArchiveRestore className="h-3.5 w-3.5" /> Back
+                      </>
+                    ) : (
+                      <Archive className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
                 {channels.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-8">
-                    No chats yet. Click a team member to start.
+                    {showArchived
+                      ? "No archived chats."
+                      : "No chats yet. Click a team member to start."}
                   </p>
                 )}
                 {channels.map((ch) => {
@@ -348,7 +400,7 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                   return (
                     <div
                       key={ch.id}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors ${
+                      className={`group relative flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors ${
                         activeChannel === ch.id
                           ? "bg-muted"
                           : "hover:bg-muted/50"
@@ -377,11 +429,29 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                           <p className="font-medium text-sm capitalize truncate">
                             {name}
                           </p>
-                          {ch.last_message && (
-                            <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
-                              {formatMessageTime(ch.last_message.created_at)}
-                            </span>
-                          )}
+                          <div className="shrink-0 ml-1 flex items-center gap-1">
+                            {ch.last_message && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {formatMessageTime(ch.last_message.created_at)}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/30 hover:text-muted-foreground hover:bg-muted transition-colors"
+                              title={showArchived ? "Unarchive" : "Archive"}
+                              onClick={(e) =>
+                                showArchived
+                                  ? handleUnarchive(e, ch.id)
+                                  : handleArchive(e, ch.id)
+                              }
+                            >
+                              {showArchived ? (
+                                <ArchiveRestore className="h-3.5 w-3.5" />
+                              ) : (
+                                <Archive className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                         <div className="flex items-center justify-between">
                           <p className="text-xs text-muted-foreground truncate">
@@ -747,6 +817,7 @@ function NewGroupDialog({
   onOpenChange: (open: boolean) => void;
   onCreated: (channelId: string) => void;
 }) {
+  const allUserIds = useUserIds();
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
@@ -793,7 +864,7 @@ function NewGroupDialog({
           <div>
             <p className="text-xs text-muted-foreground mb-2">Members</p>
             <div className="flex flex-wrap gap-2">
-              {ALL_USERS.map((user) => (
+              {allUserIds.map((user) => (
                 <Button
                   key={user}
                   type="button"

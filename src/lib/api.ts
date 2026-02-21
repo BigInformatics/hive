@@ -91,6 +91,8 @@ export const api = {
 
   getPresence: () => apiFetch("/presence"),
 
+  getUsers: () => apiFetch("/users"),
+
   // Broadcast
   listBroadcastEvents: (appName?: string) => {
     const params = appName ? `?appName=${encodeURIComponent(appName)}` : "";
@@ -262,7 +264,14 @@ export const api = {
     apiFetch(`/auth/tokens/${id}/revoke`, { method: "POST" }),
 
   // Chat
-  listChatChannels: () => apiFetch("/chat/channels"),
+  listChatChannels: (archived = false) =>
+    apiFetch(`/chat/channels${archived ? "?archived=true" : ""}`),
+
+  archiveChat: (channelId: string) =>
+    apiFetch(`/chat/channels/${channelId}/archive`, { method: "POST" }),
+
+  unarchiveChat: (channelId: string) =>
+    apiFetch(`/chat/channels/${channelId}/unarchive`, { method: "POST" }),
 
   openDm: (identity: string) =>
     apiFetch("/chat/channels", {
@@ -305,6 +314,14 @@ export const api = {
 
   // Admin
   getUserStats: () => apiFetch("/admin/user-stats"),
+
+  listUsers: () => apiFetch("/admin/users"),
+
+  updateUser: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/admin/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 
   searchChatMessages: (params: {
     q: string;
