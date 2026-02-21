@@ -1,4 +1,4 @@
-import { defineEventHandler } from "h3";
+import { defineEventHandler, getQuery } from "h3";
 import { authenticateEvent } from "@/lib/auth";
 import { listChannels } from "@/lib/chat";
 
@@ -11,6 +11,9 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const channels = await listChannels(auth.identity);
+  const query = getQuery(event);
+  const archived = query.archived === "true";
+
+  const channels = await listChannels(auth.identity, { archived });
   return { channels };
 });

@@ -291,6 +291,7 @@ export const chatMembers = pgTable("chat_members", {
     .defaultNow()
     .notNull(),
   lastReadAt: timestamp("last_read_at", { withTimezone: true }),
+  archivedAt: timestamp("archived_at", { withTimezone: true }), // per-member soft delete
 });
 
 export const chatMessages = pgTable("chat_messages", {

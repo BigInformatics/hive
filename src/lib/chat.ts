@@ -63,7 +63,11 @@ export async function createGroupChannel(
 }
 
 /** List channels for a user with last message and unread count */
-export async function listChannels(identity: string) {
+export async function listChannels(identity: string, options: { archived?: boolean } = {}) {
+  const archivedFilter = options.archived
+    ? rawSql`m.archived_at IS NOT NULL`
+    : rawSql`m.archived_at IS NULL`;
+
   const rows = await db.execute(rawSql`
     SELECT 
       c.id,
@@ -72,6 +76,7 @@ export async function listChannels(identity: string) {
       c.created_by,
       c.created_at,
       m.last_read_at,
+      m.archived_at,
       (
         SELECT json_agg(json_build_object('identity', cm.identity))
         FROM chat_members cm WHERE cm.channel_id = c.id
@@ -94,6 +99,7 @@ export async function listChannels(identity: string) {
       ) as unread_count
     FROM chat_channels c
     JOIN chat_members m ON m.channel_id = c.id AND m.identity = ${identity}
+    WHERE ${archivedFilter}
     ORDER BY (
       SELECT max(cm2.created_at) FROM chat_messages cm2 WHERE cm2.channel_id = c.id
     ) DESC NULLS LAST
@@ -106,6 +112,7 @@ export async function listChannels(identity: string) {
     created_by: string;
     created_at: string;
     last_read_at: string | null;
+    archived_at: string | null;
     members: Array<{ identity: string }>;
     last_message: {
       id: number;
@@ -115,6 +122,32 @@ export async function listChannels(identity: string) {
     } | null;
     unread_count: number;
   }>;
+}
+
+/** Archive a channel for the current user (soft delete — other members unaffected) */
+export async function archiveChannel(channelId: string, identity: string) {
+  await db
+    .update(chatMembers)
+    .set({ archivedAt: new Date() })
+    .where(
+      and(
+        eq(chatMembers.channelId, channelId),
+        eq(chatMembers.identity, identity),
+      ),
+    );
+}
+
+/** Unarchive a channel for the current user */
+export async function unarchiveChannel(channelId: string, identity: string) {
+  await db
+    .update(chatMembers)
+    .set({ archivedAt: null })
+    .where(
+      and(
+        eq(chatMembers.channelId, channelId),
+        eq(chatMembers.identity, identity),
+      ),
+    );
 }
 
 /** Get messages for a channel */

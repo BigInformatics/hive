@@ -264,7 +264,14 @@ export const api = {
     apiFetch(`/auth/tokens/${id}/revoke`, { method: "POST" }),
 
   // Chat
-  listChatChannels: () => apiFetch("/chat/channels"),
+  listChatChannels: (archived = false) =>
+    apiFetch(`/chat/channels${archived ? "?archived=true" : ""}`),
+
+  archiveChat: (channelId: string) =>
+    apiFetch(`/chat/channels/${channelId}/archive`, { method: "POST" }),
+
+  unarchiveChat: (channelId: string) =>
+    apiFetch(`/chat/channels/${channelId}/unarchive`, { method: "POST" }),
 
   openDm: (identity: string) =>
     apiFetch("/chat/channels", {
