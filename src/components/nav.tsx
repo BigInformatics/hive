@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { api, clearMailboxKey } from "@/lib/api";
+import { useUserIds } from "@/lib/use-users";
 import { ThemeToggle } from "./theme-toggle";
 
 const navItems = [
@@ -27,8 +28,6 @@ const navItems = [
 ] as const;
 
 // Avatars served via /api/avatars/:identity with UserAvatar component
-
-const ALL_USERS = ["chris", "clio", "domingo", "zumie"];
 
 interface UserPresence {
   online: boolean;
@@ -53,6 +52,7 @@ function getBorderColor(online: boolean, lastSeen: string | null): string {
 }
 
 function PresenceDots() {
+  const allUsers = useUserIds();
   const [presence, setPresence] = useState<Record<string, UserPresence>>({});
 
   useEffect(() => {
@@ -69,7 +69,7 @@ function PresenceDots() {
     return () => clearInterval(interval);
   }, []);
 
-  const users = ALL_USERS.map((name) => ({
+  const users = allUsers.map((name) => ({
     name,
     info: presence[name] || {
       online: false,

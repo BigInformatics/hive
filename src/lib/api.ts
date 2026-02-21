@@ -91,6 +91,8 @@ export const api = {
 
   getPresence: () => apiFetch("/presence"),
 
+  getUsers: () => apiFetch("/users"),
+
   // Broadcast
   listBroadcastEvents: (appName?: string) => {
     const params = appName ? `?appName=${encodeURIComponent(appName)}` : "";

@@ -39,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user-avatar";
 import { api, getMailboxKey } from "@/lib/api";
 import { useSwarmSSE } from "@/lib/use-swarm-sse";
+import { useUserIds } from "@/lib/use-users";
 
 export const Route = createFileRoute("/swarm")({
   component: SwarmPage,
@@ -142,7 +143,7 @@ const ALL_STATUSES = [
   "complete",
 ];
 
-const KNOWN_USERS = ["chris", "clio", "domingo", "zumie"];
+// Users loaded dynamically via useUserIds()
 
 function SwarmPage() {
   const [authed, setAuthed] = useState(false);
@@ -949,6 +950,7 @@ function TaskDetailDialog({
   onUpdated: () => void;
   onStatusChange: (id: string, status: string) => void;
 }) {
+  const knownUsers = useUserIds();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
@@ -1146,7 +1148,7 @@ function TaskDetailDialog({
                 onChange={(e) => setAssignee(e.target.value)}
               >
                 <option value="">Unassigned</option>
-                {KNOWN_USERS.map((u) => (
+                {knownUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -1204,7 +1206,7 @@ function TaskDetailDialog({
                   onChange={(e) => setNextTaskAssignee(e.target.value)}
                 >
                   <option value="">None</option>
-                  {KNOWN_USERS.map((u) => (
+                  {knownUsers.map((u) => (
                     <option key={u} value={u}>
                       {u}
                     </option>
@@ -1509,6 +1511,7 @@ function CreateTaskDialog({
   tasks: SwarmTask[];
   onCreated: () => void;
 }) {
+  const knownUsers = useUserIds();
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
   const [issueUrl, setIssueUrl] = useState("");
@@ -1607,7 +1610,7 @@ function CreateTaskDialog({
               onChange={(e) => setAssignee(e.target.value)}
             >
               <option value="">Unassigned</option>
-              {KNOWN_USERS.map((u) => (
+              {knownUsers.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
@@ -1663,7 +1666,7 @@ function CreateTaskDialog({
                 onChange={(e) => setNextTaskAssignee(e.target.value)}
               >
                 <option value="">None</option>
-                {KNOWN_USERS.map((u) => (
+                {knownUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -1714,6 +1717,7 @@ function CreateProjectDialog({
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }) {
+  const knownUsers = useUserIds();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PROJECT_COLORS[0]);
@@ -1813,7 +1817,7 @@ function CreateProjectDialog({
                 onChange={(e) => setLead(e.target.value)}
               >
                 <option value="">Select...</option>
-                {KNOWN_USERS.map((u) => (
+                {knownUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -1828,7 +1832,7 @@ function CreateProjectDialog({
                 onChange={(e) => setDevLead(e.target.value)}
               >
                 <option value="">Select...</option>
-                {KNOWN_USERS.map((u) => (
+                {knownUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -1898,6 +1902,7 @@ function EditProjectDialog({
   onClose: () => void;
   onUpdated: () => void;
 }) {
+  const knownUsers = useUserIds();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("");
@@ -2012,7 +2017,7 @@ function EditProjectDialog({
                 onChange={(e) => setLead(e.target.value)}
               >
                 <option value="">Select...</option>
-                {KNOWN_USERS.map((u) => (
+                {knownUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -2027,7 +2032,7 @@ function EditProjectDialog({
                 onChange={(e) => setDevLead(e.target.value)}
               >
                 <option value="">Select...</option>
-                {KNOWN_USERS.map((u) => (
+                {knownUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>

@@ -39,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user-avatar";
 import { api, getMailboxKey } from "@/lib/api";
+import { useUserIds } from "@/lib/use-users";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -897,7 +898,7 @@ const CRON_PRESETS = [
   { label: "Every Friday 4 PM", value: "0 16 * * 5" },
 ];
 
-const KNOWN_USERS = ["chris", "clio", "domingo", "zumie"];
+// Users loaded dynamically via useUserIds()
 
 function RecurringPanel({
   projects,
@@ -1123,6 +1124,7 @@ function CreateRecurringDialog({
   projects: Array<{ id: string; title: string; color: string }>;
   onCreated: () => void;
 }) {
+  const knownUsers = useUserIds();
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
   const [cronExpr, setCronExpr] = useState("0 9 * * 1");
@@ -1246,7 +1248,7 @@ function CreateRecurringDialog({
                 onChange={(e) => setAssignee(e.target.value)}
               >
                 <option value="">Unassigned</option>
-                {KNOWN_USERS.map((u) => (
+                {knownUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -1305,6 +1307,7 @@ function EditRecurringDialog({
   projects: Array<{ id: string; title: string; color: string }>;
   onUpdated: () => void;
 }) {
+  const knownUsers = useUserIds();
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
   const [cronExpr, setCronExpr] = useState("");
@@ -1430,7 +1433,7 @@ function EditRecurringDialog({
                 onChange={(e) => setAssignee(e.target.value)}
               >
                 <option value="">Unassigned</option>
-                {KNOWN_USERS.map((u) => (
+                {knownUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>

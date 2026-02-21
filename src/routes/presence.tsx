@@ -23,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserAvatar } from "@/components/user-avatar";
 import { api, getMailboxKey } from "@/lib/api";
 import { type ChatSSEEvent, useChatSSE } from "@/lib/use-chat-sse";
+import { useUserIds } from "@/lib/use-users";
 
 export const Route = createFileRoute("/presence")({
   component: PresencePage,
@@ -60,7 +61,7 @@ interface ChatMessage {
 
 // Avatars served via /api/avatars/:identity with UserAvatar component
 
-const ALL_USERS = ["chris", "clio", "domingo", "zumie"];
+// Users loaded dynamically via useUserIds()
 
 function getTimeSince(date: string | null): number {
   if (!date) return Infinity;
@@ -147,6 +148,7 @@ function PresencePage() {
 }
 
 function PresenceView({ onLogout }: { onLogout: () => void }) {
+  const allUserIds = useUserIds();
   const [presence, setPresence] = useState<Record<string, UserPresence>>({});
   const [loading, setLoading] = useState(false);
   const [channels, setChannels] = useState<ChatChannel[]>([]);
@@ -213,7 +215,7 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
 
   const totalUnread = channels.reduce((sum, ch) => sum + ch.unread_count, 0);
 
-  const users = ALL_USERS.map((name) => ({
+  const users = allUserIds.map((name) => ({
     name,
     info: presence[name] || {
       online: false,
@@ -747,6 +749,7 @@ function NewGroupDialog({
   onOpenChange: (open: boolean) => void;
   onCreated: (channelId: string) => void;
 }) {
+  const allUserIds = useUserIds();
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
@@ -793,7 +796,7 @@ function NewGroupDialog({
           <div>
             <p className="text-xs text-muted-foreground mb-2">Members</p>
             <div className="flex flex-wrap gap-2">
-              {ALL_USERS.map((user) => (
+              {allUserIds.map((user) => (
                 <Button
                   key={user}
                   type="button"

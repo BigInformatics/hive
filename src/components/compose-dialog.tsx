@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUserIds } from "@/lib/use-users";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,8 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 
-const KNOWN_RECIPIENTS = ["chris", "clio", "domingo", "zumie"];
-
 export function ComposeDialog({
   open,
   onOpenChange,
@@ -22,6 +21,7 @@ export function ComposeDialog({
   onOpenChange: (open: boolean) => void;
   onSent: () => void;
 }) {
+  const knownRecipients = useUserIds();
   const [recipient, setRecipient] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -70,7 +70,7 @@ export function ComposeDialog({
           <div className="space-y-2">
             <Label>To</Label>
             <div className="flex flex-wrap gap-1.5 mb-2">
-              {KNOWN_RECIPIENTS.map((r) => (
+              {knownRecipients.map((r) => (
                 <Button
                   key={r}
                   type="button"
