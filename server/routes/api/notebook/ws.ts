@@ -13,6 +13,10 @@ interface DocEntry {
   lastSaved: number;
   locked: boolean;
   archivedAt: Date | null;
+  /** Serializes all saves — new saves chain off this to prevent out-of-order DB writes */
+  saveChain: Promise<void>;
+  /** True when there are unsaved edits since the last persist */
+  dirty: boolean;
 }
 
 const docs = new Map<string, DocEntry>();
@@ -49,10 +53,13 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
     lastSaved: Date.now(),
     locked: page.locked,
     archivedAt: page.archivedAt,
+    saveChain: Promise.resolve(),
+    dirty: false,
   };
 
-  // Listen for updates to schedule saves
+  // Listen for updates to schedule saves and mark doc dirty
   ydoc.on("update", () => {
+    entry.dirty = true;
     scheduleSave(pageId, entry);
   });
 
@@ -60,17 +67,27 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
   return entry;
 }
 
+/** Enqueue a save through the serial chain — guarantees saves complete in order */
+function enqueueSave(pageId: string, entry: DocEntry): void {
+  entry.saveChain = entry.saveChain
+    .then(() => persistDoc(pageId, entry))
+    .catch(() => {});
+}
+
 function scheduleSave(pageId: string, entry: DocEntry) {
   if (entry.saveTimer) clearTimeout(entry.saveTimer);
-  entry.saveTimer = setTimeout(
-    () => persistDoc(pageId, entry),
-    SAVE_DEBOUNCE_MS,
-  );
+  entry.saveTimer = setTimeout(() => {
+    entry.saveTimer = null;
+    enqueueSave(pageId, entry);
+  }, SAVE_DEBOUNCE_MS);
 }
 
 async function persistDoc(pageId: string, entry: DocEntry) {
+  // Snapshot content and clear dirty BEFORE the await so any edit that arrives
+  // during the DB write sets dirty=true again — preserving the "unsaved changes" signal.
+  const content = entry.ydoc.getText("content").toString();
+  entry.dirty = false;
   try {
-    const content = entry.ydoc.getText("content").toString();
     await db
       .update(notebookPages)
       .set({ content, updatedAt: new Date() })
@@ -78,6 +95,8 @@ async function persistDoc(pageId: string, entry: DocEntry) {
     entry.lastSaved = Date.now();
     console.log(`[notebook:ws] Saved page ${pageId.slice(0, 8)}…`);
   } catch (e) {
+    // Restore dirty so the next save opportunity will retry
+    entry.dirty = true;
     console.error(`[notebook:ws] Save failed for ${pageId}:`, e);
   }
 }
@@ -86,13 +105,32 @@ function destroyDocIfEmpty(pageId: string) {
   const entry = docs.get(pageId);
   if (!entry || entry.peers.size > 0) return;
 
-  // Save before destroying
-  if (entry.saveTimer) clearTimeout(entry.saveTimer);
-  persistDoc(pageId, entry).then(() => {
-    entry.ydoc.destroy();
-    docs.delete(pageId);
-    console.log(`[notebook:ws] Destroyed doc ${pageId.slice(0, 8)}…`);
-  });
+  // Cancel pending debounce and enqueue a final save through the chain,
+  // then destroy once all saves have completed in order.
+  if (entry.saveTimer) {
+    clearTimeout(entry.saveTimer);
+    entry.saveTimer = null;
+  }
+  entry.saveChain = entry.saveChain
+    .then(() => (entry.dirty ? persistDoc(pageId, entry) : Promise.resolve()))
+    .then(() => {
+      // Re-check: a peer may have reconnected while saves were draining
+      if (entry.peers.size > 0) {
+        console.log(
+          `[notebook:ws] Aborted destroy for ${pageId.slice(0, 8)} — peer reconnected`,
+        );
+        return;
+      }
+      entry.ydoc.destroy();
+      docs.delete(pageId);
+      console.log(`[notebook:ws] Destroyed doc ${pageId.slice(0, 8)}…`);
+    })
+    .catch((e) => {
+      console.error(
+        `[notebook:ws] Failed to destroy doc ${pageId.slice(0, 8)}:`,
+        e,
+      );
+    });
 }
 
 function broadcastToOthers(
@@ -255,6 +293,17 @@ export default defineWebSocketHandler({
           try {
             ws.send(viewerMsg);
           } catch {}
+      }
+
+      // Save immediately when last peer leaves, but only if there are unsaved edits
+      if (entry.peers.size === 0) {
+        if (entry.saveTimer) {
+          clearTimeout(entry.saveTimer);
+          entry.saveTimer = null;
+        }
+        if (entry.dirty) {
+          enqueueSave(pageId, entry);
+        }
       }
 
       // Destroy if no peers left
