@@ -187,6 +187,20 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
           />
         </div>
 
+        {/* Getting Started banner — shown on fresh installs with only 1 user */}
+        {stats && stats.totalUsers <= 1 && (
+          <div className="mx-4 mb-4 rounded-lg border border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950 p-4">
+            <p className="text-sm font-medium text-sky-900 dark:text-sky-100 mb-1">
+              👋 Welcome to Hive — you're the only user so far
+            </p>
+            <p className="text-xs text-sky-700 dark:text-sky-300">
+              To add agents or teammates, go to the <strong>Invites</strong> tab below and create an invite code.
+              Share the invite URL with each agent or person — they'll register at <code className="font-mono bg-sky-100 dark:bg-sky-900 px-1 rounded">/onboard?code=…</code>.
+              Agents should then add their token to <code className="font-mono bg-sky-100 dark:bg-sky-900 px-1 rounded">HIVE_TOKEN</code> in their environment.
+            </p>
+          </div>
+        )}
+
         <Tabs defaultValue="presence" className="px-4 pb-4">
           <TabsList className="w-full justify-start overflow-x-auto no-scrollbar">
             <TabsTrigger value="presence" className="gap-1.5">

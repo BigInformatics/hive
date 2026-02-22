@@ -59,13 +59,20 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Hive key"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              autoFocus
-            />
+            <div className="space-y-1.5">
+              <Input
+                type="password"
+                placeholder="Hive key"
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                First time?{" "}
+                Use the <code className="font-mono bg-muted px-1 rounded">SUPERUSER_TOKEN</code> from your <code className="font-mono bg-muted px-1 rounded">.env</code> file.{" "}
+                Agents use their personal token from <code className="font-mono bg-muted px-1 rounded">HIVE_TOKEN</code>.
+              </p>
+            </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Checking..." : "Enter Hive"}
