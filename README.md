@@ -79,9 +79,25 @@ docker compose up -d
 
 See `Dockerfile` and `docker-compose.yml` for details.
 
+#### Private CA (step-ca / internal TLS)
+
+If your Hive instance connects to internal services (e.g. OneDev) that use a private CA, mount the CA root cert so Node.js trusts it:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local-ca.yml up -d
+```
+
+Set `CA_CERT_PATH` to override the default cert path:
+
+```bash
+CA_CERT_PATH=/path/to/ca.crt docker compose -f docker-compose.yml -f docker-compose.local-ca.yml up -d
+```
+
 ### Dokploy
 
 Push to `dev` triggers auto-deploy. Environment variables are configured in the Dokploy dashboard.
+
+To use the local CA override in Dokploy, add `docker-compose.local-ca.yml` as a compose override file in the service settings.
 
 ## Development
 

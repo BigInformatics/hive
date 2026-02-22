@@ -1,0 +1,21 @@
+# docker-compose.local-ca.yml
+# Override for installations using a private/internal CA (e.g. step-ca).
+#
+# Mounts the CA root cert into the Hive container and tells Node.js to trust it.
+# This is needed when Hive connects to internal services (e.g. OneDev) that
+# use TLS certificates signed by a private CA.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.local-ca.yml up -d
+#
+# Or in Dokploy: add this file as a compose override.
+#
+# Set CA_CERT_PATH to the host path of your CA root cert.
+# Default matches the Dokploy/step-ca location on BigInformatics infra.
+
+services:
+  hive:
+    volumes:
+      - ${CA_CERT_PATH:-/etc/dokploy/traefik/dynamic/certificates/ca.crt}:/usr/local/share/ca-certificates/local-ca.crt:ro
+    environment:
+      - NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/local-ca.crt
