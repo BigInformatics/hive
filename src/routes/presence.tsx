@@ -71,7 +71,7 @@ function getTimeSince(date: string | null): number {
 }
 
 function formatLastSeen(date: string | null): string {
-  if (!date) return "Never seen";
+  if (!date) return "Not yet active";
   const seconds = getTimeSince(date);
   if (seconds < 60) return "Just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -338,7 +338,9 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                         <p className="font-medium text-sm capitalize">{name}</p>
                         <p className="text-xs text-muted-foreground truncate">
                           {info.online
-                            ? `Online${info.source ? ` via ${info.source}` : ""}`
+                            ? info.source === "sse"
+                              ? "Online (streaming)"
+                              : "Online"
                             : formatLastSeen(info.lastSeen)}
                         </p>
                       </div>

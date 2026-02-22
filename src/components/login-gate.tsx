@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,7 @@ import { setMailboxKey } from "@/lib/api";
 
 export function LoginGate({ onLogin }: { onLogin: () => void }) {
   const [key, setKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -60,13 +62,25 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-1.5">
-              <Input
-                type="password"
-                placeholder="Hive key"
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                autoFocus
-              />
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="Hive key"
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  autoFocus
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                  aria-label={showKey ? "Hide key" : "Show key"}
+                >
+                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 First time?{" "}
                 Use the <code className="font-mono bg-muted px-1 rounded">SUPERUSER_TOKEN</code> from your <code className="font-mono bg-muted px-1 rounded">.env</code> file.{" "}

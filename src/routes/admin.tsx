@@ -426,10 +426,10 @@ function PresencePanel({
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {info.online
-                          ? `Online via ${stats?.presence?.source || "unknown"}`
+                          ? "Active now"
                           : info.lastSeen
                             ? `Last seen: ${new Date(info.lastSeen).toLocaleString()}`
-                            : "Never seen"}
+                            : "Not yet active"}
                       </p>
                     </div>
                   </div>
@@ -438,6 +438,7 @@ function PresencePanel({
                     size="sm"
                     className="text-xs h-7 gap-1 shrink-0"
                     onClick={() => openWake(name)}
+                    title="View this agent's action queue — unread messages, assigned tasks, and pending follow-ups"
                   >
                     <Activity className="h-3 w-3" /> Wake
                   </Button>

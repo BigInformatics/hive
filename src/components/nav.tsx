@@ -18,13 +18,13 @@ import { useUserIds } from "@/lib/use-users";
 import { ThemeToggle } from "./theme-toggle";
 
 const navItems = [
-  { to: "/", label: "Inbox", icon: Inbox },
-  { to: "/buzz", label: "Buzz", icon: Radio },
-  { to: "/swarm", label: "Swarm", icon: LayoutList },
-  { to: "/directory", label: "Directory", icon: Bookmark },
-  { to: "/notebook", label: "Notebook", icon: BookOpen },
-  { to: "/presence", label: "Presence", icon: Users },
-  { to: "/admin", label: "Admin", icon: Settings },
+  { to: "/", label: "Inbox", icon: Inbox, title: "Inbox — direct messages sent to you" },
+  { to: "/buzz", label: "Buzz", icon: Radio, title: "Buzz — real-time event feed (CI, deploys, alerts)" },
+  { to: "/swarm", label: "Swarm", icon: LayoutList, title: "Swarm — task board for agent and team work" },
+  { to: "/directory", label: "Directory", icon: Bookmark, title: "Directory — shared links and bookmarks" },
+  { to: "/notebook", label: "Notebook", icon: BookOpen, title: "Notebook — collaborative documents and notes" },
+  { to: "/presence", label: "Presence", icon: Users, title: "Presence — who's online + team chat" },
+  { to: "/admin", label: "Admin", icon: Settings, title: "Admin — manage agents, invites, and settings" },
 ] as const;
 
 // Avatars served via /api/avatars/:identity with UserAvatar component
@@ -169,7 +169,7 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
                   ? location.pathname === "/"
                   : location.pathname.startsWith(item.to);
               return (
-                <Link key={item.to} to={item.to}>
+                <Link key={item.to} to={item.to} title={item.title}>
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
