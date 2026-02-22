@@ -172,7 +172,11 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
             label="Active Tasks"
             value={
               stats
-                ? (totalTasks - (stats.taskCounts.complete || 0)).toString()
+                ? (
+                    totalTasks -
+                    (stats.taskCounts.complete || 0) -
+                    (stats.taskCounts.closed || 0)
+                  ).toString()
                 : "—"
             }
           />
@@ -349,7 +353,7 @@ function PresencePanel({
           const connInfo = CONNECTION_LABELS[conn] || CONNECTION_LABELS.none;
           const swarmTotal = stats
             ? Object.entries(stats.swarm)
-                .filter(([s]) => s !== "complete")
+                .filter(([s]) => s !== "complete" && s !== "closed")
                 .reduce((sum, [, c]) => sum + c, 0)
             : 0;
 
@@ -460,7 +464,9 @@ function PresencePanel({
                           <span className="ml-1">
                             (
                             {Object.entries(stats.swarm)
-                              .filter(([s]) => s !== "complete")
+                              .filter(
+                                ([s]) => s !== "complete" && s !== "closed",
+                              )
                               .map(([s, c]) => `${c} ${s.replace("_", " ")}`)
                               .join(", ")}
                             )
@@ -583,6 +589,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   holding: { label: "Holding", color: "text-amber-500" },
   review: { label: "Review", color: "text-purple-500" },
   complete: { label: "Complete", color: "text-green-500" },
+  closed: { label: "Closed", color: "text-muted-foreground" },
 };
 
 function TasksPanel({
@@ -599,6 +606,7 @@ function TasksPanel({
     "holding",
     "review",
     "complete",
+    "closed",
   ];
 
   return (

@@ -108,6 +108,7 @@ function PresenceDots() {
 export function Nav({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetchUnread = () => {
@@ -120,6 +121,24 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
     };
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchChatUnread = () => {
+      api
+        .listChatChannels()
+        .then((data: any) => {
+          const total = (data.channels ?? []).reduce(
+            (sum: number, ch: any) => sum + (ch.unread_count ?? 0),
+            0,
+          );
+          setChatUnreadCount(total);
+        })
+        .catch(() => {});
+    };
+    fetchChatUnread();
+    const interval = setInterval(fetchChatUnread, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -164,6 +183,14 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
                         className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
                       >
                         {unreadCount > 99 ? "99+" : unreadCount}
+                      </Badge>
+                    )}
+                    {item.to === "/presence" && chatUnreadCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                      >
+                        {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
                       </Badge>
                     )}
                   </Button>
@@ -226,6 +253,11 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
                   {item.to === "/" && unreadCount > 0 && (
                     <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 text-[9px] font-bold bg-destructive text-destructive-foreground rounded-full flex items-center justify-center">
                       {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                  {item.to === "/presence" && chatUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 text-[9px] font-bold bg-destructive text-destructive-foreground rounded-full flex items-center justify-center">
+                      {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
                     </span>
                   )}
                 </div>

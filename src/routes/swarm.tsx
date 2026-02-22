@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Search,
   User,
+  XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
@@ -132,6 +133,13 @@ const STATUS_CONFIG: Record<
     bgColor: "bg-green-500/5",
     borderColor: "border-green-500/30",
   },
+  closed: {
+    label: "Closed",
+    icon: XCircle,
+    color: "text-muted-foreground",
+    bgColor: "bg-muted/20",
+    borderColor: "border-muted-foreground/20",
+  },
 };
 
 const ALL_STATUSES = [
@@ -141,6 +149,7 @@ const ALL_STATUSES = [
   "holding",
   "review",
   "complete",
+  "closed",
 ];
 
 // Users loaded dynamically via useUserIds()
@@ -260,7 +269,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
               ...t,
               status: newStatus,
               completedAt:
-                newStatus === "complete"
+                newStatus === "complete" || newStatus === "closed"
                   ? new Date().toISOString()
                   : t.completedAt,
             }
@@ -301,7 +310,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   ] as string[];
 
   const visibleStatuses = ALL_STATUSES.filter(
-    (s) => showCompleted || s !== "complete",
+    (s) => showCompleted || (s !== "complete" && s !== "closed"),
   );
 
   const groupedTasks = visibleStatuses.map((status) => ({
@@ -756,16 +765,18 @@ function TaskCard({
 
           {/* Quick actions */}
           <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-            {task.status !== "complete" && task.status !== "in_progress" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
-                onClick={() => onStatusChange(task.id, "in_progress")}
-              >
-                Start
-              </Button>
-            )}
+            {task.status !== "complete" &&
+              task.status !== "closed" &&
+              task.status !== "in_progress" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => onStatusChange(task.id, "in_progress")}
+                >
+                  Start
+                </Button>
+              )}
             {task.status === "in_progress" && (
               <Button
                 variant="ghost"
@@ -776,7 +787,7 @@ function TaskCard({
                 Review
               </Button>
             )}
-            {task.status !== "complete" && (
+            {task.status !== "complete" && task.status !== "closed" && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -811,7 +822,11 @@ function ListView({
       {groupedTasks.map(({ status, tasks: statusTasks }) => {
         const config = STATUS_CONFIG[status];
         if (!config) return null;
-        if (statusTasks.length === 0 && status === "complete") return null;
+        if (
+          statusTasks.length === 0 &&
+          (status === "complete" || status === "closed")
+        )
+          return null;
         const StatusIcon = config.icon;
 
         return (
@@ -880,7 +895,8 @@ function ListView({
                             onClick={(e) => e.stopPropagation()}
                           >
                             {status !== "in_progress" &&
-                              status !== "complete" && (
+                              status !== "complete" &&
+                              status !== "closed" && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -904,7 +920,7 @@ function ListView({
                                 Review
                               </Button>
                             )}
-                            {status !== "complete" && (
+                            {status !== "complete" && status !== "closed" && (
                               <Button
                                 variant="ghost"
                                 size="sm"

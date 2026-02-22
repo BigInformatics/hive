@@ -5,7 +5,7 @@ import {
   eq,
   inArray,
   isNull,
-  ne,
+  notInArray,
   sql as rawSql,
 } from "drizzle-orm";
 import { db } from "@/db";
@@ -24,7 +24,8 @@ export type TaskStatus =
   | "in_progress"
   | "holding"
   | "review"
-  | "complete";
+  | "complete"
+  | "closed";
 
 // ============================================================
 // PROJECTS
@@ -191,7 +192,7 @@ export async function listTasks(opts?: {
   if (opts?.statuses && opts.statuses.length > 0) {
     conditions.push(inArray(swarmTasks.status, opts.statuses));
   } else if (!opts?.includeCompleted) {
-    conditions.push(ne(swarmTasks.status, "complete"));
+    conditions.push(notInArray(swarmTasks.status, ["complete", "closed"]));
   }
 
   if (opts?.assignee) {
@@ -214,6 +215,7 @@ export async function listTasks(opts?: {
         WHEN 'queued' THEN 4
         WHEN 'holding' THEN 5
         WHEN 'complete' THEN 6
+        WHEN 'closed' THEN 7
       END`,
       asc(swarmTasks.sortKey),
       asc(swarmTasks.createdAt),
@@ -253,7 +255,8 @@ export async function updateTaskStatus(
   const current = await getTask(id);
   if (!current) return null;
 
-  const completedAt = status === "complete" ? new Date() : null;
+  const completedAt =
+    status === "complete" || status === "closed" ? new Date() : null;
 
   const [row] = await db
     .update(swarmTasks)
