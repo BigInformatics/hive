@@ -72,13 +72,12 @@ export default defineEventHandler(async (event) => {
     .set({ revokedAt: new Date() })
     .where(eq(mailboxTokens.id, Number(id)));
 
-  // Create new token with same identity and permissions
+  // Create new token with same identity
   const [newRow] = await db
     .insert(mailboxTokens)
     .values({
       token: newToken,
       identity: existing.identity,
-      isAdmin: existing.isAdmin,
       label: `Rotated from token #${id}`,
       createdBy: auth.identity,
       webhookUrl: existing.webhookUrl,
@@ -94,7 +93,6 @@ export default defineEventHandler(async (event) => {
       id: newRow.id,
       identity: newRow.identity,
       token: newRow.token,
-      isAdmin: newRow.isAdmin,
     },
     message:
       "Token rotated. Old token is now revoked. Update your configuration with the new token.",

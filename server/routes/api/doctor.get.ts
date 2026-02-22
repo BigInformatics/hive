@@ -63,9 +63,11 @@ export default defineEventHandler(async (event) => {
           summary: `Missing env vars: ${missing.join(", ")}`,
         };
       }
-      // Check for deprecated vars
-      if (process.env.MAILBOX_TOKEN) {
-        warnings.push("MAILBOX_TOKEN is deprecated, use HIVE_TOKEN");
+      // Check for required superuser config
+      if (!process.env.SUPERUSER_TOKEN || !process.env.SUPERUSER_NAME) {
+        warnings.push(
+          "SUPERUSER_TOKEN and SUPERUSER_NAME are required for admin access",
+        );
       }
       if (warnings.length > 0) {
         return { status: "warn", summary: warnings.join("; ") };

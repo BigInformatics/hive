@@ -317,7 +317,6 @@ export const mailboxTokens = pgTable("mailbox_tokens", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   token: varchar("token", { length: 64 }).notNull().unique(),
   identity: varchar("identity", { length: 50 }).notNull(),
-  isAdmin: boolean("is_admin").notNull().default(false),
   label: varchar("label", { length: 100 }),
   createdBy: varchar("created_by", { length: 50 }),
   createdAt: timestamp("created_at", { withTimezone: true })

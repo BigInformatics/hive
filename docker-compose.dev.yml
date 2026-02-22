@@ -39,10 +39,11 @@ services:
       - PGPASSWORD=postgres
       - PGDATABASE_TEAM=team
       - HIVE_BASE_URL=http://localhost:3000
-      # Create at least one admin token to get started
-      - MAILBOX_ADMIN_TOKEN=${MAILBOX_ADMIN_TOKEN:-admin-dev-token}
-      # Add agent tokens as needed:
-      # - MAILBOX_TOKEN_ALICE=alice-dev-token
+      # Superuser: set these to bootstrap your instance
+      - SUPERUSER_TOKEN=${SUPERUSER_TOKEN:-dev-superuser-token}
+      - SUPERUSER_NAME=${SUPERUSER_NAME:-admin}
+      - SUPERUSER_DISPLAY_NAME=${SUPERUSER_DISPLAY_NAME:-Admin}
+      # Agent tokens are created via the invite system — no env vars needed
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s

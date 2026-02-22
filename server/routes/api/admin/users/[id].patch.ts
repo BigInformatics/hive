@@ -94,6 +94,11 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Clear auth cache when admin status changes (isAdmin is now read from users table on each auth)
+  if ("isAdmin" in patch) {
+    clearAuthCache();
+  }
+
   // Sync in-memory mailbox set and token validity immediately
   if ("archivedAt" in patch) {
     if (patch.archivedAt) {
