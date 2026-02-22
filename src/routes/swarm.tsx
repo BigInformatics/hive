@@ -963,6 +963,7 @@ function TaskDetailDialog({
   const [nextTaskId, setNextTaskId] = useState("");
   const [nextTaskAssignee, setNextTaskAssignee] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [linkedPages, setLinkedPages] = useState<
     Array<{ notebookPageId: string; pageTitle: string; pageCreatedBy: string }>
@@ -1048,6 +1049,7 @@ function TaskDetailDialog({
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await api.updateTask(task.id, {
         title: title.trim(),
@@ -1066,6 +1068,7 @@ function TaskDetailDialog({
       onClose();
     } catch (err) {
       console.error("Failed to update task:", err);
+      setSaveError("Failed to save — please try again.");
     } finally {
       setSaving(false);
     }
@@ -1215,6 +1218,9 @@ function TaskDetailDialog({
               </div>
             </div>
 
+            {saveError && (
+              <p className="text-sm text-destructive">{saveError}</p>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditing(false)}>
                 Cancel
