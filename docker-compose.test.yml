@@ -1,0 +1,31 @@
+# Test stack — runs Hive against an existing database (no DB container).
+# Use when you want to test against a real/shared DB without spinning up postgres.
+#
+# Usage: docker compose -f docker-compose.test.yml up
+# Requires: PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE_TEAM set in your env or a .env file.
+
+services:
+  hivetest:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - HOST=0.0.0.0
+      - PGHOST=${PGHOST}
+      - PGPORT=${PGPORT:-5432}
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGDATABASE_TEAM=${PGDATABASE_TEAM}
+      - HIVE_BASE_URL=${HIVE_BASE_URL:-http://localhost:3000}
+      - SUPERUSER_TOKEN=${SUPERUSER_TOKEN:-dev-superuser-token}
+      - SUPERUSER_NAME=${SUPERUSER_NAME:-admin}
+      - SUPERUSER_DISPLAY_NAME=${SUPERUSER_DISPLAY_NAME:-Admin}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s

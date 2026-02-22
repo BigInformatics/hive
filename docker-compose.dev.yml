@@ -21,7 +21,7 @@ services:
       timeout: 3s
       retries: 5
 
-  hivetest:
+  hive:
     build: .
     restart: unless-stopped
     ports:
