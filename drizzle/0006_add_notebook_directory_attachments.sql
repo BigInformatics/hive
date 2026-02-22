@@ -1,4 +1,4 @@
-CREATE TABLE "notebook_pages" (
+CREATE TABLE IF NOT EXISTS "notebook_pages" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"title" varchar(255) NOT NULL,
 	"content" text DEFAULT '' NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE "notebook_pages" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "directory_entries" (
+CREATE TABLE IF NOT EXISTS "directory_entries" (
 	"id" bigserial PRIMARY KEY NOT NULL,
 	"title" varchar(255) NOT NULL,
 	"url" text NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE "directory_entries" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "content_project_tags" (
+CREATE TABLE IF NOT EXISTS "content_project_tags" (
 	"id" text PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"content_type" varchar(20) NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE "content_project_tags" (
 	"tagged_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "attachments" (
+CREATE TABLE IF NOT EXISTS "attachments" (
 	"id" text PRIMARY KEY NOT NULL,
 	"entity_type" varchar(20) NOT NULL,
 	"entity_id" text NOT NULL,
@@ -45,14 +45,16 @@ CREATE TABLE "attachments" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "content_project_tags" DROP CONSTRAINT IF EXISTS "content_project_tags_project_id_swarm_projects_id_fk";
+--> statement-breakpoint
 ALTER TABLE "content_project_tags" ADD CONSTRAINT "content_project_tags_project_id_swarm_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."swarm_projects"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
-CREATE INDEX "idx_notebook_created_at" ON "notebook_pages" USING btree ("created_at");
+CREATE INDEX IF NOT EXISTS "idx_notebook_created_at" ON "notebook_pages" USING btree ("created_at");
 --> statement-breakpoint
-CREATE INDEX "idx_directory_created_at" ON "directory_entries" USING btree ("created_at");
+CREATE INDEX IF NOT EXISTS "idx_directory_created_at" ON "directory_entries" USING btree ("created_at");
 --> statement-breakpoint
-CREATE INDEX "idx_content_project_tags_project" ON "content_project_tags" USING btree ("project_id");
+CREATE INDEX IF NOT EXISTS "idx_content_project_tags_project" ON "content_project_tags" USING btree ("project_id");
 --> statement-breakpoint
-CREATE INDEX "idx_content_project_tags_content" ON "content_project_tags" USING btree ("content_type","content_id");
+CREATE INDEX IF NOT EXISTS "idx_content_project_tags_content" ON "content_project_tags" USING btree ("content_type","content_id");
 --> statement-breakpoint
-CREATE INDEX "idx_attachments_entity" ON "attachments" USING btree ("entity_type","entity_id");
+CREATE INDEX IF NOT EXISTS "idx_attachments_entity" ON "attachments" USING btree ("entity_type","entity_id");
