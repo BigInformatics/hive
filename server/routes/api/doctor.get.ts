@@ -53,24 +53,52 @@ export default defineEventHandler(async (event) => {
   probes.push(
     await runProbe("env", "Environment", async () => {
       const warnings: string[] = [];
+      const errors: string[] = [];
+
       const required = ["PGHOST", "PGUSER", "PGPASSWORD"];
       const missing = required.filter(
         (k) => !process.env[k] && !process.env[`HIVE_${k}`],
       );
       if (missing.length > 0) {
-        return {
-          status: "warn",
-          summary: `Missing env vars: ${missing.join(", ")}`,
-        };
+        errors.push(`Missing required env vars: ${missing.join(", ")}`);
       }
-      // Check for required superuser config
-      if (!process.env.SUPERUSER_TOKEN || !process.env.SUPERUSER_NAME) {
+
+      // Superuser config
+      if (!process.env.SUPERUSER_NAME) {
+        errors.push("SUPERUSER_NAME is not set — admin access unavailable");
+      }
+      const token = process.env.SUPERUSER_TOKEN || "";
+      if (!token) {
+        errors.push("SUPERUSER_TOKEN is not set — admin access unavailable");
+      } else if (token === "change-me-to-a-long-random-secret") {
+        errors.push(
+          "SUPERUSER_TOKEN is still the default placeholder — change it to a long random secret before going further",
+        );
+      } else if (token.length < 24) {
         warnings.push(
-          "SUPERUSER_TOKEN and SUPERUSER_NAME are required for admin access",
+          "SUPERUSER_TOKEN is short — use a token of at least 32 characters for security",
         );
       }
+
+      // HIVE_BASE_URL
+      const baseUrl = process.env.HIVE_BASE_URL || "";
+      if (!baseUrl) {
+        warnings.push(
+          "HIVE_BASE_URL is not set — invite links and skill docs will use localhost; set this to your public URL for production",
+        );
+      } else if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
+        if (process.env.NODE_ENV === "production") {
+          warnings.push(
+            `HIVE_BASE_URL is set to ${baseUrl} but NODE_ENV=production — update to your public URL`,
+          );
+        }
+      }
+
+      if (errors.length > 0) {
+        return { status: "fail", summary: errors[0], details: [...errors, ...warnings].join("\n") };
+      }
       if (warnings.length > 0) {
-        return { status: "warn", summary: warnings.join("; ") };
+        return { status: "warn", summary: warnings[0], details: warnings.join("\n") };
       }
       return { status: "pass", summary: "All required env vars present" };
     }),
@@ -132,6 +160,59 @@ export default defineEventHandler(async (event) => {
         };
       } catch (err: any) {
         return { status: "fail", summary: `Chat query failed: ${err.message}` };
+      }
+    }),
+  );
+
+  // Probe 5b: Users table + user count
+  probes.push(
+    await runProbe("users", "Users", async () => {
+      try {
+        const result = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+        const count = Number(result[0]?.count ?? 0);
+        if (count === 0) {
+          return {
+            status: "warn",
+            summary: "No users found — create invites from /admin and have teammates register via /onboard?code=…",
+          };
+        }
+        return { status: "pass", summary: `${count} user(s) registered` };
+      } catch (err: any) {
+        if (err.message?.includes("does not exist")) {
+          return {
+            status: "fail",
+            summary: "users table missing — migrations may not have run. Check /api/health and server logs.",
+          };
+        }
+        return { status: "fail", summary: `Users check failed: ${err.message}` };
+      }
+    }),
+  );
+
+  // Probe 5c: Migration tracking
+  probes.push(
+    await runProbe("migrations", "Migrations", async () => {
+      try {
+        const result = await db.execute(
+          sql`SELECT COUNT(*) as count FROM _hive_migrations`,
+        );
+        const appliedCount = Number(result[0]?.count ?? 0);
+        if (appliedCount === 0) {
+          return {
+            status: "warn",
+            summary:
+              "Migration tracking table is empty — migrations may have run via db:push without being tracked. See /reference/migrations for backfill instructions.",
+          };
+        }
+        return {
+          status: "pass",
+          summary: `${appliedCount} migration(s) tracked as applied`,
+        };
+      } catch {
+        return {
+          status: "warn",
+          summary: "_hive_migrations table not found — migrations have not run yet",
+        };
       }
     }),
   );

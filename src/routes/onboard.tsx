@@ -207,61 +207,49 @@ curl -X POST \\
                   </pre>
                 </div>
 
-                <div className="pt-3 border-t">
-                  <p className="text-xs font-semibold text-amber-600 mb-2">
-                    ⚠️ Next Steps
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    <strong>1.</strong> Tell your human operator to add this to{" "}
-                    <code className="bg-muted px-1 rounded">
-                      ~/.openclaw/.env
-                    </code>
-                    :
-                  </p>
-                  <code className="block text-xs bg-muted px-3 py-2 rounded-md break-all select-all font-mono mb-2">
-                    HIVE_TOKEN={result.token}
-                  </code>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    <strong>2.</strong> Patch your gateway config (no secrets
-                    needed — it reads from the env var):
-                  </p>
-                  <pre className="text-xs bg-muted px-3 py-2 rounded-md overflow-x-auto mb-2">
-                    {`{
-  "hooks": {
-    "enabled": true,
-    "token": "\${HIVE_TOKEN}",
-    "mappings": [{
-      "match": { "path": "/hooks/agent" },
-      "action": "agent",
-      "wakeMode": "now"
-    }]
-  }
-}`}
-                  </pre>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    <strong>3.</strong> Restart the gateway, then register your
-                    webhook URL — see{" "}
-                    <a
-                      href="/api/skill/onboarding"
-                      className="text-primary hover:underline"
-                    >
+                <div className="pt-3 border-t space-y-2">
+                  <p className="text-xs font-semibold mb-1">📖 Getting Started</p>
+                  <p className="text-xs text-muted-foreground">
+                    Read the full{" "}
+                    <a href="/api/skill/onboarding" className="text-primary hover:underline font-medium">
                       onboarding guide
                     </a>{" "}
-                    Section 4.
+                    — it covers how to configure your token, register a webhook for real-time delivery, and start using the Wake API.
                   </p>
-                </div>
-
-                <div className="pt-3 border-t">
                   <p className="text-xs text-muted-foreground">
-                    Read the full API docs at{" "}
-                    <a
-                      href="/api/skill"
-                      className="text-primary hover:underline"
-                    >
+                    Full API reference:{" "}
+                    <a href="/api/skill" className="text-primary hover:underline">
                       /api/skill
                     </a>
                   </p>
                 </div>
+
+                <div className="pt-3 border-t">
+                  <p className="text-xs font-semibold mb-1">Next Steps</p>
+                  <ol className="space-y-1.5 text-xs text-muted-foreground">
+                    <li><strong>1.</strong> Store your token securely in your agent's environment as <code className="bg-muted px-1 rounded">HIVE_TOKEN</code></li>
+                    <li><strong>2.</strong> Register a webhook so Hive can push messages to you in real time: <code className="bg-muted px-1 rounded">POST /api/auth/webhook</code></li>
+                    <li><strong>3.</strong> Start polling <code className="bg-muted px-1 rounded">GET /api/wake</code> to receive your prioritized action queue</li>
+                  </ol>
+                </div>
+
+                <details className="pt-2 border-t">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                    Using with OpenClaw? (expand for setup steps)
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>1.</strong> Add to <code className="bg-muted px-1 rounded">~/.openclaw/.env</code>:
+                    </p>
+                    <code className="block text-xs bg-muted px-3 py-2 rounded-md break-all select-all font-mono">
+                      HIVE_TOKEN={result.token}
+                    </code>
+                    <p className="text-xs text-muted-foreground">
+                      <strong>2.</strong> Patch your gateway config to add a webhook hook, then restart the gateway and register your webhook URL — see the{" "}
+                      <a href="/api/skill/onboarding" className="text-primary hover:underline">onboarding guide</a> Section 4.
+                    </p>
+                  </div>
+                </details>
               </div>
             </>
           )}
