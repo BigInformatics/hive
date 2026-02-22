@@ -1,81 +1,88 @@
 /**
  * Startup plugin — runs once when the Nitro server initialises.
  *
- * Responsibilities:
- *   1. Apply any pending DB migrations (idempotent — safe on every restart)
- *   2. Ensure the superuser record exists in the users table
+ * Applies any pending SQL migrations from the drizzle/ folder.
+ * Migrations are tracked in _hive_migrations (created here if absent).
  *
- * Migrations are read from ./drizzle relative to the working directory.
- * In production (Docker) the drizzle/ folder is copied into the image.
- * In development Vite/Nitro serves from the repo root where it already exists.
+ * Uses the raw postgres client to avoid any ORM quirks at startup.
  */
 
-import { sql } from "drizzle-orm";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { db } from "@/db";
+import postgres from "postgres";
 
 async function runMigrations() {
-  const migrationsDir = join(process.cwd(), "drizzle");
+  // Re-use the same connection config as src/db/index.ts
+  const host = process.env.HIVE_PGHOST || process.env.PGHOST || "localhost";
+  const port = Number(process.env.PGPORT || 5432);
+  const user = process.env.PGUSER || "postgres";
+  const password = process.env.PGPASSWORD || "";
+  const database =
+    process.env.PGDATABASE_TEAM || process.env.PGDATABASE || "postgres";
 
-  // Ensure the migrations tracking table exists
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS _hive_migrations (
-      id        serial PRIMARY KEY,
-      filename  text NOT NULL UNIQUE,
-      applied_at timestamptz NOT NULL DEFAULT now()
-    )
-  `);
+  const sql = postgres({ host, port, user, password, database, max: 1 });
 
-  // Read all .sql files (sorted — numeric prefix guarantees order)
-  let files: string[];
   try {
-    const entries = await readdir(migrationsDir);
-    files = entries
-      .filter((f) => f.endsWith(".sql") && !f.startsWith("_"))
-      .sort();
-  } catch {
-    console.warn(
-      `[migrate] drizzle/ folder not found at ${migrationsDir} — skipping migrations`,
-    );
-    return;
-  }
+    // Create tracking table if it doesn't exist
+    await sql`
+      CREATE TABLE IF NOT EXISTS _hive_migrations (
+        id         serial PRIMARY KEY,
+        filename   text NOT NULL UNIQUE,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      )
+    `;
 
-  // Fetch already-applied migrations
-  const applied = await db.execute<{ filename: string }>(
-    sql`SELECT filename FROM _hive_migrations`,
-  );
-  const appliedSet = new Set(applied.map((r) => r.filename));
+    const migrationsDir = join(process.cwd(), "drizzle");
 
-  let ran = 0;
-  for (const file of files) {
-    if (appliedSet.has(file)) continue;
-
-    const filePath = join(migrationsDir, file);
-    const raw = await readFile(filePath, "utf8");
-
-    // Strip comments and split on semicolons so we can run multi-statement files
-    const statements = raw
-      .split(";")
-      .map((s) => s.replace(/--[^\n]*/g, "").trim())
-      .filter(Boolean);
-
-    for (const stmt of statements) {
-      await db.execute(sql.raw(stmt));
+    let files: string[];
+    try {
+      const entries = await readdir(migrationsDir);
+      files = entries
+        .filter((f) => f.endsWith(".sql") && !f.startsWith("_"))
+        .sort();
+    } catch {
+      console.warn(
+        `[migrate] drizzle/ not found at ${migrationsDir} — skipping`,
+      );
+      return;
     }
 
-    await db.execute(
-      sql`INSERT INTO _hive_migrations (filename) VALUES (${file})`,
-    );
+    // Fetch already-applied filenames
+    const rows = await sql<
+      { filename: string }[]
+    >`SELECT filename FROM _hive_migrations`;
+    const applied = new Set(rows.map((r) => r.filename));
 
-    console.log(`[migrate] Applied: ${file}`);
-    ran++;
-  }
+    let ran = 0;
+    for (const file of files) {
+      if (applied.has(file)) continue;
 
-  if (ran === 0) {
-    console.log(`[migrate] DB up to date (${files.length} migration(s) already applied)`);
-  } else {
-    console.log(`[migrate] Applied ${ran} migration(s)`);
+      const raw = await readFile(join(migrationsDir, file), "utf8");
+
+      // Strip SQL comments, split on semicolons, execute each statement
+      const statements = raw
+        .split(";")
+        .map((s) => s.replace(/--[^\n]*/g, "").trim())
+        .filter(Boolean);
+
+      for (const stmt of statements) {
+        await sql.unsafe(stmt);
+      }
+
+      await sql`INSERT INTO _hive_migrations (filename) VALUES (${file})`;
+      console.log(`[migrate] Applied: ${file}`);
+      ran++;
+    }
+
+    if (ran === 0) {
+      console.log(
+        `[migrate] DB up to date (${files.length} migration(s) already applied)`,
+      );
+    } else {
+      console.log(`[migrate] Applied ${ran} migration(s)`);
+    }
+  } finally {
+    await sql.end();
   }
 }
 
@@ -83,8 +90,9 @@ export default defineNitroPlugin(async () => {
   try {
     await runMigrations();
   } catch (err) {
-    console.error("[migrate] Migration failed — server may be unstable:", err);
-    // Don't crash the server — let it start and surface DB errors naturally.
-    // A broken schema is easier to debug than a server that won't start.
+    console.error(
+      "[migrate] Migration error — server starting anyway:",
+      err,
+    );
   }
 });
