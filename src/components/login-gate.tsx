@@ -31,7 +31,7 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
       }
       onLogin();
     } catch {
-      setError("Invalid mailbox key");
+      setError("Invalid key — check your SUPERUSER_TOKEN or personal token");
     } finally {
       setLoading(false);
     }
@@ -54,14 +54,14 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            Enter your mailbox key to continue
+            Enter your Hive key to continue
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
             <Input
               type="password"
-              placeholder="Mailbox key"
+              placeholder="Hive key"
               value={key}
               onChange={(e) => setKey(e.target.value)}
               autoFocus
