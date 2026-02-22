@@ -62,7 +62,7 @@ export function ComposeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[90vw] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[90vw] !max-w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Message</DialogTitle>
         </DialogHeader>

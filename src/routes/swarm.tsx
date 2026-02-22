@@ -1076,7 +1076,7 @@ function TaskDetailDialog({
   return (
     <Dialog open={!!task} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[90vw] max-w-[90vw] flex flex-col max-h-[85vh]"
+        className="w-[90vw] !max-w-[90vw] flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <DialogHeader>
