@@ -1,16 +1,15 @@
 /**
- * Startup plugin — runs once when the Nitro server initialises.
+ * Auto-migration — runs pending SQL migrations from drizzle/ on server startup.
  *
- * Applies any pending SQL migrations from the drizzle/ folder.
- * Migrations are tracked in _hive_migrations (created on first run).
- *
- * Uses the raw postgres client so there's no ORM dependency at startup.
+ * Called once at module load time from the health route (same pattern as
+ * startScheduler). Uses the raw postgres client for simplicity.
  */
 
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { definePlugin } from "nitro";
 import postgres from "postgres";
+
+let migrationsDone = false;
 
 async function runMigrations() {
   const host = process.env.HIVE_PGHOST || process.env.PGHOST || "localhost";
@@ -23,6 +22,7 @@ async function runMigrations() {
   const sql = postgres({ host, port, user, password, database, max: 1 });
 
   try {
+    // Create tracking table on first run
     await sql`
       CREATE TABLE IF NOT EXISTS _hive_migrations (
         id         serial PRIMARY KEY,
@@ -46,9 +46,8 @@ async function runMigrations() {
       return;
     }
 
-    const rows = await sql<
-      { filename: string }[]
-    >`SELECT filename FROM _hive_migrations`;
+    const rows =
+      await sql<{ filename: string }[]>`SELECT filename FROM _hive_migrations`;
     const applied = new Set(rows.map((r) => r.filename));
 
     let ran = 0;
@@ -82,10 +81,11 @@ async function runMigrations() {
   }
 }
 
-export default definePlugin(async () => {
-  try {
-    await runMigrations();
-  } catch (err) {
-    console.error("[migrate] Migration error — server starting anyway:", err);
-  }
-});
+/** Call once at module load time — idempotent, safe on every restart. */
+export function startMigrations() {
+  if (migrationsDone) return;
+  migrationsDone = true;
+  runMigrations().catch((err) =>
+    console.error("[migrate] Migration error:", err),
+  );
+}
