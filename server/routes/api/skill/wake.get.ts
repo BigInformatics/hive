@@ -1,4 +1,5 @@
 import { defineEventHandler } from "h3";
+import { renderSkillDoc } from "@/lib/skill-helpers";
 
 const DOC = `# Hive Skill: Wake (Prioritized Action Queue)
 
@@ -221,7 +222,7 @@ Set via \`mailbox_tokens\` admin config:
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, {
+  return new Response(renderSkillDoc(DOC), {
     headers: { "Content-Type": "text/markdown; charset=utf-8" },
   });
 });

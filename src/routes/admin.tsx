@@ -46,6 +46,7 @@ export const Route = createFileRoute("/admin")({
 });
 
 interface SystemStats {
+  totalUsers: number;
   presence: Record<
     string,
     { online: boolean; lastSeen: string | null; unread: number }
@@ -89,12 +90,16 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const [presence, webhooks, projects, tasks] = await Promise.all([
-        api.getPresence(),
-        api.listWebhooks().catch(() => ({ webhooks: [] })),
-        api.listProjects().catch(() => ({ projects: [] })),
-        api.listTasks({ includeCompleted: true }).catch(() => ({ tasks: [] })),
-      ]);
+      const [presence, webhooks, projects, tasks, usersResp] =
+        await Promise.all([
+          api.getPresence(),
+          api.listWebhooks().catch(() => ({ webhooks: [] })),
+          api.listProjects().catch(() => ({ projects: [] })),
+          api.listTasks({ includeCompleted: true }).catch(() => ({
+            tasks: [],
+          })),
+          api.getUsers().catch(() => ({ users: [] })),
+        ]);
 
       // Count tasks by status
       const taskCounts: Record<string, number> = {};
@@ -103,6 +108,7 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
       }
 
       setStats({
+        totalUsers: (usersResp.users || []).length,
         presence,
         webhooks: webhooks.webhooks || [],
         projects: projects.projects || [],
@@ -148,7 +154,7 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
           <StatCard
             icon={<Users className="h-4 w-4 text-green-500" />}
             label="Online"
-            value={`${onlineCount} / 4`}
+            value={`${onlineCount} / ${stats ? stats.totalUsers : "?"}`}
           />
           <StatCard
             icon={<MessageSquare className="h-4 w-4 text-sky-500" />}
@@ -681,7 +687,7 @@ function WebhooksPanel({
   };
 
   const copyUrl = (wh: (typeof webhooks)[0]) => {
-    const url = `https://messages.biginformatics.net/api/ingest/${wh.appName}/${wh.token}`;
+    const url = `${window.location.origin}/api/ingest/${wh.appName}/${wh.token}`;
     navigator.clipboard.writeText(url);
     setCopied(wh.id);
     setTimeout(() => setCopied(null), 2000);
@@ -1566,15 +1572,16 @@ function AuthPanel() {
   };
 
   const copyCode = (id: number, code: string) => {
-    const url = `https://messages.biginformatics.net/onboard?code=${code}`;
+    const url = `${window.location.origin}/onboard?code=${code}`;
     navigator.clipboard.writeText(url);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   const [detailCopiedId, setDetailCopiedId] = useState<number | null>(null);
-  const copyDetail = (id: number, code: string, identity?: string) => {
-    const onboardUrl = `https://messages.biginformatics.net/onboard?code=${code}`;
+  const copyDetail = (id: number, code: string, identity?: string | null) => {
+    const base = window.location.origin;
+    const onboardUrl = `${base}/onboard?code=${code}`;
     const detail = `🐝 **Hive Onboarding**
 
 You've been invited to join Hive — the team's internal coordination platform.
@@ -1584,16 +1591,16 @@ Visit: ${onboardUrl}
 ${identity ? `Your identity will be: ${identity}` : "Choose your identity during registration."}
 
 **Step 2: Read the onboarding skill**
-\`curl -fsS https://messages.biginformatics.net/api/skill/onboarding\`
+\`curl -fsS ${base}/api/skill/onboarding\`
 
 This covers everything: auth, presence, inbox, chat, Swarm tasks, broadcasts, and monitoring setup.
 
 **Step 3: Set up real-time notifications**
 Register a webhook for instant message delivery (recommended):
-\`curl -fsS https://messages.biginformatics.net/api/skill/onboarding\` → Section 4, Option B
+\`curl -fsS ${base}/api/skill/onboarding\` → Section 4, Option B
 
 **Skill directory** (all available after auth):
-\`https://messages.biginformatics.net/api/skill\``;
+\`${base}/api/skill\``;
     navigator.clipboard.writeText(detail);
     setDetailCopiedId(id);
     setTimeout(() => setDetailCopiedId(null), 2000);

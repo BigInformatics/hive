@@ -397,6 +397,7 @@ function PageEditor({
   const [mode, setMode] = useState<"source" | "preview">("preview");
   const [saving, _setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [identity, setIdentity] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [viewers, setViewers] = useState<string[]>([]);
   const [copied, setCopied] = useState<"idle" | "url" | "content">("idle");
   const _saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -411,7 +412,10 @@ function PageEditor({
         headers: { Authorization: `Bearer ${authToken}` },
       })
         .then((r) => r.json())
-        .then((d) => setIdentity(d.identity))
+        .then((d) => {
+          setIdentity(d.identity);
+          setIsAdmin(d.isAdmin ?? false);
+        })
         .catch(() => {});
     }
   }, [authToken]);
@@ -519,7 +523,7 @@ function PageEditor({
   };
 
   const isOwnerOrAdmin = page
-    ? identity === page.createdBy || identity === "chris"
+    ? identity === page.createdBy || isAdmin
     : false;
   const isLocked = !!page?.locked;
   const isArchived = !!page?.archivedAt;

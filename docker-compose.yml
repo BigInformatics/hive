@@ -28,18 +28,12 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
       - "traefik.http.services.hive.loadbalancer.server.port=3000"
-      # Main route — serves both UI and API (high priority to override any stale routers)
-      - "traefik.http.routers.hive-route.rule=Host(`messages.biginformatics.net`)"
+      # Main route — set HIVE_HOSTNAME in your environment (e.g. messages.example.com)
+      - "traefik.http.routers.hive-route.rule=Host(`${HIVE_HOSTNAME}`)"
       - "traefik.http.routers.hive-route.entrypoints=websecure"
-      - "traefik.http.routers.hive-route.tls.certresolver=step-ca"
+      - "traefik.http.routers.hive-route.tls.certresolver=${HIVE_TLS_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.routers.hive-route.service=hive"
       - "traefik.http.routers.hive-route.priority=200"
-      # Legacy c2 route
-      - "traefik.http.routers.hive-c2.rule=Host(`c2.biginformatics.net`)"
-      - "traefik.http.routers.hive-c2.entrypoints=websecure"
-      - "traefik.http.routers.hive-c2.tls.certresolver=step-ca"
-      - "traefik.http.routers.hive-c2.service=hive"
-      - "traefik.http.routers.hive-c2.priority=200"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s

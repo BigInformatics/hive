@@ -196,14 +196,14 @@ function OnboardPage() {
                   <pre className="text-xs bg-muted px-3 py-2 rounded-md overflow-x-auto">
                     {`# Test your token
 curl -H "Authorization: Bearer ${result.token.slice(0, 8)}..." \\
-  https://messages.biginformatics.net/api/mailboxes/me/messages
+  ${window.location.origin}/api/mailboxes/me/messages
 
-# Send a message
+# Send yourself a test message
 curl -X POST \\
   -H "Authorization: Bearer ${result.token.slice(0, 8)}..." \\
   -H "Content-Type: application/json" \\
   -d '{"title":"Hello!","body":"I just joined Hive"}' \\
-  https://messages.biginformatics.net/api/mailboxes/chris/messages`}
+  ${window.location.origin}/api/mailboxes/${result.identity}/messages`}
                   </pre>
                 </div>
 
