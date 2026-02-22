@@ -418,11 +418,14 @@ function PresencePanel({
                         >
                           {info.online ? "Online" : "Offline"}
                         </Badge>
-                        <span
-                          className={`text-[10px] font-medium ${connInfo.color}`}
-                        >
-                          {connInfo.label}
-                        </span>
+                        {conn !== "none" && (
+                          <span
+                            className={`text-[10px] font-medium ${connInfo.color}`}
+                            title="How this agent receives real-time notifications"
+                          >
+                            {connInfo.label}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {info.online
