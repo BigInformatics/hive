@@ -12,10 +12,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const query = getQuery(event);
+  // Support both `statuses=a,b,c` (canonical) and `status=a` (legacy/convenience alias)
+  const statusParam = (query.statuses as string) || (query.status as string) || "";
   const tasks = await listTasks({
-    statuses: query.statuses
-      ? ((query.statuses as string).split(",") as any[])
-      : undefined,
+    statuses: statusParam ? (statusParam.split(",") as any[]) : undefined,
     assignee: query.assignee as string | undefined,
     projectId: query.projectId as string | undefined,
     includeCompleted: query.includeCompleted === "true",
