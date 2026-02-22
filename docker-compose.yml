@@ -29,9 +29,9 @@ services:
       - "traefik.docker.network=dokploy-network"
       - "traefik.http.services.hive.loadbalancer.server.port=3000"
       # Main route — set HIVE_HOSTNAME in your environment (e.g. messages.example.com)
-      - "traefik.http.routers.hive-route.rule=Host(`${HIVE_HOSTNAME}`)"
+      - "traefik.http.routers.hive-route.rule=Host(`${HIVE_HOSTNAME:-messages.biginformatics.net}`)"
       - "traefik.http.routers.hive-route.entrypoints=websecure"
-      - "traefik.http.routers.hive-route.tls.certresolver=${HIVE_TLS_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.routers.hive-route.tls.certresolver=${HIVE_TLS_CERTRESOLVER:-step-ca}"
       - "traefik.http.routers.hive-route.service=hive"
       - "traefik.http.routers.hive-route.priority=200"
     healthcheck:
