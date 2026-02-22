@@ -1076,7 +1076,7 @@ function TaskDetailDialog({
   return (
     <Dialog open={!!task} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="sm:max-w-lg"
+        className="sm:max-w-lg flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <DialogHeader>
@@ -1105,7 +1105,7 @@ function TaskDetailDialog({
         </DialogHeader>
 
         {editing ? (
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -1225,7 +1225,9 @@ function TaskDetailDialog({
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
             {/* Meta */}
             <div className="flex flex-wrap gap-2">
               {project && (
@@ -1388,6 +1390,10 @@ function TaskDetailDialog({
               </div>
             )}
 
+            </div>{/* end scrollable */}
+
+            {/* Pinned footer — status buttons + edit always visible */}
+            <div className="shrink-0 pt-3 border-t space-y-2">
             {/* Status actions */}
             <div className="flex flex-wrap gap-2">
               {ALL_STATUSES.filter((s) => s !== task.status).map((s) => {
@@ -1489,6 +1495,7 @@ function TaskDetailDialog({
                 Edit
               </Button>
             </div>
+            </div>{/* end pinned footer */}
           </div>
         )}
       </DialogContent>
