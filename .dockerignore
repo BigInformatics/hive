@@ -1,7 +1,6 @@
 node_modules
 .output
 .git
-drizzle
 *.md
 !SKILL.md
 .env
