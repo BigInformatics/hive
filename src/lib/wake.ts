@@ -8,6 +8,7 @@ import {
   swarmProjects,
   swarmTasks,
 } from "@/db/schema";
+import { getBaseUrl } from "./base-url";
 import { getPresence } from "./presence";
 
 // ============================================================
@@ -359,7 +360,6 @@ export async function getWakeItems(
   }
 
   // --- Build per-source actions ---
-  const { getBaseUrl } = await import("./base-url");
   const SKILL_BASE = `${getBaseUrl()}/api/skill`;
   const ACTION_MAP: Record<
     string,
@@ -407,7 +407,7 @@ export async function getWakeItems(
   return {
     instructions:
       "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
-    skill_url: `${getBaseUrl()}/api/skill`,
+    skill_url: SKILL_BASE,
     items,
     actions,
     summary,
