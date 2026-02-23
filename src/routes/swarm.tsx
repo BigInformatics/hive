@@ -526,18 +526,6 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
             className="h-8 pl-8 text-xs"
           />
         </div>
-
-        {/* Show completed toggle — mobile */}
-        <div className="flex items-center justify-between px-3 pb-2">
-          <Button
-            variant={showCompleted ? "secondary" : "ghost"}
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setShowCompleted(!showCompleted)}
-          >
-            {showCompleted ? "Hide done" : "Show done"}
-          </Button>
-        </div>
       </div>
 
       {/* Board or List */}
