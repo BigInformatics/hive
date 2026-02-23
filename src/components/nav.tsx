@@ -150,7 +150,8 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
   return (
     <>
       {/* Desktop / iPad header */}
-      <header className="hidden md:flex items-center justify-between border-b px-4 py-3">
+      <header className="hidden md:flex border-b">
+        <div className="w-[90vw] max-w-[90vw] mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <img
             src="/logo-light.png"
@@ -206,6 +207,7 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
+        </div>{/* end 90vw inner */}
       </header>
 
       {/* Mobile header — minimal */}
