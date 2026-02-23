@@ -614,6 +614,8 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
               projectMap={projectMap}
               onStatusChange={handleStatusChange}
               onTaskClick={(t) => setEditTask(t)}
+              showCompleted={showCompleted}
+              onToggleCompleted={() => setShowCompleted((v) => !v)}
             />
           </div>
         </>
@@ -623,6 +625,8 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
           projectMap={projectMap}
           onStatusChange={handleStatusChange}
           onTaskClick={(t) => setEditTask(t)}
+          showCompleted={showCompleted}
+          onToggleCompleted={() => setShowCompleted((v) => !v)}
         />
       )}
 
@@ -811,11 +815,15 @@ function ListView({
   projectMap,
   onStatusChange,
   onTaskClick,
+  showCompleted,
+  onToggleCompleted,
 }: {
   groupedTasks: { status: string; tasks: SwarmTask[] }[];
   projectMap: Map<string, SwarmProject>;
   onStatusChange: (id: string, status: string) => void;
   onTaskClick: (task: SwarmTask) => void;
+  showCompleted?: boolean;
+  onToggleCompleted?: () => void;
 }) {
   return (
     <div className="flex-1 overflow-auto p-4 space-y-6">
@@ -943,6 +951,17 @@ function ListView({
           </div>
         );
       })}
+
+      {/* In-context completed tasks toggle */}
+      {onToggleCompleted && (
+        <button
+          type="button"
+          onClick={onToggleCompleted}
+          className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-3 border-t mt-2 transition-colors"
+        >
+          {showCompleted ? "↑ Hide completed tasks" : "↓ Show completed tasks"}
+        </button>
+      )}
     </div>
   );
 }
