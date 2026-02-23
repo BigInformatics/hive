@@ -14,9 +14,13 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   // Support both `statuses=a,b,c` (canonical) and `status=a` (legacy/convenience alias)
   const statusParam = (query.statuses as string) || (query.status as string) || "";
+  // Support `assignee=me` as a shorthand for the authenticated user
+  const assigneeParam = query.assignee as string | undefined;
+  const resolvedAssignee =
+    assigneeParam === "me" ? auth.identity : assigneeParam;
   const tasks = await listTasks({
     statuses: statusParam ? (statusParam.split(",") as any[]) : undefined,
-    assignee: query.assignee as string | undefined,
+    assignee: resolvedAssignee,
     projectId: query.projectId as string | undefined,
     includeCompleted: query.includeCompleted === "true",
   });
