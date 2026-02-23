@@ -317,7 +317,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                 }}
                 onTogglePending={async () => {
                   if (selectedMessage.responseWaiting) {
-                    const _updated = await api.clearPending(selectedMessage.id);
+                    await api.clearPending(selectedMessage.id);
                     setSelectedMessage({
                       ...selectedMessage,
                       responseWaiting: false,
@@ -325,7 +325,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                       waitingSince: null,
                     });
                   } else {
-                    const _updated = await api.markPending(selectedMessage.id);
+                    await api.markPending(selectedMessage.id);
                     setSelectedMessage({
                       ...selectedMessage,
                       responseWaiting: true,

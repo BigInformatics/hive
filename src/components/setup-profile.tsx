@@ -51,6 +51,7 @@ export function SetupProfile({
       // Mark setup as done so we don't show this again
       localStorage.setItem("hive-setup-complete", "1");
       setDone(true);
+      onComplete();
     } catch {
       setError("Network error — try again");
     } finally {

@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody(event);
+  const body = await readBody<Record<string, any>>(event) ?? {};
   const { contentType, contentId } = body || {};
 
   const validTypes = [

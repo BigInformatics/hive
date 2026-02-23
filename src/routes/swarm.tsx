@@ -79,6 +79,7 @@ interface SwarmProject {
   workHoursStart?: number | null;
   workHoursEnd?: number | null;
   workHoursTimezone?: string | null;
+  taggedUsers?: string[] | null;
 }
 
 const STATUS_CONFIG: Record<
@@ -745,22 +746,19 @@ function TaskCard({
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1.5">
             {task.mustBeDoneAfterTaskId && (
-              <Pause
-                className="h-3 w-3 text-muted-foreground/50"
-                title={`Blocked by ${task.mustBeDoneAfterTaskId.slice(0, 8)}`}
-              />
+              <span title={`Blocked by ${task.mustBeDoneAfterTaskId.slice(0, 8)}`}>
+                <Pause className="h-3 w-3 text-muted-foreground/50" />
+              </span>
             )}
             {task.onOrAfterAt && (
-              <Clock
-                className="h-3 w-3 text-muted-foreground/50"
-                title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`}
-              />
+              <span title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`}>
+                <Clock className="h-3 w-3 text-muted-foreground/50" />
+              </span>
             )}
             {task.nextTaskId && (
-              <PlayCircle
-                className="h-3 w-3 text-muted-foreground/50"
-                title={`Chains to ${task.nextTaskId.slice(0, 8)}`}
-              />
+              <span title={`Chains to ${task.nextTaskId.slice(0, 8)}`}>
+                <PlayCircle className="h-3 w-3 text-muted-foreground/50" />
+              </span>
             )}
             {task.assigneeUserId && (
               <UserAvatar name={task.assigneeUserId} size="sm" />

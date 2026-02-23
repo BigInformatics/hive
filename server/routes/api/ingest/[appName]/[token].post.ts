@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   let title = webhook.title;
 
   try {
-    const raw = await readBody(event);
+    const raw = await readBody<Record<string, any>>(event) ?? {};
     if (contentType.includes("application/json")) {
       bodyJson = raw;
       if (raw?.title) title = raw.title;

@@ -400,7 +400,6 @@ function PageEditor({
   const [isAdmin, setIsAdmin] = useState(false);
   const [viewers, setViewers] = useState<string[]>([]);
   const [copied, setCopied] = useState<"idle" | "url" | "content">("idle");
-  const _saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
   const authToken = getMailboxKey();
 

@@ -21,7 +21,7 @@ interface BroadcastEvent {
   receivedAt: string;
   contentType: string | null;
   bodyText: string | null;
-  bodyJson: unknown | null;
+  bodyJson: Record<string, unknown> | unknown[] | null;
 }
 
 function timeAgo(date: string): string {
@@ -109,7 +109,7 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     try {
       const result = await api.listBroadcastEvents(appFilter || undefined);
-      const evts = result.events || [];
+      const evts: BroadcastEvent[] = result.events || [];
       setEvents(evts);
       // Extract unique app names
       const uniqueApps = [

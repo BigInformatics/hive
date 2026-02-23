@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody(event);
+  const body = await readBody<Record<string, any>>(event) ?? {};
   const task = await updateTask(id, {
     projectId: body.projectId,
     title: body.title,
