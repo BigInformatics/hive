@@ -186,14 +186,26 @@ export async function sendChatMessage(
     .insert(chatMessages)
     .values({ channelId, sender, body })
     .returning();
+
+  // Flag all other members as having unread activity
+  await db
+    .update(chatMembers)
+    .set({ hasActivity: true })
+    .where(
+      and(
+        eq(chatMembers.channelId, channelId),
+        rawSql`${chatMembers.identity} != ${sender}`,
+      ),
+    );
+
   return msg;
 }
 
-/** Mark channel as read */
+/** Mark channel as read and clear activity flag */
 export async function markChannelRead(channelId: string, identity: string) {
   await db
     .update(chatMembers)
-    .set({ lastReadAt: new Date() })
+    .set({ lastReadAt: new Date(), hasActivity: false })
     .where(
       and(
         eq(chatMembers.channelId, channelId),

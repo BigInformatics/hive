@@ -297,6 +297,7 @@ export const chatMembers = pgTable("chat_members", {
     .notNull(),
   lastReadAt: timestamp("last_read_at", { withTimezone: true }),
   archivedAt: timestamp("archived_at", { withTimezone: true }), // per-member soft delete
+  hasActivity: boolean("has_activity").notNull().default(false), // true when unread messages exist; cleared on read
 });
 
 export const chatMessages = pgTable("chat_messages", {
