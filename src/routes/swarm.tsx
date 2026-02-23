@@ -974,6 +974,15 @@ function TaskDetailDialog({
   const [issueUrl, setIssueUrl] = useState("");
   const [assignee, setAssignee] = useState("");
   const [projectId, setProjectId] = useState("");
+  // Filter assignee options to project members when project has visibility restrictions
+  const selectedProjectForEdit = projects.find((p) => p.id === projectId);
+  const allowedUsersForEdit =
+    selectedProjectForEdit?.taggedUsers &&
+    selectedProjectForEdit.taggedUsers.length > 0
+      ? knownUsers.filter((u) =>
+          selectedProjectForEdit.taggedUsers!.includes(u),
+        )
+      : knownUsers;
   const [mustBeDoneAfter, setMustBeDoneAfter] = useState("");
   const [onOrAfter, setOnOrAfter] = useState("");
   const [nextTaskId, setNextTaskId] = useState("");
@@ -1167,7 +1176,7 @@ function TaskDetailDialog({
                 onChange={(e) => setAssignee(e.target.value)}
               >
                 <option value="">Unassigned</option>
-                {knownUsers.map((u) => (
+                {allowedUsersForEdit.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -1225,7 +1234,7 @@ function TaskDetailDialog({
                   onChange={(e) => setNextTaskAssignee(e.target.value)}
                 >
                   <option value="">None</option>
-                  {knownUsers.map((u) => (
+                  {allowedUsersForEdit.map((u) => (
                     <option key={u} value={u}>
                       {u}
                     </option>
@@ -1546,6 +1555,14 @@ function CreateTaskDialog({
   const [issueUrl, setIssueUrl] = useState("");
   const [projectId, setProjectId] = useState("");
   const [assignee, setAssignee] = useState("");
+  // Filter assignee options to project members when project has visibility restrictions
+  const selectedProject = projects.find((p) => p.id === projectId);
+  const allowedUsers =
+    selectedProject?.taggedUsers && selectedProject.taggedUsers.length > 0
+      ? knownUsers.filter((u) =>
+          selectedProject.taggedUsers!.includes(u),
+        )
+      : knownUsers;
   const [mustBeDoneAfter, setMustBeDoneAfter] = useState("");
   const [onOrAfter, setOnOrAfter] = useState("");
   const [nextTaskId, setNextTaskId] = useState("");
@@ -1639,7 +1656,7 @@ function CreateTaskDialog({
               onChange={(e) => setAssignee(e.target.value)}
             >
               <option value="">Unassigned</option>
-              {knownUsers.map((u) => (
+              {allowedUsers.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
@@ -1695,7 +1712,7 @@ function CreateTaskDialog({
                 onChange={(e) => setNextTaskAssignee(e.target.value)}
               >
                 <option value="">None</option>
-                {knownUsers.map((u) => (
+                {allowedUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
