@@ -6,6 +6,8 @@ import {
   inArray,
   isNull,
   notInArray,
+  or,
+  sql,
   sql as rawSql,
 } from "drizzle-orm";
 import { db } from "@/db";
@@ -69,14 +71,29 @@ export async function createProject(input: {
 
 export async function listProjects(
   includeArchived = false,
+  identity?: string,
 ): Promise<SwarmProject[]> {
-  if (includeArchived) {
-    return db.select().from(swarmProjects).orderBy(asc(swarmProjects.title));
+  const conditions = [];
+
+  if (!includeArchived) {
+    conditions.push(isNull(swarmProjects.archivedAt));
   }
+
+  // Visibility: show project if tagged_users is null/empty (open), or includes this identity
+  if (identity) {
+    conditions.push(
+      sql`(
+        ${swarmProjects.taggedUsers} IS NULL
+        OR ${swarmProjects.taggedUsers} = '[]'::jsonb
+        OR ${swarmProjects.taggedUsers} @> ${sql`${JSON.stringify([identity])}::jsonb`}
+      )`,
+    );
+  }
+
   return db
     .select()
     .from(swarmProjects)
-    .where(isNull(swarmProjects.archivedAt))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(asc(swarmProjects.title));
 }
 
@@ -104,6 +121,7 @@ export async function updateProject(
     workHoursEnd: number | null;
     workHoursTimezone: string;
     blockingMode: boolean;
+    taggedUsers: string[] | null;
   }>,
 ): Promise<SwarmProject | null> {
   const [row] = await db
@@ -186,6 +204,8 @@ export async function listTasks(opts?: {
   assignee?: string;
   projectId?: string;
   includeCompleted?: boolean;
+  /** Identity of the caller — used to apply project-level visibility filtering. */
+  identity?: string;
 }): Promise<SwarmTask[]> {
   const conditions = [];
 
@@ -201,6 +221,26 @@ export async function listTasks(opts?: {
 
   if (opts?.projectId) {
     conditions.push(eq(swarmTasks.projectId, opts.projectId));
+  }
+
+  // Project-level visibility: exclude tasks from restricted projects the caller can't see.
+  // Mirrors the notebook page pattern: null/[] = open; non-empty = restricted to listed users.
+  if (opts?.identity) {
+    const identity = opts.identity;
+    conditions.push(
+      or(
+        isNull(swarmTasks.projectId),
+        sql`EXISTS (
+          SELECT 1 FROM swarm_projects sp
+          WHERE sp.id = ${swarmTasks.projectId}
+          AND (
+            sp.tagged_users IS NULL
+            OR sp.tagged_users = '[]'::jsonb
+            OR sp.tagged_users @> ${sql`${JSON.stringify([identity])}::jsonb`}
+          )
+        )`,
+      )!,
+    );
   }
 
   return db

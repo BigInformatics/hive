@@ -133,6 +133,11 @@ export const swarmProjects = pgTable("swarm_projects", {
   workHoursEnd: integer("work_hours_end"),
   workHoursTimezone: text("work_hours_timezone").default("America/Chicago"),
   blockingMode: boolean("blocking_mode").default(false),
+  /** Visibility control — mirrors notebook page pattern.
+   * null or [] → visible to all team members (default).
+   * Non-empty array → only listed identities can see this project and its tasks.
+   */
+  taggedUsers: jsonb("tagged_users").$type<string[]>(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

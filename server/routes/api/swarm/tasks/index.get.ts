@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
     assignee: resolvedAssignee,
     projectId: query.projectId as string | undefined,
     includeCompleted: query.includeCompleted === "true",
+    identity: auth.identity,
   });
 
   return { tasks };

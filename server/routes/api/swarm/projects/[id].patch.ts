@@ -34,6 +34,13 @@ export default defineEventHandler(async (event) => {
     workHoursEnd: body.workHoursEnd,
     workHoursTimezone: body.workHoursTimezone,
     blockingMode: body.blockingMode,
+    // Visibility: null/[] = open to all; non-empty = restricted to listed identities
+    taggedUsers:
+      body.taggedUsers !== undefined
+        ? Array.isArray(body.taggedUsers) && body.taggedUsers.length > 0
+          ? body.taggedUsers.map(String)
+          : null
+        : undefined,
   });
 
   if (!project) {
