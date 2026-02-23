@@ -224,22 +224,22 @@ export async function listTasks(opts?: {
   }
 
   // Project-level visibility: exclude tasks from restricted projects the caller can't see.
-  // Mirrors the notebook page pattern: null/[] = open; non-empty = restricted to listed users.
+  // Fetch allowed project IDs first, then filter tasks. Two queries beats a broken correlated subquery.
   if (opts?.identity) {
     const identity = opts.identity;
-    conditions.push(
-      or(
-        isNull(swarmTasks.projectId),
-        sql`EXISTS (
-          SELECT 1 FROM swarm_projects sp
-          WHERE sp.id = ${swarmTasks.projectId}
-          AND (
-            sp.tagged_users IS NULL
-            OR sp.tagged_users = '[]'::jsonb
-            OR sp.tagged_users @> ${sql`${JSON.stringify([identity])}::jsonb`}
-          )
+    const visibleProjects = await db
+      .select({ id: swarmProjects.id })
+      .from(swarmProjects)
+      .where(
+        sql`(
+          ${swarmProjects.taggedUsers} IS NULL
+          OR ${swarmProjects.taggedUsers} = '[]'::jsonb
+          OR ${swarmProjects.taggedUsers} @> ${JSON.stringify([identity])}::jsonb
         )`,
-      )!,
+      );
+    const visibleIds = visibleProjects.map((p) => p.id);
+    conditions.push(
+      or(isNull(swarmTasks.projectId), inArray(swarmTasks.projectId, visibleIds.length > 0 ? visibleIds : ["__none__"]))!,
     );
   }
 
