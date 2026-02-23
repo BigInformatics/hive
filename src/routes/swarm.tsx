@@ -174,7 +174,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [tasks, setTasks] = useState<SwarmTask[]>([]);
   const [projects, setProjects] = useState<SwarmProject[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [completedMonthsToShow, setCompletedMonthsToShow] = useState(0);
   const [viewMode, setViewMode] = useState<"board" | "list">("board");
   const [createOpen, setCreateOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
@@ -238,7 +238,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     try {
       const [taskResult, projectResult] = await Promise.all([
-        api.listTasks({ includeCompleted: showCompleted }),
+        api.listTasks({ includeCompleted: true }),
         api.listProjects(),
       ]);
       setTasks(taskResult.tasks || []);
@@ -248,7 +248,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
     } finally {
       setLoading(false);
     }
-  }, [showCompleted]);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -310,19 +310,36 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
     ...new Set(tasks.map((t) => t.assigneeUserId).filter(Boolean)),
   ] as string[];
 
-  const visibleStatuses = ALL_STATUSES.filter(
-    (s) => showCompleted || (s !== "complete" && s !== "closed"),
-  );
+  const visibleStatuses = ALL_STATUSES;
 
-  const groupedTasks = visibleStatuses.map((status) => ({
-    status,
-    tasks: filteredTasks
+  // Compute cutoff for done tasks: default 12h, each "show more" adds 1 month
+  const completedCutoff =
+    completedMonthsToShow === 0
+      ? new Date(Date.now() - 12 * 60 * 60 * 1000)
+      : (() => {
+          const d = new Date();
+          d.setMonth(d.getMonth() - completedMonthsToShow);
+          return d;
+        })();
+
+  const groupedTasks = visibleStatuses.map((status) => {
+    const allStatusTasks = filteredTasks
       .filter((t) => t.status === status)
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      ),
-  }));
+      );
+
+    if (status === "complete" || status === "closed") {
+      const visibleTasks = allStatusTasks.filter((t) => {
+        const dateStr = t.completedAt || t.updatedAt;
+        return new Date(dateStr) >= completedCutoff;
+      });
+      return { status, tasks: visibleTasks, hiddenCount: allStatusTasks.length - visibleTasks.length };
+    }
+
+    return { status, tasks: allStatusTasks, hiddenCount: 0 };
+  });
 
   const projectMap = new Map(projects.map((p) => [p.id, p]));
 
@@ -429,15 +446,6 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
 
           <div className="h-4 w-px bg-border mx-1" />
 
-          <Button
-            variant={showCompleted ? "secondary" : "ghost"}
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setShowCompleted(!showCompleted)}
-          >
-            {showCompleted ? "Hide done" : "Show done"}
-          </Button>
-
           {/* View toggle */}
           <div className="flex border rounded-md">
             <Button
@@ -541,11 +549,12 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
               className="flex h-full gap-3 p-4"
               style={{ minWidth: `${visibleStatuses.length * 280}px` }}
             >
-              {groupedTasks.map(({ status, tasks: statusTasks }) => {
+              {groupedTasks.map(({ status, tasks: statusTasks, hiddenCount }) => {
                 const config = STATUS_CONFIG[status];
                 if (!config) return null;
                 const StatusIcon = config.icon;
                 const isDropping = dropTarget === status && dragTaskId !== null;
+                const isDoneColumn = status === "complete" || status === "closed";
 
                 return (
                   <div
@@ -576,7 +585,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
 
                     {/* Cards */}
                     <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                      {statusTasks.length === 0 ? (
+                      {statusTasks.length === 0 && !isDoneColumn ? (
                         <p className="text-xs text-muted-foreground text-center py-8">
                           {isDropping ? "Drop here" : "No tasks"}
                         </p>
@@ -601,6 +610,18 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                           />
                         ))
                       )}
+                      {isDoneColumn && hiddenCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setCompletedMonthsToShow((v) => v + 1)}
+                          className="w-full text-xs text-muted-foreground hover:text-foreground py-2 border border-dashed rounded-md transition-colors"
+                        >
+                          Show more items ({hiddenCount} older)
+                        </button>
+                      )}
+                      {isDoneColumn && statusTasks.length === 0 && hiddenCount === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-8">No tasks</p>
+                      )}
                     </div>
                   </div>
                 );
@@ -615,8 +636,8 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
               projectMap={projectMap}
               onStatusChange={handleStatusChange}
               onTaskClick={(t) => setEditTask(t)}
-              showCompleted={showCompleted}
-              onToggleCompleted={() => setShowCompleted((v) => !v)}
+              completedMonthsToShow={completedMonthsToShow}
+              onShowMore={() => setCompletedMonthsToShow((v) => v + 1)}
             />
           </div>
         </>
@@ -626,8 +647,8 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
           projectMap={projectMap}
           onStatusChange={handleStatusChange}
           onTaskClick={(t) => setEditTask(t)}
-          showCompleted={showCompleted}
-          onToggleCompleted={() => setShowCompleted((v) => !v)}
+          completedMonthsToShow={completedMonthsToShow}
+          onShowMore={() => setCompletedMonthsToShow((v) => v + 1)}
         />
       )}
 
@@ -813,26 +834,23 @@ function ListView({
   projectMap,
   onStatusChange,
   onTaskClick,
-  showCompleted,
-  onToggleCompleted,
+  completedMonthsToShow: _completedMonthsToShow,
+  onShowMore,
 }: {
-  groupedTasks: { status: string; tasks: SwarmTask[] }[];
+  groupedTasks: { status: string; tasks: SwarmTask[]; hiddenCount: number }[];
   projectMap: Map<string, SwarmProject>;
   onStatusChange: (id: string, status: string) => void;
   onTaskClick: (task: SwarmTask) => void;
-  showCompleted?: boolean;
-  onToggleCompleted?: () => void;
+  completedMonthsToShow: number;
+  onShowMore: () => void;
 }) {
   return (
     <div className="flex-1 overflow-auto p-4 space-y-6">
-      {groupedTasks.map(({ status, tasks: statusTasks }) => {
+      {groupedTasks.map(({ status, tasks: statusTasks, hiddenCount }) => {
         const config = STATUS_CONFIG[status];
         if (!config) return null;
-        if (
-          statusTasks.length === 0 &&
-          (status === "complete" || status === "closed")
-        )
-          return null;
+        const isDoneSection = status === "complete" || status === "closed";
+        if (statusTasks.length === 0 && !isDoneSection) return null;
         const StatusIcon = config.icon;
 
         return (
@@ -846,7 +864,9 @@ function ListView({
             </div>
 
             {statusTasks.length === 0 ? (
-              <p className="text-xs text-muted-foreground pl-6">No tasks</p>
+              <p className="text-xs text-muted-foreground pl-6">
+                {isDoneSection ? "Nothing completed in this window" : "No tasks"}
+              </p>
             ) : (
               <div className="space-y-1.5 pl-6">
                 {statusTasks.map((task) => {
@@ -946,20 +966,21 @@ function ListView({
                 })}
               </div>
             )}
+
+            {/* Show more items button for done sections */}
+            {isDoneSection && hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={onShowMore}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-2 border border-dashed rounded-md mt-2 ml-6 transition-colors"
+                style={{ width: "calc(100% - 1.5rem)" }}
+              >
+                Show more items ({hiddenCount} older)
+              </button>
+            )}
           </div>
         );
       })}
-
-      {/* In-context completed tasks toggle */}
-      {onToggleCompleted && (
-        <button
-          type="button"
-          onClick={onToggleCompleted}
-          className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-3 border-t mt-2 transition-colors"
-        >
-          {showCompleted ? "↑ Hide completed tasks" : "↓ Show completed tasks"}
-        </button>
-      )}
     </div>
   );
 }
