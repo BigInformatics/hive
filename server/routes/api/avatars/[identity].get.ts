@@ -1,4 +1,5 @@
 import { createReadStream, existsSync } from "node:fs";
+import { Readable } from "node:stream";
 import { join } from "node:path";
 import {
   defineEventHandler,
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
         mimeMap[ext] || "application/octet-stream",
       );
       setResponseHeader(event, "Cache-Control", "public, max-age=3600");
-      return sendStream(event, createReadStream(filePath));
+      return sendStream(event, Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>);
     }
   }
 

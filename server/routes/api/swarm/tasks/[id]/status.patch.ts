@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody(event);
+  const body = await readBody<Record<string, any>>(event) ?? {};
   if (!body?.status) {
     return new Response(JSON.stringify({ error: "status required" }), {
       status: 400,

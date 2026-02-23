@@ -122,10 +122,11 @@ export async function listEvents(params?: {
   }
 
   if (params?.forUser) {
+    const forUser = params.forUser.toLowerCase();
     rows = rows.filter((e) => {
       if (!e.forUsers) return true;
       const users = e.forUsers.split(",").map((u) => u.trim().toLowerCase());
-      return users.includes(params.forUser?.toLowerCase());
+      return users.includes(forUser);
     });
   }
 

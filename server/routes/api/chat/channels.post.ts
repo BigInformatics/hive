@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody(event);
+  const body = await readBody<Record<string, any>>(event) ?? {};
 
   if (body?.type === "group") {
     if (!body.name || !body.members?.length) {
