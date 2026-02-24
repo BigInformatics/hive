@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
 
   updatePresence(auth.identity, "api");
 
-  const body = await readBody(event);
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   if (!body?.ids || !Array.isArray(body.ids)) {
     return new Response(JSON.stringify({ error: "ids array is required" }), {
       status: 400,

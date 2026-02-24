@@ -21,6 +21,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/SKILL.md ./SKILL.md
 COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/drizzle ./drizzle
 EXPOSE 3000
 CMD ["bun", "run", ".output/server/index.mjs"]
 # force rebuild 1771371912

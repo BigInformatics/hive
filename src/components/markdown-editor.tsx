@@ -105,7 +105,6 @@ export function MarkdownEditor({
   const onReadonlyRef = useRef(onReadonlyChange);
   const ydocRef = useRef<any>(null);
   const ytextRef = useRef<any>(null);
-  const _isExternalUpdate = useRef(false);
   const initializedRef = useRef(false);
   const valueRef = useRef(value);
   valueRef.current = value;

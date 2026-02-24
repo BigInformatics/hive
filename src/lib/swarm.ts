@@ -5,8 +5,10 @@ import {
   eq,
   inArray,
   isNull,
-  ne,
+  notInArray,
+  or,
   sql as rawSql,
+  sql,
 } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -24,7 +26,8 @@ export type TaskStatus =
   | "in_progress"
   | "holding"
   | "review"
-  | "complete";
+  | "complete"
+  | "closed";
 
 // ============================================================
 // PROJECTS
@@ -68,14 +71,29 @@ export async function createProject(input: {
 
 export async function listProjects(
   includeArchived = false,
+  identity?: string,
 ): Promise<SwarmProject[]> {
-  if (includeArchived) {
-    return db.select().from(swarmProjects).orderBy(asc(swarmProjects.title));
+  const conditions = [];
+
+  if (!includeArchived) {
+    conditions.push(isNull(swarmProjects.archivedAt));
   }
+
+  // Visibility: show project if tagged_users is null/empty (open), or includes this identity
+  if (identity) {
+    conditions.push(
+      sql`(
+        ${swarmProjects.taggedUsers} IS NULL
+        OR ${swarmProjects.taggedUsers} = '[]'::jsonb
+        OR ${swarmProjects.taggedUsers} @> ${sql`${JSON.stringify([identity])}::jsonb`}
+      )`,
+    );
+  }
+
   return db
     .select()
     .from(swarmProjects)
-    .where(isNull(swarmProjects.archivedAt))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(asc(swarmProjects.title));
 }
 
@@ -103,6 +121,7 @@ export async function updateProject(
     workHoursEnd: number | null;
     workHoursTimezone: string;
     blockingMode: boolean;
+    taggedUsers: string[] | null;
   }>,
 ): Promise<SwarmProject | null> {
   const [row] = await db
@@ -185,13 +204,15 @@ export async function listTasks(opts?: {
   assignee?: string;
   projectId?: string;
   includeCompleted?: boolean;
+  /** Identity of the caller — used to apply project-level visibility filtering. */
+  identity?: string;
 }): Promise<SwarmTask[]> {
   const conditions = [];
 
   if (opts?.statuses && opts.statuses.length > 0) {
     conditions.push(inArray(swarmTasks.status, opts.statuses));
   } else if (!opts?.includeCompleted) {
-    conditions.push(ne(swarmTasks.status, "complete"));
+    conditions.push(notInArray(swarmTasks.status, ["complete", "closed"]));
   }
 
   if (opts?.assignee) {
@@ -200,6 +221,32 @@ export async function listTasks(opts?: {
 
   if (opts?.projectId) {
     conditions.push(eq(swarmTasks.projectId, opts.projectId));
+  }
+
+  // Project-level visibility: exclude tasks from restricted projects the caller can't see.
+  // Fetch allowed project IDs first, then filter tasks. Two queries beats a broken correlated subquery.
+  if (opts?.identity) {
+    const identity = opts.identity;
+    const visibleProjects = await db
+      .select({ id: swarmProjects.id })
+      .from(swarmProjects)
+      .where(
+        sql`(
+          ${swarmProjects.taggedUsers} IS NULL
+          OR ${swarmProjects.taggedUsers} = '[]'::jsonb
+          OR ${swarmProjects.taggedUsers} @> ${JSON.stringify([identity])}::jsonb
+        )`,
+      );
+    const visibleIds = visibleProjects.map((p) => p.id);
+    conditions.push(
+      or(
+        isNull(swarmTasks.projectId),
+        inArray(
+          swarmTasks.projectId,
+          visibleIds.length > 0 ? visibleIds : ["__none__"],
+        ),
+      )!,
+    );
   }
 
   return db
@@ -214,6 +261,7 @@ export async function listTasks(opts?: {
         WHEN 'queued' THEN 4
         WHEN 'holding' THEN 5
         WHEN 'complete' THEN 6
+        WHEN 'closed' THEN 7
       END`,
       asc(swarmTasks.sortKey),
       asc(swarmTasks.createdAt),
@@ -253,7 +301,8 @@ export async function updateTaskStatus(
   const current = await getTask(id);
   if (!current) return null;
 
-  const completedAt = status === "complete" ? new Date() : null;
+  const completedAt =
+    status === "complete" || status === "closed" ? new Date() : null;
 
   const [row] = await db
     .update(swarmTasks)

@@ -1,4 +1,5 @@
 import { defineEventHandler } from "h3";
+import { renderSkillDoc } from "@/lib/skill-helpers";
 
 const DOC = `# Hive Skill: Onboarding (Start Here)
 
@@ -323,7 +324,7 @@ If you registered a webhook (Section 4), you get notified of new events instantl
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, {
+  return new Response(renderSkillDoc(DOC), {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 });

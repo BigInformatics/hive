@@ -236,8 +236,19 @@ curl -X POST "https://your-hive-instance.com/api/swarm/tasks" \
 
 ### List Tasks by Status
 
+Use `statuses` (plural) with a comma-separated list. A single `status` value works too.
+
 ```bash
-curl -X GET "https://your-hive-instance.com/api/swarm/tasks?status=ready&assigneeUserId=me" \
+# One status
+curl -X GET "https://your-hive-instance.com/api/swarm/tasks?statuses=ready" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Multiple statuses (active queue — excludes complete/closed)
+curl -X GET "https://your-hive-instance.com/api/swarm/tasks?statuses=queued,ready,in_progress,review,holding" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Filter by assignee too
+curl -X GET "https://your-hive-instance.com/api/swarm/tasks?statuses=ready,in_progress&assignee=me" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 

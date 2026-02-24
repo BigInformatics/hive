@@ -18,13 +18,48 @@ import { useUserIds } from "@/lib/use-users";
 import { ThemeToggle } from "./theme-toggle";
 
 const navItems = [
-  { to: "/", label: "Inbox", icon: Inbox },
-  { to: "/buzz", label: "Buzz", icon: Radio },
-  { to: "/swarm", label: "Swarm", icon: LayoutList },
-  { to: "/directory", label: "Directory", icon: Bookmark },
-  { to: "/notebook", label: "Notebook", icon: BookOpen },
-  { to: "/presence", label: "Presence", icon: Users },
-  { to: "/admin", label: "Admin", icon: Settings },
+  {
+    to: "/",
+    label: "Inbox",
+    icon: Inbox,
+    title: "Inbox — direct messages sent to you",
+  },
+  {
+    to: "/buzz",
+    label: "Buzz",
+    icon: Radio,
+    title: "Buzz — real-time event feed (CI, deploys, alerts)",
+  },
+  {
+    to: "/swarm",
+    label: "Swarm",
+    icon: LayoutList,
+    title: "Swarm — task board for agent and team work",
+  },
+  {
+    to: "/directory",
+    label: "Directory",
+    icon: Bookmark,
+    title: "Directory — shared links and bookmarks",
+  },
+  {
+    to: "/notebook",
+    label: "Notebook",
+    icon: BookOpen,
+    title: "Notebook — collaborative documents and notes",
+  },
+  {
+    to: "/presence",
+    label: "Presence",
+    icon: Users,
+    title: "Presence — who's online + team chat",
+  },
+  {
+    to: "/admin",
+    label: "Admin",
+    icon: Settings,
+    title: "Admin — manage agents, invites, and settings",
+  },
 ] as const;
 
 // Avatars served via /api/avatars/:identity with UserAvatar component
@@ -108,6 +143,7 @@ function PresenceDots() {
 export function Nav({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   useEffect(() => {
     const fetchUnread = () => {
@@ -123,6 +159,24 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchChatUnread = () => {
+      api
+        .listChatChannels()
+        .then((data: any) => {
+          const total = (data.channels ?? []).reduce(
+            (sum: number, ch: any) => sum + (ch.unread_count ?? 0),
+            0,
+          );
+          setChatUnreadCount(total);
+        })
+        .catch(() => {});
+    };
+    fetchChatUnread();
+    const interval = setInterval(fetchChatUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogout = () => {
     clearMailboxKey();
     onLogout();
@@ -131,54 +185,65 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
   return (
     <>
       {/* Desktop / iPad header */}
-      <header className="hidden md:flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-4">
-          <img
-            src="/logo-light.png"
-            alt="Hive"
-            className="h-8 w-auto dark:hidden"
-          />
-          <img
-            src="/logo-dark.png"
-            alt="Hive"
-            className="h-8 w-auto hidden dark:block"
-          />
-          <nav className="flex gap-1">
-            {navItems.map((item) => {
-              const isActive =
-                item.to === "/"
-                  ? location.pathname === "/"
-                  : location.pathname.startsWith(item.to);
-              return (
-                <Link key={item.to} to={item.to}>
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    size="sm"
-                    className="gap-1.5 relative"
-                  >
-                    <item.icon className="h-3.5 w-3.5" />
-                    {item.label}
-                    {item.to === "/" && unreadCount > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
-                      >
-                        {unreadCount > 99 ? "99+" : unreadCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </Link>
-              );
-            })}
-          </nav>
-          <PresenceDots />
+      <header className="hidden md:flex border-b">
+        <div className="w-[90vw] max-w-[90vw] mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <img
+              src="/logo-light.png"
+              alt="Hive"
+              className="h-8 w-auto dark:hidden"
+            />
+            <img
+              src="/logo-dark.png"
+              alt="Hive"
+              className="h-8 w-auto hidden dark:block"
+            />
+            <nav className="flex gap-1">
+              {navItems.map((item) => {
+                const isActive =
+                  item.to === "/"
+                    ? location.pathname === "/"
+                    : location.pathname.startsWith(item.to);
+                return (
+                  <Link key={item.to} to={item.to} title={item.title}>
+                    <Button
+                      variant={isActive ? "default" : "ghost"}
+                      size="sm"
+                      className="gap-1.5 relative"
+                    >
+                      <item.icon className="h-3.5 w-3.5" />
+                      {item.label}
+                      {item.to === "/" && unreadCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Badge>
+                      )}
+                      {item.to === "/presence" && chatUnreadCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                        >
+                          {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </nav>
+            <PresenceDots />
+          </div>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
+        {/* end 90vw inner */}
       </header>
 
       {/* Mobile header — minimal */}
@@ -226,6 +291,11 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
                   {item.to === "/" && unreadCount > 0 && (
                     <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 text-[9px] font-bold bg-destructive text-destructive-foreground rounded-full flex items-center justify-center">
                       {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                  {item.to === "/presence" && chatUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 text-[9px] font-bold bg-destructive text-destructive-foreground rounded-full flex items-center justify-center">
+                      {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
                     </span>
                   )}
                 </div>

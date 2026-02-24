@@ -235,9 +235,14 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
               <ScrollArea className="h-full">
                 <div className="space-y-1 p-2">
                   {messages.length === 0 && !loading && (
-                    <p className="py-8 text-center text-sm text-muted-foreground">
-                      {tab === "search" ? "No results" : "No messages"}
-                    </p>
+                    <div className="py-8 text-center text-sm text-muted-foreground space-y-1">
+                      <p>{tab === "search" ? "No results" : "No messages"}</p>
+                      {tab !== "search" && (
+                        <p className="text-xs opacity-70">
+                          Messages sent directly to you will appear here.
+                        </p>
+                      )}
+                    </div>
                   )}
                   {messages.map((msg) => (
                     <button
@@ -312,7 +317,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                 }}
                 onTogglePending={async () => {
                   if (selectedMessage.responseWaiting) {
-                    const _updated = await api.clearPending(selectedMessage.id);
+                    await api.clearPending(selectedMessage.id);
                     setSelectedMessage({
                       ...selectedMessage,
                       responseWaiting: false,
@@ -320,7 +325,7 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
                       waitingSince: null,
                     });
                   } else {
-                    const _updated = await api.markPending(selectedMessage.id);
+                    await api.markPending(selectedMessage.id);
                     setSelectedMessage({
                       ...selectedMessage,
                       responseWaiting: true,
@@ -339,7 +344,12 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
             </div>
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
-              <p>Select a message to read</p>
+              <div className="text-center space-y-1">
+                <p>Select a message to read</p>
+                <p className="text-xs opacity-60">
+                  Use the compose button (↑) to send a message to a teammate
+                </p>
+              </div>
             </div>
           )}
         </div>

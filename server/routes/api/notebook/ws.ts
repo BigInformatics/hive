@@ -22,7 +22,6 @@ interface DocEntry {
 const docs = new Map<string, DocEntry>();
 
 const SAVE_DEBOUNCE_MS = 5_000;
-const _SAVE_INTERVAL_MS = 30_000;
 
 async function getOrCreateDoc(pageId: string): Promise<DocEntry | null> {
   if (docs.has(pageId)) return docs.get(pageId)!;

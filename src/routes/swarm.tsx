@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Search,
   User,
+  XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
@@ -78,6 +79,7 @@ interface SwarmProject {
   workHoursStart?: number | null;
   workHoursEnd?: number | null;
   workHoursTimezone?: string | null;
+  taggedUsers?: string[] | null;
 }
 
 const STATUS_CONFIG: Record<
@@ -132,6 +134,13 @@ const STATUS_CONFIG: Record<
     bgColor: "bg-green-500/5",
     borderColor: "border-green-500/30",
   },
+  closed: {
+    label: "Closed",
+    icon: XCircle,
+    color: "text-muted-foreground",
+    bgColor: "bg-muted/20",
+    borderColor: "border-muted-foreground/20",
+  },
 };
 
 const ALL_STATUSES = [
@@ -141,6 +150,7 @@ const ALL_STATUSES = [
   "holding",
   "review",
   "complete",
+  "closed",
 ];
 
 // Users loaded dynamically via useUserIds()
@@ -164,7 +174,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [tasks, setTasks] = useState<SwarmTask[]>([]);
   const [projects, setProjects] = useState<SwarmProject[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [completedMonthsToShow, setCompletedMonthsToShow] = useState(0);
   const [viewMode, setViewMode] = useState<"board" | "list">("board");
   const [createOpen, setCreateOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
@@ -228,7 +238,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
     setLoading(true);
     try {
       const [taskResult, projectResult] = await Promise.all([
-        api.listTasks({ includeCompleted: showCompleted }),
+        api.listTasks({ includeCompleted: true }),
         api.listProjects(),
       ]);
       setTasks(taskResult.tasks || []);
@@ -238,7 +248,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
     } finally {
       setLoading(false);
     }
-  }, [showCompleted]);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -260,7 +270,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
               ...t,
               status: newStatus,
               completedAt:
-                newStatus === "complete"
+                newStatus === "complete" || newStatus === "closed"
                   ? new Date().toISOString()
                   : t.completedAt,
             }
@@ -300,19 +310,40 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
     ...new Set(tasks.map((t) => t.assigneeUserId).filter(Boolean)),
   ] as string[];
 
-  const visibleStatuses = ALL_STATUSES.filter(
-    (s) => showCompleted || s !== "complete",
-  );
+  const visibleStatuses = ALL_STATUSES;
 
-  const groupedTasks = visibleStatuses.map((status) => ({
-    status,
-    tasks: filteredTasks
+  // Compute cutoff for done tasks: default 12h, each "show more" adds 1 month
+  const completedCutoff =
+    completedMonthsToShow === 0
+      ? new Date(Date.now() - 12 * 60 * 60 * 1000)
+      : (() => {
+          const d = new Date();
+          d.setMonth(d.getMonth() - completedMonthsToShow);
+          return d;
+        })();
+
+  const groupedTasks = visibleStatuses.map((status) => {
+    const allStatusTasks = filteredTasks
       .filter((t) => t.status === status)
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      ),
-  }));
+      );
+
+    if (status === "complete" || status === "closed") {
+      const visibleTasks = allStatusTasks.filter((t) => {
+        const dateStr = t.completedAt || t.updatedAt;
+        return new Date(dateStr) >= completedCutoff;
+      });
+      return {
+        status,
+        tasks: visibleTasks,
+        hiddenCount: allStatusTasks.length - visibleTasks.length,
+      };
+    }
+
+    return { status, tasks: allStatusTasks, hiddenCount: 0 };
+  });
 
   const projectMap = new Map(projects.map((p) => [p.id, p]));
 
@@ -419,15 +450,6 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
 
           <div className="h-4 w-px bg-border mx-1" />
 
-          <Button
-            variant={showCompleted ? "secondary" : "ghost"}
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setShowCompleted(!showCompleted)}
-          >
-            {showCompleted ? "Hide done" : "Show done"}
-          </Button>
-
           {/* View toggle */}
           <div className="flex border rounded-md">
             <Button
@@ -508,18 +530,6 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
             className="h-8 pl-8 text-xs"
           />
         </div>
-
-        {/* Show completed toggle — mobile */}
-        <div className="flex items-center justify-between px-3 pb-2">
-          <Button
-            variant={showCompleted ? "secondary" : "ghost"}
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setShowCompleted(!showCompleted)}
-          >
-            {showCompleted ? "Hide done" : "Show done"}
-          </Button>
-        </div>
       </div>
 
       {/* Board or List */}
@@ -531,70 +541,93 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
               className="flex h-full gap-3 p-4"
               style={{ minWidth: `${visibleStatuses.length * 280}px` }}
             >
-              {groupedTasks.map(({ status, tasks: statusTasks }) => {
-                const config = STATUS_CONFIG[status];
-                if (!config) return null;
-                const StatusIcon = config.icon;
-                const isDropping = dropTarget === status && dragTaskId !== null;
+              {groupedTasks.map(
+                ({ status, tasks: statusTasks, hiddenCount }) => {
+                  const config = STATUS_CONFIG[status];
+                  if (!config) return null;
+                  const StatusIcon = config.icon;
+                  const isDropping =
+                    dropTarget === status && dragTaskId !== null;
+                  const isDoneColumn =
+                    status === "complete" || status === "closed";
 
-                return (
-                  <div
-                    key={status}
-                    className={`flex flex-col w-[260px] shrink-0 rounded-lg border ${config.borderColor} ${isDropping ? "ring-2 ring-primary/50" : ""} transition-shadow`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDropTarget(status);
-                    }}
-                    onDragLeave={() => setDropTarget(null)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      handleDrop(status);
-                    }}
-                  >
-                    {/* Column header */}
+                  return (
                     <div
-                      className={`flex items-center gap-2 px-3 py-2 border-b ${config.borderColor} ${config.bgColor} rounded-t-lg`}
+                      key={status}
+                      className={`flex flex-col w-[260px] shrink-0 rounded-lg border ${config.borderColor} ${isDropping ? "ring-2 ring-primary/50" : ""} transition-shadow`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDropTarget(status);
+                      }}
+                      onDragLeave={() => setDropTarget(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDrop(status);
+                      }}
                     >
-                      <StatusIcon className={`h-4 w-4 ${config.color}`} />
-                      <span className="font-medium text-sm">
-                        {config.label}
-                      </span>
-                      <Badge variant="secondary" className="text-xs ml-auto">
-                        {statusTasks.length}
-                      </Badge>
-                    </div>
+                      {/* Column header */}
+                      <div
+                        className={`flex items-center gap-2 px-3 py-2 border-b ${config.borderColor} ${config.bgColor} rounded-t-lg`}
+                      >
+                        <StatusIcon className={`h-4 w-4 ${config.color}`} />
+                        <span className="font-medium text-sm">
+                          {config.label}
+                        </span>
+                        <Badge variant="secondary" className="text-xs ml-auto">
+                          {statusTasks.length}
+                        </Badge>
+                      </div>
 
-                    {/* Cards */}
-                    <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                      {statusTasks.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-8">
-                          {isDropping ? "Drop here" : "No tasks"}
-                        </p>
-                      ) : (
-                        statusTasks.map((task) => (
-                          <TaskCard
-                            key={task.id}
-                            task={task}
-                            project={
-                              task.projectId
-                                ? projectMap.get(task.projectId)
-                                : undefined
+                      {/* Cards */}
+                      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                        {statusTasks.length === 0 && !isDoneColumn ? (
+                          <p className="text-xs text-muted-foreground text-center py-8">
+                            {isDropping ? "Drop here" : "No tasks"}
+                          </p>
+                        ) : (
+                          statusTasks.map((task) => (
+                            <TaskCard
+                              key={task.id}
+                              task={task}
+                              project={
+                                task.projectId
+                                  ? projectMap.get(task.projectId)
+                                  : undefined
+                              }
+                              onDragStart={() => setDragTaskId(task.id)}
+                              onDragEnd={() => {
+                                setDragTaskId(null);
+                                setDropTarget(null);
+                              }}
+                              isDragging={dragTaskId === task.id}
+                              onStatusChange={handleStatusChange}
+                              onClick={() => setEditTask(task)}
+                            />
+                          ))
+                        )}
+                        {isDoneColumn && hiddenCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCompletedMonthsToShow((v) => v + 1)
                             }
-                            onDragStart={() => setDragTaskId(task.id)}
-                            onDragEnd={() => {
-                              setDragTaskId(null);
-                              setDropTarget(null);
-                            }}
-                            isDragging={dragTaskId === task.id}
-                            onStatusChange={handleStatusChange}
-                            onClick={() => setEditTask(task)}
-                          />
-                        ))
-                      )}
+                            className="w-full text-xs text-muted-foreground hover:text-foreground py-2 border border-dashed rounded-md transition-colors"
+                          >
+                            Show more items ({hiddenCount} older)
+                          </button>
+                        )}
+                        {isDoneColumn &&
+                          statusTasks.length === 0 &&
+                          hiddenCount === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-8">
+                              No tasks
+                            </p>
+                          )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                },
+              )}
             </div>
           </div>
 
@@ -605,6 +638,8 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
               projectMap={projectMap}
               onStatusChange={handleStatusChange}
               onTaskClick={(t) => setEditTask(t)}
+              completedMonthsToShow={completedMonthsToShow}
+              onShowMore={() => setCompletedMonthsToShow((v) => v + 1)}
             />
           </div>
         </>
@@ -614,6 +649,8 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
           projectMap={projectMap}
           onStatusChange={handleStatusChange}
           onTaskClick={(t) => setEditTask(t)}
+          completedMonthsToShow={completedMonthsToShow}
+          onShowMore={() => setCompletedMonthsToShow((v) => v + 1)}
         />
       )}
 
@@ -732,22 +769,23 @@ function TaskCard({
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1.5">
             {task.mustBeDoneAfterTaskId && (
-              <Pause
-                className="h-3 w-3 text-muted-foreground/50"
+              <span
                 title={`Blocked by ${task.mustBeDoneAfterTaskId.slice(0, 8)}`}
-              />
+              >
+                <Pause className="h-3 w-3 text-muted-foreground/50" />
+              </span>
             )}
             {task.onOrAfterAt && (
-              <Clock
-                className="h-3 w-3 text-muted-foreground/50"
+              <span
                 title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`}
-              />
+              >
+                <Clock className="h-3 w-3 text-muted-foreground/50" />
+              </span>
             )}
             {task.nextTaskId && (
-              <PlayCircle
-                className="h-3 w-3 text-muted-foreground/50"
-                title={`Chains to ${task.nextTaskId.slice(0, 8)}`}
-              />
+              <span title={`Chains to ${task.nextTaskId.slice(0, 8)}`}>
+                <PlayCircle className="h-3 w-3 text-muted-foreground/50" />
+              </span>
             )}
             {task.assigneeUserId && (
               <UserAvatar name={task.assigneeUserId} size="sm" />
@@ -756,16 +794,18 @@ function TaskCard({
 
           {/* Quick actions */}
           <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-            {task.status !== "complete" && task.status !== "in_progress" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
-                onClick={() => onStatusChange(task.id, "in_progress")}
-              >
-                Start
-              </Button>
-            )}
+            {task.status !== "complete" &&
+              task.status !== "closed" &&
+              task.status !== "in_progress" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => onStatusChange(task.id, "in_progress")}
+                >
+                  Start
+                </Button>
+              )}
             {task.status === "in_progress" && (
               <Button
                 variant="ghost"
@@ -776,7 +816,7 @@ function TaskCard({
                 Review
               </Button>
             )}
-            {task.status !== "complete" && (
+            {task.status !== "complete" && task.status !== "closed" && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -800,18 +840,23 @@ function ListView({
   projectMap,
   onStatusChange,
   onTaskClick,
+  completedMonthsToShow: _completedMonthsToShow,
+  onShowMore,
 }: {
-  groupedTasks: { status: string; tasks: SwarmTask[] }[];
+  groupedTasks: { status: string; tasks: SwarmTask[]; hiddenCount: number }[];
   projectMap: Map<string, SwarmProject>;
   onStatusChange: (id: string, status: string) => void;
   onTaskClick: (task: SwarmTask) => void;
+  completedMonthsToShow: number;
+  onShowMore: () => void;
 }) {
   return (
     <div className="flex-1 overflow-auto p-4 space-y-6">
-      {groupedTasks.map(({ status, tasks: statusTasks }) => {
+      {groupedTasks.map(({ status, tasks: statusTasks, hiddenCount }) => {
         const config = STATUS_CONFIG[status];
         if (!config) return null;
-        if (statusTasks.length === 0 && status === "complete") return null;
+        const isDoneSection = status === "complete" || status === "closed";
+        if (statusTasks.length === 0 && !isDoneSection) return null;
         const StatusIcon = config.icon;
 
         return (
@@ -825,7 +870,11 @@ function ListView({
             </div>
 
             {statusTasks.length === 0 ? (
-              <p className="text-xs text-muted-foreground pl-6">No tasks</p>
+              <p className="text-xs text-muted-foreground pl-6">
+                {isDoneSection
+                  ? "Nothing completed in this window"
+                  : "No tasks"}
+              </p>
             ) : (
               <div className="space-y-1.5 pl-6">
                 {statusTasks.map((task) => {
@@ -880,7 +929,8 @@ function ListView({
                             onClick={(e) => e.stopPropagation()}
                           >
                             {status !== "in_progress" &&
-                              status !== "complete" && (
+                              status !== "complete" &&
+                              status !== "closed" && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -904,7 +954,7 @@ function ListView({
                                 Review
                               </Button>
                             )}
-                            {status !== "complete" && (
+                            {status !== "complete" && status !== "closed" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -923,6 +973,18 @@ function ListView({
                   );
                 })}
               </div>
+            )}
+
+            {/* Show more items button for done sections */}
+            {isDoneSection && hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={onShowMore}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-2 border border-dashed rounded-md mt-2 ml-6 transition-colors"
+                style={{ width: "calc(100% - 1.5rem)" }}
+              >
+                Show more items ({hiddenCount} older)
+              </button>
             )}
           </div>
         );
@@ -958,11 +1020,21 @@ function TaskDetailDialog({
   const [issueUrl, setIssueUrl] = useState("");
   const [assignee, setAssignee] = useState("");
   const [projectId, setProjectId] = useState("");
+  // Filter assignee options to project members when project has visibility restrictions
+  const selectedProjectForEdit = projects.find((p) => p.id === projectId);
+  const allowedUsersForEdit =
+    selectedProjectForEdit?.taggedUsers &&
+    selectedProjectForEdit.taggedUsers.length > 0
+      ? knownUsers.filter((u) =>
+          selectedProjectForEdit.taggedUsers!.includes(u),
+        )
+      : knownUsers;
   const [mustBeDoneAfter, setMustBeDoneAfter] = useState("");
   const [onOrAfter, setOnOrAfter] = useState("");
   const [nextTaskId, setNextTaskId] = useState("");
   const [nextTaskAssignee, setNextTaskAssignee] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [linkedPages, setLinkedPages] = useState<
     Array<{ notebookPageId: string; pageTitle: string; pageCreatedBy: string }>
@@ -1048,6 +1120,7 @@ function TaskDetailDialog({
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await api.updateTask(task.id, {
         title: title.trim(),
@@ -1066,6 +1139,7 @@ function TaskDetailDialog({
       onClose();
     } catch (err) {
       console.error("Failed to update task:", err);
+      setSaveError("Failed to save — please try again.");
     } finally {
       setSaving(false);
     }
@@ -1076,7 +1150,7 @@ function TaskDetailDialog({
   return (
     <Dialog open={!!task} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="sm:max-w-lg"
+        className="w-[90vw] !max-w-[90vw] flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <DialogHeader>
@@ -1105,7 +1179,7 @@ function TaskDetailDialog({
         </DialogHeader>
 
         {editing ? (
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -1148,7 +1222,7 @@ function TaskDetailDialog({
                 onChange={(e) => setAssignee(e.target.value)}
               >
                 <option value="">Unassigned</option>
-                {knownUsers.map((u) => (
+                {allowedUsersForEdit.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -1206,7 +1280,7 @@ function TaskDetailDialog({
                   onChange={(e) => setNextTaskAssignee(e.target.value)}
                 >
                   <option value="">None</option>
-                  {knownUsers.map((u) => (
+                  {allowedUsersForEdit.map((u) => (
                     <option key={u} value={u}>
                       {u}
                     </option>
@@ -1215,6 +1289,9 @@ function TaskDetailDialog({
               </div>
             </div>
 
+            {saveError && (
+              <p className="text-sm text-destructive">{saveError}</p>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditing(false)}>
                 Cancel
@@ -1225,270 +1302,284 @@ function TaskDetailDialog({
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Meta */}
-            <div className="flex flex-wrap gap-2">
-              {project && (
-                <Badge variant="outline" className="gap-1">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: project.color }}
-                  />
-                  {project.title}
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
+              {/* Meta */}
+              <div className="flex flex-wrap gap-2">
+                {project && (
+                  <Badge variant="outline" className="gap-1">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: project.color }}
+                    />
+                    {project.title}
+                  </Badge>
+                )}
+                {task.assigneeUserId && (
+                  <Badge variant="outline" className="gap-1">
+                    <UserAvatar name={task.assigneeUserId} size="xs" />
+                    {task.assigneeUserId}
+                  </Badge>
+                )}
+                <Badge variant="secondary" className={config?.color}>
+                  {config?.label || task.status}
                 </Badge>
+              </div>
+
+              {/* Issue URL */}
+              {task.issueUrl && (
+                <a
+                  href={task.issueUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-sky-500 hover:underline block"
+                >
+                  🔗 {task.issueUrl.replace(/^https?:\/\//, "").slice(0, 60)}
+                </a>
               )}
-              {task.assigneeUserId && (
-                <Badge variant="outline" className="gap-1">
-                  <UserAvatar name={task.assigneeUserId} size="xs" />
-                  {task.assigneeUserId}
-                </Badge>
-              )}
-              <Badge variant="secondary" className={config?.color}>
-                {config?.label || task.status}
-              </Badge>
-            </div>
 
-            {/* Issue URL */}
-            {task.issueUrl && (
-              <a
-                href={task.issueUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-sky-500 hover:underline block"
-              >
-                🔗 {task.issueUrl.replace(/^https?:\/\//, "").slice(0, 60)}
-              </a>
-            )}
-
-            {/* Detail */}
-            {task.detail ? (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {task.detail}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">No details</p>
-            )}
-
-            {/* Follow up */}
-            {task.followUp && (
-              <div className="mt-2 p-2 rounded bg-blue-500/10 border border-blue-500/20">
-                <p className="text-xs font-medium text-blue-400 mb-0.5">
-                  Latest Update
-                </p>
+              {/* Detail */}
+              {task.detail ? (
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {task.followUp}
+                  {task.detail}
                 </p>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  No details
+                </p>
+              )}
 
-            {/* Linked notebook pages */}
-            {(linkedPages.length > 0 || !editing) && (
-              <div className="space-y-1.5 pt-2 border-t">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Notebook Pages
+              {/* Follow up */}
+              {task.followUp && (
+                <div className="mt-2 p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-xs font-medium text-blue-400 mb-0.5">
+                    Latest Update
                   </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 text-[10px] px-1.5"
-                    onClick={() => setShowPagePicker(!showPagePicker)}
-                  >
-                    {showPagePicker ? "Cancel" : "+ Link Page"}
-                  </Button>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {task.followUp}
+                  </p>
                 </div>
-                {linkedPages.map((lp) => (
-                  <div
-                    key={lp.notebookPageId}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <a
-                      href={`/notebook?page=${lp.notebookPageId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sky-500 hover:underline truncate flex-1"
-                    >
-                      📄 {lp.pageTitle}
-                    </a>
-                    <button
-                      type="button"
-                      className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs"
-                      onClick={() => handleUnlinkPage(lp.notebookPageId)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                {linkedPages.length === 0 && !showPagePicker && (
-                  <p className="text-xs text-muted-foreground/50 italic">
-                    No linked pages
-                  </p>
-                )}
-                {showPagePicker && (
-                  <div className="space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
-                    {availablePages
-                      .filter(
-                        (p) =>
-                          !linkedPages.some((lp) => lp.notebookPageId === p.id),
-                      )
-                      .map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="w-full text-left text-sm px-2 py-1 rounded hover:bg-accent transition-colors truncate"
-                          onClick={() => handleLinkPage(p.id)}
-                        >
-                          📄 {p.title}
-                        </button>
-                      ))}
-                  </div>
-                )}
-              </div>
-            )}
+              )}
 
-            {/* Dependencies, scheduling & chaining */}
-            {(task.mustBeDoneAfterTaskId ||
-              task.onOrAfterAt ||
-              task.nextTaskId) && (
-              <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
-                {task.mustBeDoneAfterTaskId && (
-                  <p className="flex items-center gap-1">
-                    <Pause className="h-3 w-3" />
-                    Blocked by:{" "}
-                    <strong className="font-mono">
-                      {task.mustBeDoneAfterTaskId.slice(0, 8)}
-                    </strong>
-                  </p>
-                )}
-                {task.onOrAfterAt && (
-                  <p className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Not before:{" "}
-                    <strong>
-                      {new Date(task.onOrAfterAt).toLocaleString()}
-                    </strong>
-                  </p>
-                )}
-                {task.nextTaskId && (
-                  <p className="flex items-center gap-1">
-                    <PlayCircle className="h-3 w-3" />
-                    Next task:{" "}
-                    <strong className="font-mono">
-                      {task.nextTaskId.slice(0, 8)}
-                    </strong>
-                    {task.nextTaskAssigneeUserId && (
-                      <span>
-                        {" "}
-                        → assigned to{" "}
-                        <strong>{task.nextTaskAssigneeUserId}</strong>
+              {/* Linked notebook pages */}
+              {(linkedPages.length > 0 || !editing) && (
+                <div className="space-y-1.5 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Notebook Pages
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 text-[10px] px-1.5"
+                      onClick={() => setShowPagePicker(!showPagePicker)}
+                    >
+                      {showPagePicker ? "Cancel" : "+ Link Page"}
+                    </Button>
+                  </div>
+                  {linkedPages.map((lp) => (
+                    <div
+                      key={lp.notebookPageId}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <a
+                        href={`/notebook?page=${lp.notebookPageId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-500 hover:underline truncate flex-1"
+                      >
+                        📄 {lp.pageTitle}
+                      </a>
+                      <button
+                        type="button"
+                        className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs"
+                        onClick={() => handleUnlinkPage(lp.notebookPageId)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {linkedPages.length === 0 && !showPagePicker && (
+                    <p className="text-xs text-muted-foreground/50 italic">
+                      No linked pages
+                    </p>
+                  )}
+                  {showPagePicker && (
+                    <div className="space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
+                      {availablePages
+                        .filter(
+                          (p) =>
+                            !linkedPages.some(
+                              (lp) => lp.notebookPageId === p.id,
+                            ),
+                        )
+                        .map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="w-full text-left text-sm px-2 py-1 rounded hover:bg-accent transition-colors truncate"
+                            onClick={() => handleLinkPage(p.id)}
+                          >
+                            📄 {p.title}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Dependencies, scheduling & chaining */}
+              {(task.mustBeDoneAfterTaskId ||
+                task.onOrAfterAt ||
+                task.nextTaskId) && (
+                <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
+                  {task.mustBeDoneAfterTaskId && (
+                    <p className="flex items-center gap-1">
+                      <Pause className="h-3 w-3" />
+                      Blocked by:{" "}
+                      <strong className="font-mono">
+                        {task.mustBeDoneAfterTaskId.slice(0, 8)}
+                      </strong>
+                    </p>
+                  )}
+                  {task.onOrAfterAt && (
+                    <p className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Not before:{" "}
+                      <strong>
+                        {new Date(task.onOrAfterAt).toLocaleString()}
+                      </strong>
+                    </p>
+                  )}
+                  {task.nextTaskId && (
+                    <p className="flex items-center gap-1">
+                      <PlayCircle className="h-3 w-3" />
+                      Next task:{" "}
+                      <strong className="font-mono">
+                        {task.nextTaskId.slice(0, 8)}
+                      </strong>
+                      {task.nextTaskAssigneeUserId && (
+                        <span>
+                          {" "}
+                          → assigned to{" "}
+                          <strong>{task.nextTaskAssigneeUserId}</strong>
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* end scrollable */}
+
+            {/* Pinned footer — status buttons + edit always visible */}
+            <div className="shrink-0 pt-3 border-t space-y-2">
+              {/* Status actions */}
+              <div className="flex flex-wrap gap-2">
+                {ALL_STATUSES.filter((s) => s !== task.status).map((s) => {
+                  const sc = STATUS_CONFIG[s];
+                  if (!sc) return null;
+                  const Icon = sc.icon;
+                  return (
+                    <Button
+                      key={s}
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => {
+                        onStatusChange(task.id, s);
+                        onClose();
+                      }}
+                    >
+                      <Icon className={`h-3 w-3 ${sc.color}`} />
+                      {sc.label}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              {/* Project leads */}
+              {project &&
+                (project.projectLeadUserId || project.developerLeadUserId) && (
+                  <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
+                    {project.projectLeadUserId && (
+                      <span className="flex items-center gap-1">
+                        <Crown className="h-3 w-3" /> Lead:{" "}
+                        <strong>{project.projectLeadUserId}</strong>
                       </span>
                     )}
+                    {project.developerLeadUserId && (
+                      <span className="flex items-center gap-1">
+                        <Code className="h-3 w-3" /> Dev:{" "}
+                        <strong>{project.developerLeadUserId}</strong>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+              {/* Timestamps */}
+              <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
+                <p>Created: {new Date(task.createdAt).toLocaleString()}</p>
+                <p>Updated: {new Date(task.updatedAt).toLocaleString()}</p>
+                {task.completedAt && (
+                  <p>
+                    Completed: {new Date(task.completedAt).toLocaleString()}
                   </p>
                 )}
               </div>
-            )}
 
-            {/* Status actions */}
-            <div className="flex flex-wrap gap-2">
-              {ALL_STATUSES.filter((s) => s !== task.status).map((s) => {
-                const sc = STATUS_CONFIG[s];
-                if (!sc) return null;
-                const Icon = sc.icon;
-                return (
-                  <Button
-                    key={s}
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => {
-                      onStatusChange(task.id, s);
-                      onClose();
-                    }}
-                  >
-                    <Icon className={`h-3 w-3 ${sc.color}`} />
-                    {sc.label}
-                  </Button>
-                );
-              })}
+              {/* Project links */}
+              {project &&
+                (project.websiteUrl ||
+                  project.onedevUrl ||
+                  project.githubUrl) && (
+                  <div className="flex gap-2 pt-2 border-t">
+                    {project.websiteUrl && (
+                      <a
+                        href={project.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Globe className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {project.onedevUrl && (
+                      <a
+                        href={project.onedevUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <GitBranch className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {project.githubUrl && (
+                      <a
+                        href={project.githubUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Github className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </div>
+                )}
+
+              {/* Edit button */}
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditing(true)}
+                >
+                  Edit
+                </Button>
+              </div>
             </div>
-
-            {/* Project leads */}
-            {project &&
-              (project.projectLeadUserId || project.developerLeadUserId) && (
-                <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
-                  {project.projectLeadUserId && (
-                    <span className="flex items-center gap-1">
-                      <Crown className="h-3 w-3" /> Lead:{" "}
-                      <strong>{project.projectLeadUserId}</strong>
-                    </span>
-                  )}
-                  {project.developerLeadUserId && (
-                    <span className="flex items-center gap-1">
-                      <Code className="h-3 w-3" /> Dev:{" "}
-                      <strong>{project.developerLeadUserId}</strong>
-                    </span>
-                  )}
-                </div>
-              )}
-
-            {/* Timestamps */}
-            <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
-              <p>Created: {new Date(task.createdAt).toLocaleString()}</p>
-              <p>Updated: {new Date(task.updatedAt).toLocaleString()}</p>
-              {task.completedAt && (
-                <p>Completed: {new Date(task.completedAt).toLocaleString()}</p>
-              )}
-            </div>
-
-            {/* Project links */}
-            {project &&
-              (project.websiteUrl ||
-                project.onedevUrl ||
-                project.githubUrl) && (
-                <div className="flex gap-2 pt-2 border-t">
-                  {project.websiteUrl && (
-                    <a
-                      href={project.websiteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Globe className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                  {project.onedevUrl && (
-                    <a
-                      href={project.onedevUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <GitBranch className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                  {project.githubUrl && (
-                    <a
-                      href={project.githubUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Github className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                </div>
-              )}
-
-            {/* Edit button */}
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditing(true)}
-              >
-                Edit
-              </Button>
-            </div>
+            {/* end pinned footer */}
           </div>
         )}
       </DialogContent>
@@ -1517,6 +1608,12 @@ function CreateTaskDialog({
   const [issueUrl, setIssueUrl] = useState("");
   const [projectId, setProjectId] = useState("");
   const [assignee, setAssignee] = useState("");
+  // Filter assignee options to project members when project has visibility restrictions
+  const selectedProject = projects.find((p) => p.id === projectId);
+  const allowedUsers =
+    selectedProject?.taggedUsers && selectedProject.taggedUsers.length > 0
+      ? knownUsers.filter((u) => selectedProject.taggedUsers!.includes(u))
+      : knownUsers;
   const [mustBeDoneAfter, setMustBeDoneAfter] = useState("");
   const [onOrAfter, setOnOrAfter] = useState("");
   const [nextTaskId, setNextTaskId] = useState("");
@@ -1610,7 +1707,7 @@ function CreateTaskDialog({
               onChange={(e) => setAssignee(e.target.value)}
             >
               <option value="">Unassigned</option>
-              {knownUsers.map((u) => (
+              {allowedUsers.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
@@ -1666,7 +1763,7 @@ function CreateTaskDialog({
                 onChange={(e) => setNextTaskAssignee(e.target.value)}
               >
                 <option value="">None</option>
-                {knownUsers.map((u) => (
+                {allowedUsers.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>

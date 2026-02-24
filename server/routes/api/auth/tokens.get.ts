@@ -1,7 +1,7 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { defineEventHandler } from "h3";
 import { db } from "@/db";
-import { mailboxTokens } from "@/db/schema";
+import { mailboxTokens, users } from "@/db/schema";
 import { authenticateEvent } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     .select({
       id: mailboxTokens.id,
       identity: mailboxTokens.identity,
-      isAdmin: mailboxTokens.isAdmin,
+      isAdmin: users.isAdmin, // derived from users table
       label: mailboxTokens.label,
       createdBy: mailboxTokens.createdBy,
       createdAt: mailboxTokens.createdAt,
@@ -26,6 +26,7 @@ export default defineEventHandler(async (event) => {
       webhookToken: mailboxTokens.webhookToken,
     })
     .from(mailboxTokens)
+    .leftJoin(users, eq(mailboxTokens.identity, users.id))
     .orderBy(desc(mailboxTokens.createdAt))
     .limit(100);
 

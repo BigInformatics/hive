@@ -133,6 +133,11 @@ export const swarmProjects = pgTable("swarm_projects", {
   workHoursEnd: integer("work_hours_end"),
   workHoursTimezone: text("work_hours_timezone").default("America/Chicago"),
   blockingMode: boolean("blocking_mode").default(false),
+  /** Visibility control — mirrors notebook page pattern.
+   * null or [] → visible to all team members (default).
+   * Non-empty array → only listed identities can see this project and its tasks.
+   */
+  taggedUsers: jsonb("tagged_users").$type<string[]>(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
@@ -292,6 +297,7 @@ export const chatMembers = pgTable("chat_members", {
     .notNull(),
   lastReadAt: timestamp("last_read_at", { withTimezone: true }),
   archivedAt: timestamp("archived_at", { withTimezone: true }), // per-member soft delete
+  hasActivity: boolean("has_activity").notNull().default(false), // true when unread messages exist; cleared on read
 });
 
 export const chatMessages = pgTable("chat_messages", {
@@ -317,7 +323,6 @@ export const mailboxTokens = pgTable("mailbox_tokens", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   token: varchar("token", { length: 64 }).notNull().unique(),
   identity: varchar("identity", { length: 50 }).notNull(),
-  isAdmin: boolean("is_admin").notNull().default(false),
   label: varchar("label", { length: 100 }),
   createdBy: varchar("created_by", { length: 50 }),
   createdAt: timestamp("created_at", { withTimezone: true })

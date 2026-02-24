@@ -1,12 +1,8 @@
-import { config } from "dotenv";
 import { and, eq, gt, isNull, or } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { getHeader } from "h3";
 import { db } from "@/db";
 import { mailboxTokens, users } from "@/db/schema";
-
-config({ path: ".env" });
-config({ path: "/etc/clawdbot/vault.env" });
 
 export interface AuthContext {
   identity: string;
@@ -14,7 +10,7 @@ export interface AuthContext {
   source: "db" | "env";
 }
 
-// In-memory env token cache (loaded once at startup)
+// In-memory env token cache (loaded once at startup — superuser only)
 const envTokens = new Map<string, AuthContext>();
 const validMailboxes = new Set<string>();
 
@@ -40,6 +36,66 @@ async function loadUsersFromDb() {
   }
 }
 
+/**
+ * Backfill missing users rows from active mailbox tokens.
+ * Important for upgrades: tokens may exist from before the users table was introduced.
+ */
+async function backfillUsersFromTokens() {
+  try {
+    const tokenIdentities = await db
+      .selectDistinct({ identity: mailboxTokens.identity })
+      .from(mailboxTokens)
+      .where(isNull(mailboxTokens.revokedAt));
+
+    if (tokenIdentities.length === 0) return;
+
+    await db
+      .insert(users)
+      .values(
+        tokenIdentities.map((t) => ({
+          id: t.identity,
+          displayName: t.identity,
+          isAdmin: false,
+          isAgent: true,
+        })),
+      )
+      .onConflictDoNothing();
+
+    for (const t of tokenIdentities) validMailboxes.add(t.identity);
+
+    console.log(
+      `[auth] Backfilled users from tokens (checked ${tokenIdentities.length})`,
+    );
+  } catch (err) {
+    console.error("[auth] Failed to backfill users from tokens:", err);
+  }
+}
+
+/**
+ * Ensure the superuser's users row exists and is marked as admin.
+ * Called at startup when SUPERUSER_NAME is configured.
+ */
+async function ensureSuperuser(name: string, displayName: string) {
+  try {
+    await db
+      .insert(users)
+      .values({
+        id: name,
+        displayName,
+        isAdmin: true,
+        isAgent: false,
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: { isAdmin: true, updatedAt: new Date() },
+      });
+    validMailboxes.add(name);
+    console.log(`[auth] Superuser "${name}" ensured in DB`);
+  } catch (err) {
+    console.error("[auth] Failed to ensure superuser in DB:", err);
+  }
+}
+
 /** Return all non-archived users ordered by display name */
 export async function listUsers() {
   return db
@@ -62,16 +118,7 @@ export function deregisterMailbox(name: string) {
   validMailboxes.delete(name);
 }
 
-/** Return all identities registered via env tokens (HIVE_TOKEN_* / MAILBOX_TOKEN_* / UI_MAILBOX_KEYS) */
-export function getEnvIdentities(): string[] {
-  const ids = new Set<string>();
-  for (const ctx of envTokens.values()) {
-    if (ctx.identity && ctx.identity !== "admin") ids.add(ctx.identity);
-  }
-  return [...ids].sort();
-}
-
-/** Check DB for a valid token */
+/** Check DB for a valid token — isAdmin is derived from users table */
 async function authenticateFromDb(token: string): Promise<AuthContext | null> {
   // Check cache first
   const cached = dbCache.get(token);
@@ -81,12 +128,19 @@ async function authenticateFromDb(token: string): Promise<AuthContext | null> {
 
   try {
     const [row] = await db
-      .select()
+      .select({
+        id: mailboxTokens.id,
+        identity: mailboxTokens.identity,
+        expiresAt: mailboxTokens.expiresAt,
+        isAdmin: users.isAdmin, // derived from users table, not mailboxTokens
+      })
       .from(mailboxTokens)
+      .innerJoin(users, eq(mailboxTokens.identity, users.id))
       .where(
         and(
           eq(mailboxTokens.token, token),
           isNull(mailboxTokens.revokedAt),
+          isNull(users.archivedAt),
           or(
             isNull(mailboxTokens.expiresAt),
             gt(mailboxTokens.expiresAt, new Date()),
@@ -96,6 +150,69 @@ async function authenticateFromDb(token: string): Promise<AuthContext | null> {
       .limit(1);
 
     if (!row) {
+      // Upgrade safety: token may exist from before the users table was populated.
+      // Try to backfill a users row for this token's identity and retry once.
+      const [tokenRow] = await db
+        .select({ identity: mailboxTokens.identity, id: mailboxTokens.id })
+        .from(mailboxTokens)
+        .where(
+          and(
+            eq(mailboxTokens.token, token),
+            isNull(mailboxTokens.revokedAt),
+            or(
+              isNull(mailboxTokens.expiresAt),
+              gt(mailboxTokens.expiresAt, new Date()),
+            ),
+          ),
+        )
+        .limit(1);
+
+      if (tokenRow) {
+        await db
+          .insert(users)
+          .values({
+            id: tokenRow.identity,
+            displayName: tokenRow.identity,
+            isAdmin: false,
+            isAgent: true,
+          })
+          .onConflictDoNothing();
+
+        // Retry the original join query once
+        const [retryRow] = await db
+          .select({
+            id: mailboxTokens.id,
+            identity: mailboxTokens.identity,
+            expiresAt: mailboxTokens.expiresAt,
+            isAdmin: users.isAdmin,
+          })
+          .from(mailboxTokens)
+          .innerJoin(users, eq(mailboxTokens.identity, users.id))
+          .where(
+            and(
+              eq(mailboxTokens.token, token),
+              isNull(mailboxTokens.revokedAt),
+              isNull(users.archivedAt),
+              or(
+                isNull(mailboxTokens.expiresAt),
+                gt(mailboxTokens.expiresAt, new Date()),
+              ),
+            ),
+          )
+          .limit(1);
+
+        if (retryRow) {
+          validMailboxes.add(retryRow.identity);
+          const ctx: AuthContext = {
+            identity: retryRow.identity,
+            isAdmin: retryRow.isAdmin,
+            source: "db",
+          };
+          dbCache.set(token, { ctx, expires: Date.now() + DB_CACHE_TTL });
+          return ctx;
+        }
+      }
+
       dbCache.set(token, { ctx: null, expires: Date.now() + DB_CACHE_TTL });
       return null;
     }
@@ -122,24 +239,24 @@ async function authenticateFromDb(token: string): Promise<AuthContext | null> {
   }
 }
 
-/** Authenticate a token — checks DB first, then env vars */
+/** Authenticate a token — checks env (superuser) first, then DB */
 export async function authenticateTokenAsync(
   token: string,
 ): Promise<AuthContext | null> {
-  // DB tokens take priority
-  const dbAuth = await authenticateFromDb(token);
-  if (dbAuth) return dbAuth;
+  // Superuser env token takes priority
+  const envAuth = envTokens.get(token);
+  if (envAuth) return envAuth;
 
-  // Fall back to env tokens
-  return envTokens.get(token) || null;
+  // Fall back to DB tokens
+  return authenticateFromDb(token);
 }
 
-/** Sync version — only checks env tokens (for backwards compat) */
+/** Sync version — only checks env tokens (superuser) */
 export function authenticateToken(token: string): AuthContext | null {
   return envTokens.get(token) || null;
 }
 
-/** Authenticate from H3 event — async, checks DB + env */
+/** Authenticate from H3 event — async, checks env + DB */
 export async function authenticateEvent(
   event: H3Event,
 ): Promise<AuthContext | null> {
@@ -151,89 +268,47 @@ export async function authenticateEvent(
 export function initAuth() {
   envTokens.clear();
 
-  // Support both HIVE_TOKEN_* (preferred) and MAILBOX_TOKEN_* (backward compat)
-  for (const [key, value] of Object.entries(process.env)) {
-    const prefixes = ["HIVE_TOKEN_", "MAILBOX_TOKEN_"];
-    for (const prefix of prefixes) {
-      if (key.startsWith(prefix) && !key.endsWith("_ADMIN") && value) {
-        const name = key.slice(prefix.length).toLowerCase();
-        if (name && name !== "s") {
-          envTokens.set(value, {
-            identity: name,
-            isAdmin: false,
-            source: "env",
-          });
-          validMailboxes.add(name);
-        }
-      }
-    }
-  }
+  const superuserToken = process.env.SUPERUSER_TOKEN;
+  const superuserName = process.env.SUPERUSER_NAME?.toLowerCase().trim();
 
-  // Support both HIVE_TOKENS and MAILBOX_TOKENS (JSON maps)
-  const tokensEnv = process.env.HIVE_TOKENS || process.env.MAILBOX_TOKENS;
-  if (tokensEnv) {
-    try {
-      const mapping = JSON.parse(tokensEnv) as Record<string, string>;
-      for (const [token, identity] of Object.entries(mapping)) {
-        envTokens.set(token, {
-          identity: identity.toLowerCase(),
-          isAdmin: false,
-          source: "env",
-        });
-        validMailboxes.add(identity.toLowerCase());
-      }
-    } catch (err) {
-      console.error("[auth] Failed to parse HIVE_TOKENS/MAILBOX_TOKENS:", err);
-    }
-  }
+  if (superuserToken && superuserName) {
+    const rawDisplayName = process.env.SUPERUSER_DISPLAY_NAME?.trim();
+    // Default display name: title-case the name slug (e.g. "chris" → "Chris")
+    const displayName =
+      rawDisplayName ||
+      superuserName.charAt(0).toUpperCase() + superuserName.slice(1);
 
-  if (process.env.UI_MAILBOX_KEYS) {
-    try {
-      const parsed = JSON.parse(process.env.UI_MAILBOX_KEYS) as Record<
-        string,
-        { sender: string; admin?: boolean }
-      >;
-      for (const [key, info] of Object.entries(parsed)) {
-        envTokens.set(key, {
-          identity: info.sender.toLowerCase(),
-          isAdmin: info.admin || false,
-          source: "env",
-        });
-        validMailboxes.add(info.sender.toLowerCase());
-      }
-      console.log(
-        `[auth] Loaded ${Object.keys(parsed).length} UI mailbox key(s)`,
-      );
-    } catch (err) {
-      console.error("[auth] Failed to parse UI_MAILBOX_KEYS:", err);
-    }
-  }
-
-  // Fallback: HIVE_TOKEN or MAILBOX_TOKEN (single token, identity from USER)
-  const singleToken = process.env.HIVE_TOKEN || process.env.MAILBOX_TOKEN;
-  if (singleToken && envTokens.size === 0) {
-    const identity = process.env.USER?.toLowerCase() || "unknown";
-    envTokens.set(singleToken, { identity, isAdmin: false, source: "env" });
-    validMailboxes.add(identity);
-  }
-
-  if (process.env.MAILBOX_ADMIN_TOKEN) {
-    envTokens.set(process.env.MAILBOX_ADMIN_TOKEN, {
-      identity: "admin",
+    envTokens.set(superuserToken, {
+      identity: superuserName,
       isAdmin: true,
       source: "env",
     });
-  }
+    validMailboxes.add(superuserName);
 
-  console.log(`[auth] Loaded ${envTokens.size} env token(s), DB auth enabled`);
+    console.log(`[auth] Superuser token loaded for "${superuserName}"`);
+
+    // Ensure superuser exists in DB (fire-and-forget)
+    ensureSuperuser(superuserName, displayName).catch((err) =>
+      console.error("[auth] ensureSuperuser failed:", err),
+    );
+  } else {
+    console.warn(
+      "[auth] SUPERUSER_TOKEN and/or SUPERUSER_NAME not set — no env-based admin access",
+    );
+  }
 
   // Load known users from DB into validMailboxes (fire-and-forget)
   loadUsersFromDb().catch((err) =>
     console.error("[auth] Failed to load users from DB:", err),
   );
+
+  // Backfill missing users rows from mailbox tokens (upgrade safety)
+  backfillUsersFromTokens().catch((err) =>
+    console.error("[auth] Failed to backfill users from tokens:", err),
+  );
 }
 
-/** Clear the DB token cache (e.g., after creating/revoking tokens) */
+/** Clear the DB token cache (e.g., after creating/revoking tokens or changing user admin status) */
 export function clearAuthCache() {
   dbCache.clear();
 }

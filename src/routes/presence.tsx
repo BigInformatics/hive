@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import DOMPurify from "dompurify";
 import {
   Archive,
   ArchiveRestore,
@@ -9,6 +10,7 @@ import {
   Send,
   Users,
 } from "lucide-react";
+import { marked } from "marked";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
@@ -71,7 +73,7 @@ function getTimeSince(date: string | null): number {
 }
 
 function formatLastSeen(date: string | null): string {
-  if (!date) return "Never seen";
+  if (!date) return "Not yet active";
   const seconds = getTimeSince(date);
   if (seconds < 60) return "Just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -338,7 +340,9 @@ function PresenceView({ onLogout }: { onLogout: () => void }) {
                         <p className="font-medium text-sm capitalize">{name}</p>
                         <p className="text-xs text-muted-foreground truncate">
                           {info.online
-                            ? `Online${info.source ? ` via ${info.source}` : ""}`
+                            ? info.source === "sse"
+                              ? "Online (streaming)"
+                              : "Online"
                             : formatLastSeen(info.lastSeen)}
                         </p>
                       </div>
@@ -540,6 +544,7 @@ function ChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastTypingSent = useRef(0);
+  const hasScrolledRef = useRef(false);
 
   const channel = channels.find((c) => c.id === channelId);
   const channelName = channel
@@ -560,6 +565,7 @@ function ChatPanel({
   }, [channelId]);
 
   useEffect(() => {
+    hasScrolledRef.current = false; // reset so new channel scrolls to bottom
     fetchMessages();
     inputRef.current?.focus();
   }, [fetchMessages]);
@@ -642,12 +648,16 @@ function ChatPanel({
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom on initial load; thereafter only if already near bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el || messages.length === 0) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (!hasScrolledRef.current || isNearBottom) {
+      hasScrolledRef.current = true;
+      el.scrollTop = el.scrollHeight;
     }
-  }, []);
+  }, [messages]);
 
   // Send typing indicator (throttled to once per 3s)
   const sendTyping = useCallback(() => {
@@ -753,14 +763,17 @@ function ChatPanel({
                   </p>
                 )}
                 <div
-                  className={`px-3 py-1.5 rounded-2xl text-sm ${
+                  className={`px-3 py-1.5 rounded-2xl text-sm prose prose-sm max-w-none break-words ${
                     isMe
-                      ? "bg-primary text-primary-foreground rounded-br-md"
-                      : "bg-muted rounded-bl-md"
+                      ? "bg-primary text-primary-foreground rounded-br-md prose-invert"
+                      : "bg-muted rounded-bl-md dark:prose-invert"
                   }`}
-                >
-                  {msg.body}
-                </div>
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(
+                      marked.parse(msg.body, { async: false }) as string,
+                    ),
+                  }}
+                />
                 <p
                   className={`text-[9px] text-muted-foreground/50 mt-0.5 ${isMe ? "text-right mr-1" : "ml-1"}`}
                 >

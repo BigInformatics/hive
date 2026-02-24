@@ -11,6 +11,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const projects = await listProjects();
+  const projects = await listProjects(false, auth.identity);
   return { projects };
 });

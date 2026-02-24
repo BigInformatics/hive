@@ -9,7 +9,7 @@ Ready to try Hive? You'll be up and running in just a few minutes.
 
 ## Option 1: Docker Compose (Fastest)
 
-The quickest way to get started — everything in one command:
+The quickest way to get started — Hive, PostgreSQL, and automatic migrations, all in one command:
 
 ```bash
 # Clone the repo
@@ -19,23 +19,64 @@ cd hive
 # Copy the example environment
 cp .env.example .env
 
-# Edit .env and set at least MAILBOX_ADMIN_TOKEN
-# (use a secure random string for the admin token)
+# Edit .env — set your superuser credentials at minimum:
+#   SUPERUSER_TOKEN=<a long random secret>
+#   SUPERUSER_NAME=<your identity slug, e.g. "chris">
+#   SUPERUSER_DISPLAY_NAME=Chris   (optional)
+#   HIVE_BASE_URL=http://localhost:3000
 
-# Start Hive
+# Start Hive (includes PostgreSQL)
 docker compose -f docker-compose.dev.yml up
 ```
 
-That's it. Hive will be available at `http://localhost:3000`.
+Hive will be available at `http://localhost:3000`.
 
 **What you get:**
 - Hive application running on port 3000
 - PostgreSQL database (in a container)
-- All migrations applied automatically
+- DB schema created and migrations applied automatically on startup
 
-## Option 2: From Source
+## Option 2: Against an Existing Database
 
-If you prefer to run directly with Node.js or Bun:
+If you already have a PostgreSQL instance and just want to run the Hive container:
+
+```bash
+cp .env.example .env
+# Set your DB credentials and SUPERUSER_TOKEN/SUPERUSER_NAME
+
+docker compose -f docker-compose.test.yml up
+```
+
+## Option 3: Production with Traefik + TLS
+
+For production deployments behind Traefik with automatic TLS:
+
+```bash
+cp .env.example .env
+```
+
+Set these additional variables in your `.env`:
+
+```bash
+# Public URL (used in invite links, skill docs, and agent wake responses)
+HIVE_BASE_URL=https://hive.yourdomain.com
+
+# Hostname for Traefik routing
+HIVE_HOSTNAME=hive.yourdomain.com
+
+# TLS cert resolver (letsencrypt or step-ca)
+HIVE_TLS_CERTRESOLVER=letsencrypt
+```
+
+Then start:
+
+```bash
+docker compose up -d
+```
+
+## Option 4: From Source
+
+If you prefer to run directly with Bun:
 
 ### Prerequisites
 
@@ -52,89 +93,93 @@ cd hive
 # Copy the example environment
 cp .env.example .env
 
-# Edit .env with your database credentials and tokens
-# At minimum, set:
-# - PGHOST, PGUSER, PGPASSWORD, PGDATABASE_TEAM
-# - MAILBOX_ADMIN_TOKEN
+# Edit .env — at minimum set:
+#   PGHOST, PGUSER, PGPASSWORD, PGDATABASE_TEAM
+#   SUPERUSER_TOKEN, SUPERUSER_NAME
+#   HIVE_BASE_URL=http://localhost:3000
 
 # Install dependencies
 bun install
 
-# Run migrations
-bun run db:migrate
-
-# Start the dev server
+# Start the dev server (migrations run automatically on startup)
 bun run dev
 ```
 
 Hive will be available at `http://localhost:3000`.
 
-## First Steps
+## First Run
 
-Now that Hive is running, let's make sure everything works.
+When you open Hive in your browser for the first time:
+
+1. **Enter your Hive key** — this is the value of `SUPERUSER_TOKEN` from your `.env`. The login screen will remind you of this.
+2. **Set your display name** — you'll be prompted to enter a display name before reaching the main interface.
+3. **You're in** — you'll land in the admin panel with a checklist of next steps.
+
+## First Steps
 
 ### 1. Verify Your Token
 
-Test that your admin token is working:
+Test that your key is working:
 
 ```bash
 curl -X POST http://localhost:3000/api/auth/verify \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+  -H "Authorization: Bearer YOUR_SUPERUSER_TOKEN"
 ```
 
-You should get back a JSON response with your token info.
+You should get back:
 
-### 2. Check Wake
-
-Call the Wake endpoint to see your action queue:
-
-```bash
-curl http://localhost:3000/api/wake \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```json
+{ "identity": "chris", "isAdmin": true }
 ```
 
-If this is a fresh install, you'll get an empty queue — that's expected.
+### 2. Invite a Teammate or Agent
 
-### 3. Create an Invite
-
-If you want to let others register:
+Create an invite link from the **Admin → Auth** tab in the UI, or via the API:
 
 ```bash
 curl -X POST http://localhost:3000/api/auth/invites \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Authorization: Bearer YOUR_SUPERUSER_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"maxUses": 5}'
+  -d '{"maxUses": 1}'
 ```
 
-This creates an invite link you can share with teammates.
+Share the returned `code` — teammates visit `/onboard?code=<code>` to register. Agents store the returned token in their `HIVE_TOKEN` environment variable.
+
+### 3. Check Your Instance Health
+
+```bash
+curl http://localhost:3000/api/doctor \
+  -H "Authorization: Bearer YOUR_SUPERUSER_TOKEN"
+```
+
+This runs diagnostics — database connectivity, migration status, config completeness. Fix any issues flagged before going further.
 
 ### 4. Explore the Web UI
 
 Open `http://localhost:3000` in your browser. You'll see:
 
-- **Messages** — Your inbox
-- **Swarm** — Task management
+- **Inbox** — Direct messages sent to you
+- **Buzz** — Real-time event feed (CI, deploys, custom alerts)
+- **Swarm** — Task board for agent and team work
 - **Notebook** — Collaborative documents
-- **Buzz** — Event broadcasts
 - **Directory** — Shared links
-- **Admin** — Configuration (at `/admin`)
+- **Presence** — Who's online + team chat
+- **Admin** — Manage agents, invites, and settings
 
 ### 5. Read the Skill Docs
 
-Hive provides machine-readable documentation for agents:
+Hive is self-documenting. Agents can discover the full API at runtime:
 
 ```bash
 curl http://localhost:3000/api/skill
 ```
 
-This returns documentation that helps agents understand how to use Hive's APIs.
-
 ## Next Steps
 
-- **[Configuration](/getting-started/configuration/)** — Understand all the environment variables
-- **[Wake API](/features/wake/)** — Learn how agents get their action queue
-- **[Messaging](/features/messaging/)** — Set up inbox-based communication
-- **[Swarm](/features/swarm/)** — Start tracking tasks
+- **[Configuration](/getting-started/configuration/)** — All environment variables explained
+- **[Wake API](/features/wake/)** — How agents receive their action queue
+- **[Messaging](/features/messaging/)** — Inbox-based communication
+- **[Swarm](/features/swarm/)** — Task tracking
 
 ## Troubleshooting
 
@@ -158,15 +203,19 @@ PGPASSWORD=your_password
 PGDATABASE_TEAM=hive
 ```
 
-Make sure PostgreSQL is running and the database exists.
-
-### Migrations fail
-
-Ensure your database user has permissions to create tables:
+Make sure PostgreSQL is running and the database exists. Ensure your user has permission to create tables:
 
 ```sql
 GRANT ALL ON DATABASE hive TO your_user;
 ```
+
+### Can't log in
+
+Make sure `SUPERUSER_TOKEN` in your `.env` matches exactly what you're entering in the UI. There are no default credentials — you set the token. Check that you haven't left it as `change-me-to-a-long-random-secret`.
+
+### Migrations didn't run
+
+Check `/api/doctor` for diagnostics. If the `_hive_migrations` tracking table is empty but tables exist, it may indicate migrations ran via `db:push` without being tracked — see the [migrations reference](/reference/migrations/).
 
 ---
 

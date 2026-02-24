@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody(event);
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   if (!body?.title || !body?.cronExpr) {
     return new Response(
       JSON.stringify({ error: "title and cronExpr are required" }),

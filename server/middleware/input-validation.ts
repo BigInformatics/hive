@@ -1,8 +1,5 @@
 import { createError, defineEventHandler, getMethod, getRequestPath } from "h3";
 
-const _MAX_TITLE = 255;
-const _MAX_BODY = 10_000;
-const _MAX_CONTENT = 100_000; // notebook pages can be longer
 const MAX_JSON_SIZE = 50_000; // 50KB general limit
 
 export default defineEventHandler(async (event) => {

@@ -17,14 +17,9 @@ services:
       - PGUSER=${PGUSER}
       - PGPASSWORD=${PGPASSWORD}
       - PGDATABASE_TEAM=${PGDATABASE_TEAM}
-      - MAILBOX_TOKEN_DOMINGO=${MAILBOX_TOKEN_DOMINGO}
-      - MAILBOX_TOKEN_CLIO=${MAILBOX_TOKEN_CLIO}
-      - MAILBOX_TOKEN_ZUMIE=${MAILBOX_TOKEN_ZUMIE}
-      - MAILBOX_TOKEN_CHRIS=${MAILBOX_TOKEN_CHRIS}
-      - MAILBOX_ADMIN_TOKEN=${MAILBOX_ADMIN_TOKEN}
-      - UI_MAILBOX_KEYS=${UI_MAILBOX_KEYS:-}
-      - WEBHOOK_DOMINGO_URL=${WEBHOOK_DOMINGO_URL:-}
-      - WEBHOOK_DOMINGO_TOKEN=${WEBHOOK_DOMINGO_TOKEN:-}
+      - SUPERUSER_TOKEN=${SUPERUSER_TOKEN}
+      - SUPERUSER_NAME=${SUPERUSER_NAME}
+      - SUPERUSER_DISPLAY_NAME=${SUPERUSER_DISPLAY_NAME:-}
       - HIVE_BASE_URL=${HIVE_BASE_URL:-http://localhost:3000}
       - ONEDEV_URL=${ONEDEV_URL:-}
     networks:
@@ -33,18 +28,12 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
       - "traefik.http.services.hive.loadbalancer.server.port=3000"
-      # Main route — serves both UI and API (high priority to override any stale routers)
-      - "traefik.http.routers.hive-route.rule=Host(`messages.biginformatics.net`)"
+      # Main route — set HIVE_HOSTNAME in your environment (e.g. messages.example.com)
+      - "traefik.http.routers.hive-route.rule=Host(`${HIVE_HOSTNAME:-messages.biginformatics.net}`)"
       - "traefik.http.routers.hive-route.entrypoints=websecure"
-      - "traefik.http.routers.hive-route.tls.certresolver=step-ca"
+      - "traefik.http.routers.hive-route.tls.certresolver=${HIVE_TLS_CERTRESOLVER:-step-ca}"
       - "traefik.http.routers.hive-route.service=hive"
       - "traefik.http.routers.hive-route.priority=200"
-      # Legacy c2 route
-      - "traefik.http.routers.hive-c2.rule=Host(`c2.biginformatics.net`)"
-      - "traefik.http.routers.hive-c2.entrypoints=websecure"
-      - "traefik.http.routers.hive-c2.tls.certresolver=step-ca"
-      - "traefik.http.routers.hive-c2.service=hive"
-      - "traefik.http.routers.hive-c2.priority=200"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s

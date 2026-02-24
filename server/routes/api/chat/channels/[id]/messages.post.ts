@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody(event);
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   if (!body?.body?.trim()) {
     return new Response(JSON.stringify({ error: "body required" }), {
       status: 400,
@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
         id: message.id,
         sender: message.sender,
         body: message.body,
-        createdAt: message.createdAt,
+        createdAt: message.createdAt.toISOString(),
       },
     });
 

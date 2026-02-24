@@ -46,6 +46,7 @@ export const Route = createFileRoute("/admin")({
 });
 
 interface SystemStats {
+  totalUsers: number;
   presence: Record<
     string,
     { online: boolean; lastSeen: string | null; unread: number }
@@ -89,12 +90,16 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const [presence, webhooks, projects, tasks] = await Promise.all([
-        api.getPresence(),
-        api.listWebhooks().catch(() => ({ webhooks: [] })),
-        api.listProjects().catch(() => ({ projects: [] })),
-        api.listTasks({ includeCompleted: true }).catch(() => ({ tasks: [] })),
-      ]);
+      const [presence, webhooks, projects, tasks, usersResp] =
+        await Promise.all([
+          api.getPresence(),
+          api.listWebhooks().catch(() => ({ webhooks: [] })),
+          api.listProjects().catch(() => ({ projects: [] })),
+          api.listTasks({ includeCompleted: true }).catch(() => ({
+            tasks: [],
+          })),
+          api.getUsers().catch(() => ({ users: [] })),
+        ]);
 
       // Count tasks by status
       const taskCounts: Record<string, number> = {};
@@ -103,6 +108,7 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
       }
 
       setStats({
+        totalUsers: (usersResp.users || []).length,
         presence,
         webhooks: webhooks.webhooks || [],
         projects: projects.projects || [],
@@ -148,7 +154,7 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
           <StatCard
             icon={<Users className="h-4 w-4 text-green-500" />}
             label="Online"
-            value={`${onlineCount} / 4`}
+            value={`${onlineCount} / ${stats ? stats.totalUsers : "?"}`}
           />
           <StatCard
             icon={<MessageSquare className="h-4 w-4 text-sky-500" />}
@@ -166,7 +172,11 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
             label="Active Tasks"
             value={
               stats
-                ? (totalTasks - (stats.taskCounts.complete || 0)).toString()
+                ? (
+                    totalTasks -
+                    (stats.taskCounts.complete || 0) -
+                    (stats.taskCounts.closed || 0)
+                  ).toString()
                 : "—"
             }
           />
@@ -176,6 +186,28 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
             value={stats?.webhooks.length.toString() || "—"}
           />
         </div>
+
+        {/* Getting Started banner — shown on fresh installs with only 1 user */}
+        {stats && stats.totalUsers <= 1 && (
+          <div className="mx-4 mb-4 rounded-lg border border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950 p-4">
+            <p className="text-sm font-medium text-sky-900 dark:text-sky-100 mb-1">
+              👋 Welcome to Hive — you're the only user so far
+            </p>
+            <p className="text-xs text-sky-700 dark:text-sky-300">
+              To add agents or teammates, go to the <strong>Invites</strong> tab
+              below and create an invite code. Share the invite URL with each
+              agent or person — they'll register at{" "}
+              <code className="font-mono bg-sky-100 dark:bg-sky-900 px-1 rounded">
+                /onboard?code=…
+              </code>
+              . Agents should then add their token to{" "}
+              <code className="font-mono bg-sky-100 dark:bg-sky-900 px-1 rounded">
+                HIVE_TOKEN
+              </code>{" "}
+              in their environment.
+            </p>
+          </div>
+        )}
 
         <Tabs defaultValue="presence" className="px-4 pb-4">
           <TabsList className="w-full justify-start overflow-x-auto no-scrollbar">
@@ -343,7 +375,7 @@ function PresencePanel({
           const connInfo = CONNECTION_LABELS[conn] || CONNECTION_LABELS.none;
           const swarmTotal = stats
             ? Object.entries(stats.swarm)
-                .filter(([s]) => s !== "complete")
+                .filter(([s]) => s !== "complete" && s !== "closed")
                 .reduce((sum, [, c]) => sum + c, 0)
             : 0;
 
@@ -394,18 +426,21 @@ function PresencePanel({
                         >
                           {info.online ? "Online" : "Offline"}
                         </Badge>
-                        <span
-                          className={`text-[10px] font-medium ${connInfo.color}`}
-                        >
-                          {connInfo.label}
-                        </span>
+                        {conn !== "none" && (
+                          <span
+                            className={`text-[10px] font-medium ${connInfo.color}`}
+                            title="How this agent receives real-time notifications"
+                          >
+                            {connInfo.label}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {info.online
-                          ? `Online via ${stats?.presence?.source || "unknown"}`
+                          ? "Active now"
                           : info.lastSeen
                             ? `Last seen: ${new Date(info.lastSeen).toLocaleString()}`
-                            : "Never seen"}
+                            : "Not yet active"}
                       </p>
                     </div>
                   </div>
@@ -414,6 +449,7 @@ function PresencePanel({
                     size="sm"
                     className="text-xs h-7 gap-1 shrink-0"
                     onClick={() => openWake(name)}
+                    title="View this agent's action queue — unread messages, assigned tasks, and pending follow-ups"
                   >
                     <Activity className="h-3 w-3" /> Wake
                   </Button>
@@ -454,7 +490,9 @@ function PresencePanel({
                           <span className="ml-1">
                             (
                             {Object.entries(stats.swarm)
-                              .filter(([s]) => s !== "complete")
+                              .filter(
+                                ([s]) => s !== "complete" && s !== "closed",
+                              )
                               .map(([s, c]) => `${c} ${s.replace("_", " ")}`)
                               .join(", ")}
                             )
@@ -577,6 +615,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   holding: { label: "Holding", color: "text-amber-500" },
   review: { label: "Review", color: "text-purple-500" },
   complete: { label: "Complete", color: "text-green-500" },
+  closed: { label: "Closed", color: "text-muted-foreground" },
 };
 
 function TasksPanel({
@@ -593,6 +632,7 @@ function TasksPanel({
     "holding",
     "review",
     "complete",
+    "closed",
   ];
 
   return (
@@ -681,7 +721,7 @@ function WebhooksPanel({
   };
 
   const copyUrl = (wh: (typeof webhooks)[0]) => {
-    const url = `https://messages.biginformatics.net/api/ingest/${wh.appName}/${wh.token}`;
+    const url = `${window.location.origin}/api/ingest/${wh.appName}/${wh.token}`;
     navigator.clipboard.writeText(url);
     setCopied(wh.id);
     setTimeout(() => setCopied(null), 2000);
@@ -1566,15 +1606,16 @@ function AuthPanel() {
   };
 
   const copyCode = (id: number, code: string) => {
-    const url = `https://messages.biginformatics.net/onboard?code=${code}`;
+    const url = `${window.location.origin}/onboard?code=${code}`;
     navigator.clipboard.writeText(url);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   const [detailCopiedId, setDetailCopiedId] = useState<number | null>(null);
-  const copyDetail = (id: number, code: string, identity?: string) => {
-    const onboardUrl = `https://messages.biginformatics.net/onboard?code=${code}`;
+  const copyDetail = (id: number, code: string, identity?: string | null) => {
+    const base = window.location.origin;
+    const onboardUrl = `${base}/onboard?code=${code}`;
     const detail = `🐝 **Hive Onboarding**
 
 You've been invited to join Hive — the team's internal coordination platform.
@@ -1584,16 +1625,16 @@ Visit: ${onboardUrl}
 ${identity ? `Your identity will be: ${identity}` : "Choose your identity during registration."}
 
 **Step 2: Read the onboarding skill**
-\`curl -fsS https://messages.biginformatics.net/api/skill/onboarding\`
+\`curl -fsS ${base}/api/skill/onboarding\`
 
 This covers everything: auth, presence, inbox, chat, Swarm tasks, broadcasts, and monitoring setup.
 
 **Step 3: Set up real-time notifications**
 Register a webhook for instant message delivery (recommended):
-\`curl -fsS https://messages.biginformatics.net/api/skill/onboarding\` → Section 4, Option B
+\`curl -fsS ${base}/api/skill/onboarding\` → Section 4, Option B
 
 **Skill directory** (all available after auth):
-\`https://messages.biginformatics.net/api/skill\``;
+\`${base}/api/skill\``;
     navigator.clipboard.writeText(detail);
     setDetailCopiedId(id);
     setTimeout(() => setDetailCopiedId(null), 2000);

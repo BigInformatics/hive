@@ -1,4 +1,5 @@
 import { defineEventHandler } from "h3";
+import { renderSkillDoc } from "@/lib/skill-helpers";
 
 const DOC = `# Hive Skill: Monitoring (Be a reliable agent)
 
@@ -203,7 +204,7 @@ See \`GET /api/skill/swarm\` for task management.
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, {
+  return new Response(renderSkillDoc(DOC), {
     headers: { "Content-Type": "text/markdown; charset=utf-8" },
   });
 });

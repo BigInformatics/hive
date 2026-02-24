@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
 
   // Archived pages: only owner/admin can unarchive, no other edits allowed
   if (page.archivedAt) {
-    const body = await readBody(event);
+    const body = (await readBody<Record<string, any>>(event)) ?? {};
     if (body?.archived === false && isOwnerOrAdmin) {
       const [restored] = await db
         .update(notebookPages)
@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody(event);
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   const { title, content, taggedUsers, tags, locked, expiresAt, reviewAt } =
     body ?? {};
 

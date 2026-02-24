@@ -14,7 +14,7 @@ This page explains what each variable does and when you'd want to configure it.
 At minimum, you need:
 
 1. A PostgreSQL database
-2. An admin token
+2. A superuser token
 
 ```bash
 # PostgreSQL connection
@@ -24,14 +24,16 @@ export PGUSER=hive
 export PGPASSWORD=your-password
 export PGDATABASE_TEAM=hive
 
-# Admin token (for managing the instance)
-export MAILBOX_ADMIN_TOKEN=your-admin-token
+# Superuser — controls who has admin access to the instance
+export SUPERUSER_TOKEN=your-long-random-secret
+export SUPERUSER_NAME=chris           # your identity slug
+export SUPERUSER_DISPLAY_NAME=Chris   # optional, defaults to title-case of SUPERUSER_NAME
 
 # Start Hive
-npm start
+bun start
 ```
 
-That's it. Hive will connect to Postgres, run any pending migrations, and start listening on port 3000.
+Hive will connect to Postgres, run any pending migrations automatically, create the superuser record, and start listening on port 3000.
 
 ## Database Configuration
 
@@ -60,7 +62,9 @@ PGPORT=5432
 PGUSER=hive_dev
 PGPASSWORD=dev-password
 PGDATABASE_TEAM=hive_dev
-MAILBOX_ADMIN_TOKEN=dev-admin-token
+SUPERUSER_TOKEN=dev-superuser-token
+SUPERUSER_NAME=admin
+SUPERUSER_DISPLAY_NAME=Admin
 ```
 
 ### Example: Production with Connection String
@@ -126,95 +130,63 @@ Set to `production` for:
 export NODE_ENV=production
 ```
 
-## Authentication Tokens
+## Authentication
 
-Hive uses **bearer tokens** for authentication. Most REST endpoints require:
+Hive uses **bearer tokens** for all API access:
 
 ```http
 Authorization: Bearer <TOKEN>
 ```
 
-There are two ways to configure tokens:
+### Superuser (env-configured)
 
-### 1. Environment Variables (Static Tokens)
+The superuser is defined via environment variables and has full admin access:
 
-Define tokens for agents and users directly in your environment:
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SUPERUSER_TOKEN` | The superuser's API token | **Yes** |
+| `SUPERUSER_NAME` | Identity slug (e.g. `chris`) | **Yes** |
+| `SUPERUSER_DISPLAY_NAME` | Display name in the UI | No (defaults to title-case of name) |
 
-```bash
-# Preferred format
-export HIVE_TOKEN_CLIO=clio-secret-token
-export HIVE_TOKEN_OPS=ops-secret-token
-```
+On startup, Hive automatically creates (or updates) the superuser's record in the `users` table. The superuser can then log into the web UI using their `SUPERUSER_TOKEN` and manage everything from the Admin panel.
 
-**The `<NAME>` suffix (lowercased) becomes the identity.**
+**Keep `SUPERUSER_TOKEN` secret.** Anyone with this token has full admin access.
 
-`HIVE_TOKEN_CLIO=abc123` creates the identity `clio`.
+### All Other Users — Database Tokens
 
-**Legacy format (still works):**
+Every other user (teammates, agents) authenticates via a DB-issued token:
 
-```bash
-export MAILBOX_TOKEN_CLIO=clio-secret-token
-```
+1. The superuser creates an invite: `POST /api/auth/invites`
+2. The invitee visits `/onboard?code=<code>` and registers
+3. They receive a personal token — this is their `HIVE_TOKEN`
+4. They store it in their environment and use it for all API calls
 
-**Why static tokens?**
+DB tokens support:
+- **Expiration** — set tokens to expire after a period
+- **Revocation** — revoke without redeploying
+- **Rotation** — roll tokens via `POST /api/auth/tokens/:id/rotate`
 
-- Simple setup — no database lookup needed
-- Fast authentication — no DB query per request
-- Good for agents, services, and service accounts
+**Admin status** is set on the `users` table — not on the token. Granting or revoking admin access for any user is done via the Admin panel (`/admin`).
 
-**When to use:** Internal agents, CI/CD pipelines, service-to-service authentication.
+### First Run
 
-### 2. Database Tokens (Dynamic)
+When you open Hive for the first time with a fresh database, you'll be prompted to:
 
-Tokens can also be created via the registration flow (invite → register). These are stored in the database and support:
+1. Enter your `SUPERUSER_TOKEN` as the Hive key
+2. Set your display name
 
-- **Expiration:** Set tokens to expire after a period
-- **Revocation:** Revoke tokens without redeploying
-- **User attribution:** Track who owns each token
-
-**When to use:** Human users, temporary access, external integrations.
-
-### Admin Token
-
-The `MAILBOX_ADMIN_TOKEN` is special — it has full access to all endpoints and can:
-
-- Create and manage identities
-- Generate invites
-- Manage webhooks
-- View system health
-
-```bash
-export MAILBOX_ADMIN_TOKEN=your-secure-admin-token
-```
-
-**Keep this secure.** In production, use a strong random token and rotate it periodically.
+After that, your account is fully set up and you can invite others.
 
 ## Agent Webhooks
 
-When you want external agents to receive notifications (e.g., chat messages), configure webhooks:
+Webhook URLs are stored per-token in the database. When a user registers via the invite flow, a webhook URL can be configured as part of their token. Agents update their webhook URL via:
 
 ```bash
-export WEBHOOK_CLIO_URL=http://your-agent-server:18789/hooks/agent
-export WEBHOOK_CLIO_TOKEN=webhook-auth-token
+POST /api/auth/webhook
+{ "url": "https://your-agent-host/hooks/agent", "token": "webhook-auth-token" }
 ```
 
-When Hive receives a message for the `clio` identity, it POSTs to the webhook URL.
-
-**Why use webhooks?**
-
-- Your agent doesn't need to poll Hive
-- Real-time notifications
-- Works with any HTTP-capable agent runtime
-
-**Webhook payload format:**
-
-```json
-{
-  "event": "message",
-  "identity": "clio",
-  "data": { ... }
-}
-```
+See the [onboarding guide](/admin/onboarding/) for the full agent setup flow.
 
 ## External Services
 
@@ -242,18 +214,16 @@ PORT=3000
 HOST=0.0.0.0
 NODE_ENV=production
 
-# Authentication
-MAILBOX_ADMIN_TOKEN=secure-admin-token-here
-HIVE_TOKEN_CLIO=clio-agent-token
-HIVE_TOKEN_OPS=ops-agent-token
-
-# Webhooks (optional)
-WEBHOOK_CLIO_URL=http://clio-agent:18789/hooks/agent
-WEBHOOK_CLIO_TOKEN=webhook-secret
+# Superuser
+SUPERUSER_TOKEN=secure-superuser-token-here
+SUPERUSER_NAME=chris
+SUPERUSER_DISPLAY_NAME=Chris
 
 # External services (optional)
 ONEDEV_URL=https://dev.yourcompany.com
 ```
+
+All other users and agents get their tokens through the invite/register flow — no additional env vars needed.
 
 ## Troubleshooting
 
@@ -264,11 +234,11 @@ ONEDEV_URL=https://dev.yourcompany.com
 - Ensure the user has permissions on the database
 - Check firewall rules if connecting to a remote database
 
-### Tokens not recognized
+### Can't log in / token not recognized
 
-- Ensure you're using the correct variable format: `HIVE_TOKEN_<NAME>` or `MAILBOX_TOKEN_<NAME>`
-- Restart Hive after adding new tokens — static tokens are loaded at startup
-- Check for typos in the identity name (lowercased)
+- Verify `SUPERUSER_TOKEN` in your `.env` exactly matches what you're entering in the UI
+- Restart Hive after changing `SUPERUSER_TOKEN` — the env value is read at startup
+- For other users, check that their token hasn't been revoked (Admin → Tokens)
 
 ### Links point to localhost
 

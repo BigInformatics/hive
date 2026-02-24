@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql as rawSql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   broadcastEvents,
@@ -8,6 +8,7 @@ import {
   swarmProjects,
   swarmTasks,
 } from "@/db/schema";
+import { getBaseUrl } from "./base-url";
 import { getPresence } from "./presence";
 
 // ============================================================
@@ -15,7 +16,7 @@ import { getPresence } from "./presence";
 // ============================================================
 
 export interface WakeItem {
-  source: "message" | "message_pending" | "swarm" | "buzz" | "backup";
+  source: "message" | "message_pending" | "swarm" | "buzz" | "backup" | "chat";
   id: string | number;
   summary: string;
   action: string;
@@ -29,6 +30,9 @@ export interface WakeItem {
   projectId?: string | null;
   targetAgent?: string;
   staleSince?: string;
+  channelId?: string;
+  channelType?: string;
+  channelName?: string | null;
 }
 
 export interface WakeAction {
@@ -161,7 +165,72 @@ export async function getWakeItems(
     };
   });
 
-  // --- 3. Swarm tasks (ready, in_progress, review) ---
+  // --- 3. Chat channels with activity ---
+  const chatRows = await db.execute(rawSql`
+    SELECT
+      cm.channel_id,
+      cm.last_read_at,
+      c.type AS channel_type,
+      c.name AS channel_name,
+      (
+        SELECT json_agg(
+          json_build_object('sender', m.sender, 'body', left(m.body, 120), 'created_at', m.created_at)
+          ORDER BY m.created_at
+        )
+        FROM chat_messages m
+        WHERE m.channel_id = cm.channel_id
+          AND m.deleted_at IS NULL
+          AND m.sender != ${identity}
+          AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
+      ) AS new_messages
+    FROM chat_members cm
+    JOIN chat_channels c ON c.id = cm.channel_id
+    WHERE cm.identity = ${identity}
+      AND cm.has_activity = true
+  `);
+
+  type ChatRow = {
+    channel_id: string;
+    last_read_at: string | null;
+    channel_type: string;
+    channel_name: string | null;
+    new_messages: Array<{
+      sender: string;
+      body: string;
+      created_at: string;
+    }> | null;
+  };
+
+  const chatItems: WakeItem[] = (chatRows as unknown as ChatRow[])
+    .filter((r) => r.new_messages && r.new_messages.length > 0)
+    .map((r) => {
+      const msgs = r.new_messages!;
+      const senders = [...new Set(msgs.map((m) => m.sender))];
+      const oldest = new Date(msgs[0].created_at);
+      const channelLabel =
+        r.channel_type === "dm"
+          ? `DM with ${senders[0]}`
+          : r.channel_name || "group chat";
+      const preview =
+        msgs.length === 1
+          ? `${msgs[0].sender}: "${msgs[0].body.slice(0, 80)}"`
+          : `${msgs.length} messages from ${senders.join(", ")}`;
+
+      return {
+        source: "chat" as const,
+        id: r.channel_id,
+        channelId: r.channel_id,
+        channelType: r.channel_type,
+        channelName: r.channel_name,
+        summary: `${channelLabel} — ${preview}`,
+        action: `Read and respond to new chat messages in this channel. Call GET /api/chat/channels/${r.channel_id}/messages to fetch them (this also marks the channel read).`,
+        priority: "normal" as const,
+        age: formatAge(now.getTime() - oldest.getTime()),
+        ephemeral: false,
+      };
+    });
+
+  // --- 4. Swarm tasks (ready, in_progress, review) ---
   const wakeStatuses = ["ready", "in_progress", "review"];
   const tasks = await db
     .select()
@@ -321,6 +390,7 @@ export async function getWakeItems(
   const items: WakeItem[] = [
     ...messageItems,
     ...pendingItems,
+    ...chatItems,
     ...taskItems,
     ...buzzWakeItems,
     ...buzzNotifyItems,
@@ -338,6 +408,10 @@ export async function getWakeItems(
     if (pendingItems.length)
       counts.push(
         `${pendingItems.length} pending follow-up${pendingItems.length > 1 ? "s" : ""}`,
+      );
+    if (chatItems.length)
+      counts.push(
+        `${chatItems.length} chat channel${chatItems.length > 1 ? "s" : ""} with new messages`,
       );
     if (taskItems.length)
       counts.push(
@@ -359,7 +433,6 @@ export async function getWakeItems(
   }
 
   // --- Build per-source actions ---
-  const { getBaseUrl } = await import("./base-url");
   const SKILL_BASE = `${getBaseUrl()}/api/skill`;
   const ACTION_MAP: Record<
     string,
@@ -382,6 +455,12 @@ export async function getWakeItems(
       action:
         "You have active assigned tasks in swarm. Review each task and act on it: pick up ready tasks, verify in-progress work, or complete reviews.",
       skill_url: `${SKILL_BASE}/swarm`,
+    },
+    chat: {
+      item: "chat",
+      action:
+        "You have unread chat messages. Fetch each channel's messages via GET /api/chat/channels/{channelId}/messages and reply. Fetching automatically marks the channel read.",
+      skill_url: `${SKILL_BASE}/chat`,
     },
     buzz: {
       item: "buzz",
@@ -407,7 +486,7 @@ export async function getWakeItems(
   return {
     instructions:
       "When reading the actions within this document, you can use the skill_url to learn how to respond to the action.",
-    skill_url: `${getBaseUrl()}/api/skill`,
+    skill_url: SKILL_BASE,
     items,
     actions,
     summary,

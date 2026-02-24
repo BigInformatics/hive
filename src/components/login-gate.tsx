@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { setMailboxKey } from "@/lib/api";
 
 export function LoginGate({ onLogin }: { onLogin: () => void }) {
   const [key, setKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,7 +33,7 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
       }
       onLogin();
     } catch {
-      setError("Invalid mailbox key");
+      setError("Invalid key — check your SUPERUSER_TOKEN or personal token");
     } finally {
       setLoading(false);
     }
@@ -54,18 +56,49 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            Enter your mailbox key to continue
+            Enter your Hive key to continue
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Mailbox key"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              autoFocus
-            />
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Input
+                  type={showKey ? "text" : "password"}
+                  placeholder="Hive key"
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  autoFocus
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                  aria-label={showKey ? "Hide key" : "Show key"}
+                >
+                  {showKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                First time? Use the{" "}
+                <code className="font-mono bg-muted px-1 rounded">
+                  SUPERUSER_TOKEN
+                </code>{" "}
+                from your{" "}
+                <code className="font-mono bg-muted px-1 rounded">.env</code>{" "}
+                file. Agents use their personal token from{" "}
+                <code className="font-mono bg-muted px-1 rounded">
+                  HIVE_TOKEN
+                </code>
+                .
+              </p>
+            </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Checking..." : "Enter Hive"}

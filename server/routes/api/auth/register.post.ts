@@ -6,7 +6,7 @@ import { invites, mailboxTokens, users } from "@/db/schema";
 import { clearAuthCache, registerMailbox } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
 
   if (!body?.code || !body?.identity) {
     return new Response(
@@ -72,7 +72,6 @@ export default defineEventHandler(async (event) => {
     .values({
       token,
       identity,
-      isAdmin: invite.isAdmin,
       label,
       createdBy: invite.createdBy,
       webhookToken: token,
@@ -103,7 +102,7 @@ export default defineEventHandler(async (event) => {
   return {
     identity: tokenRow.identity,
     token: tokenRow.token,
-    isAdmin: tokenRow.isAdmin,
+    isAdmin: invite.isAdmin,
     message: `Welcome to Hive, ${identity}! Save your token — it won't be shown again. Use the same token for both API auth (Authorization: Bearer <token>) and gateway webhook config (hooks.token).`,
   };
 });

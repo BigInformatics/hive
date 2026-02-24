@@ -198,7 +198,7 @@ function PageList({ onSelect }: { onSelect: (id: string) => void }) {
   return (
     <div className="min-h-[100dvh] bg-background pb-14 md:pb-0">
       <Nav onLogout={() => window.location.reload()} />
-      <main className="container max-w-2xl mx-auto px-4 py-6">
+      <main className="w-[90vw] max-w-[90vw] mx-auto px-4 py-6">
         <div className="flex items-center gap-2 mb-5">
           <BookOpen className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-lg font-semibold">Notebook</h1>
@@ -397,9 +397,9 @@ function PageEditor({
   const [mode, setMode] = useState<"source" | "preview">("preview");
   const [saving, _setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [identity, setIdentity] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [viewers, setViewers] = useState<string[]>([]);
   const [copied, setCopied] = useState<"idle" | "url" | "content">("idle");
-  const _saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
   const authToken = getMailboxKey();
 
@@ -411,7 +411,10 @@ function PageEditor({
         headers: { Authorization: `Bearer ${authToken}` },
       })
         .then((r) => r.json())
-        .then((d) => setIdentity(d.identity))
+        .then((d) => {
+          setIdentity(d.identity);
+          setIsAdmin(d.isAdmin ?? false);
+        })
         .catch(() => {});
     }
   }, [authToken]);
@@ -518,9 +521,7 @@ function PageEditor({
     }
   };
 
-  const isOwnerOrAdmin = page
-    ? identity === page.createdBy || identity === "chris"
-    : false;
+  const isOwnerOrAdmin = page ? identity === page.createdBy || isAdmin : false;
   const isLocked = !!page?.locked;
   const isArchived = !!page?.archivedAt;
 
@@ -528,7 +529,7 @@ function PageEditor({
     return (
       <div className="min-h-[100dvh] bg-background pb-14 md:pb-0">
         <Nav onLogout={() => window.location.reload()} />
-        <main className="container max-w-3xl mx-auto px-4 py-6">
+        <main className="w-[90vw] max-w-[90vw] mx-auto px-4 py-6">
           <p className="text-center text-muted-foreground py-16">Loading…</p>
         </main>
       </div>
@@ -539,7 +540,7 @@ function PageEditor({
     return (
       <div className="min-h-[100dvh] bg-background pb-14 md:pb-0">
         <Nav onLogout={() => window.location.reload()} />
-        <main className="container max-w-3xl mx-auto px-4 py-6">
+        <main className="w-[90vw] max-w-[90vw] mx-auto px-4 py-6">
           <Button variant="ghost" size="sm" onClick={onBack} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
@@ -558,7 +559,7 @@ function PageEditor({
   return (
     <div className="min-h-[100dvh] bg-background pb-14 md:pb-0">
       <Nav onLogout={() => window.location.reload()} />
-      <main className="container max-w-3xl mx-auto px-4 py-6">
+      <main className="w-[90vw] max-w-[90vw] mx-auto px-4 py-6">
         {/* Top bar */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <Button variant="ghost" size="sm" onClick={onBack}>

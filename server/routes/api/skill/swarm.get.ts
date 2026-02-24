@@ -106,6 +106,9 @@ Common flow:
 
 Also:
 - \`holding\` (blocked/paused)
+- \`closed\` (won't complete — task is no longer relevant; preserved for historical record)
+
+Note: \`complete\` = done. \`closed\` = intentionally not done. Both are hidden from default task lists; pass \`includeCompleted=true\` to include them.
 
 ---
 

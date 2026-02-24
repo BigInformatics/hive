@@ -135,8 +135,9 @@ export default defineEventHandler(async (event) => {
         event.node.req.on("close", cleanup);
       }
       // Also use AbortSignal if available (Bun)
-      if (event.node?.req?.signal) {
-        (event.node.req as any).signal.addEventListener("abort", cleanup);
+      const nodeReq = event.node?.req as any;
+      if (nodeReq?.signal) {
+        nodeReq.signal.addEventListener("abort", cleanup);
       }
     },
   });

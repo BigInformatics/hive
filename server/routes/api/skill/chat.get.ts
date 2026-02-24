@@ -1,4 +1,5 @@
 import { defineEventHandler } from "h3";
+import { renderSkillDoc } from "@/lib/skill-helpers";
 
 const DOC = `# Hive Skill: Chat
 
@@ -267,7 +268,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \\
 `;
 
 export default defineEventHandler(() => {
-  return new Response(DOC, {
+  return new Response(renderSkillDoc(DOC), {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 });
