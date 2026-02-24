@@ -37,6 +37,41 @@ async function loadUsersFromDb() {
 }
 
 /**
+ * Backfill missing users rows from active mailbox tokens.
+ * Important for upgrades: tokens may exist from before the users table was introduced.
+ */
+async function backfillUsersFromTokens() {
+  try {
+    const tokenIdentities = await db
+      .selectDistinct({ identity: mailboxTokens.identity })
+      .from(mailboxTokens)
+      .where(isNull(mailboxTokens.revokedAt));
+
+    if (tokenIdentities.length === 0) return;
+
+    await db
+      .insert(users)
+      .values(
+        tokenIdentities.map((t) => ({
+          id: t.identity,
+          displayName: t.identity,
+          isAdmin: false,
+          isAgent: true,
+        })),
+      )
+      .onConflictDoNothing();
+
+    for (const t of tokenIdentities) validMailboxes.add(t.identity);
+
+    console.log(
+      `[auth] Backfilled users from tokens (checked ${tokenIdentities.length})`,
+    );
+  } catch (err) {
+    console.error("[auth] Failed to backfill users from tokens:", err);
+  }
+}
+
+/**
  * Ensure the superuser's users row exists and is marked as admin.
  * Called at startup when SUPERUSER_NAME is configured.
  */
@@ -115,6 +150,69 @@ async function authenticateFromDb(token: string): Promise<AuthContext | null> {
       .limit(1);
 
     if (!row) {
+      // Upgrade safety: token may exist from before the users table was populated.
+      // Try to backfill a users row for this token's identity and retry once.
+      const [tokenRow] = await db
+        .select({ identity: mailboxTokens.identity, id: mailboxTokens.id })
+        .from(mailboxTokens)
+        .where(
+          and(
+            eq(mailboxTokens.token, token),
+            isNull(mailboxTokens.revokedAt),
+            or(
+              isNull(mailboxTokens.expiresAt),
+              gt(mailboxTokens.expiresAt, new Date()),
+            ),
+          ),
+        )
+        .limit(1);
+
+      if (tokenRow) {
+        await db
+          .insert(users)
+          .values({
+            id: tokenRow.identity,
+            displayName: tokenRow.identity,
+            isAdmin: false,
+            isAgent: true,
+          })
+          .onConflictDoNothing();
+
+        // Retry the original join query once
+        const [retryRow] = await db
+          .select({
+            id: mailboxTokens.id,
+            identity: mailboxTokens.identity,
+            expiresAt: mailboxTokens.expiresAt,
+            isAdmin: users.isAdmin,
+          })
+          .from(mailboxTokens)
+          .innerJoin(users, eq(mailboxTokens.identity, users.id))
+          .where(
+            and(
+              eq(mailboxTokens.token, token),
+              isNull(mailboxTokens.revokedAt),
+              isNull(users.archivedAt),
+              or(
+                isNull(mailboxTokens.expiresAt),
+                gt(mailboxTokens.expiresAt, new Date()),
+              ),
+            ),
+          )
+          .limit(1);
+
+        if (retryRow) {
+          validMailboxes.add(retryRow.identity);
+          const ctx: AuthContext = {
+            identity: retryRow.identity,
+            isAdmin: retryRow.isAdmin,
+            source: "db",
+          };
+          dbCache.set(token, { ctx, expires: Date.now() + DB_CACHE_TTL });
+          return ctx;
+        }
+      }
+
       dbCache.set(token, { ctx: null, expires: Date.now() + DB_CACHE_TTL });
       return null;
     }
@@ -202,6 +300,11 @@ export function initAuth() {
   // Load known users from DB into validMailboxes (fire-and-forget)
   loadUsersFromDb().catch((err) =>
     console.error("[auth] Failed to load users from DB:", err),
+  );
+
+  // Backfill missing users rows from mailbox tokens (upgrade safety)
+  backfillUsersFromTokens().catch((err) =>
+    console.error("[auth] Failed to backfill users from tokens:", err),
   );
 }
 

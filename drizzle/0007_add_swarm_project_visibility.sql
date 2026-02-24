@@ -3,5 +3,5 @@
 
 ALTER TABLE swarm_projects ADD COLUMN IF NOT EXISTS tagged_users jsonb;
 
--- GRANTs for Docker container user
-GRANT ALL ON swarm_projects TO team_user;
+-- NOTE: GRANTs are applied at runtime (see src/lib/migrate.ts) to avoid failing
+-- migrations on databases where the team_user role does not exist.

@@ -70,6 +70,19 @@ async function runMigrations() {
       ran++;
     }
 
+    // Apply optional grants for the Docker container role (if it exists)
+    // This avoids migrations failing in environments that don't have team_user.
+    try {
+      const role = await sql<{ exists: boolean }[]>`
+        SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = 'team_user') as exists
+      `;
+      if (role[0]?.exists) {
+        await sql.unsafe("GRANT ALL ON swarm_projects TO team_user");
+      }
+    } catch (err) {
+      console.warn("[migrate] Optional grants failed (non-fatal):", err);
+    }
+
     if (ran === 0) {
       console.log(
         `[migrate] Up to date (${files.length} migration(s) already applied)`,
