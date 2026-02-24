@@ -23,7 +23,7 @@ List pages (newest-updated first). Does NOT return content (for performance).
 
 | Param  | Default | Description |
 |--------|---------|-------------|
-| q      | —       | Keyword search (ILIKE on title + content) |
+| q      | —       | Keyword search (ILIKE on title + content). Prefer this server-side filter to reduce token usage and payload size. |
 | limit  | 50      | Max results (cap: 100) |
 | offset | 0       | Pagination offset |
 
