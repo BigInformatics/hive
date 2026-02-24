@@ -209,10 +209,11 @@ export function Nav({ onLogout }: { onLogout: () => void }) {
                     <Button
                       variant={isActive ? "default" : "ghost"}
                       size="sm"
-                      className="gap-1.5 relative"
+                      className="relative gap-0 lg:gap-1.5"
+                      aria-label={item.title}
                     >
                       <item.icon className="h-3.5 w-3.5" />
-                      {item.label}
+                      <span className="hidden lg:inline">{item.label}</span>
                       {item.to === "/" && unreadCount > 0 && (
                         <Badge
                           variant="destructive"
