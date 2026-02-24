@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql as rawSql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   broadcastEvents,
@@ -8,7 +8,6 @@ import {
   swarmProjects,
   swarmTasks,
 } from "@/db/schema";
-import { sql as rawSql } from "drizzle-orm";
 import { getBaseUrl } from "./base-url";
 import { getPresence } from "./presence";
 
@@ -195,7 +194,11 @@ export async function getWakeItems(
     last_read_at: string | null;
     channel_type: string;
     channel_name: string | null;
-    new_messages: Array<{ sender: string; body: string; created_at: string }> | null;
+    new_messages: Array<{
+      sender: string;
+      body: string;
+      created_at: string;
+    }> | null;
   };
 
   const chatItems: WakeItem[] = (chatRows as unknown as ChatRow[])
@@ -207,7 +210,7 @@ export async function getWakeItems(
       const channelLabel =
         r.channel_type === "dm"
           ? `DM with ${senders[0]}`
-          : (r.channel_name || "group chat");
+          : r.channel_name || "group chat";
       const preview =
         msgs.length === 1
           ? `${msgs[0].sender}: "${msgs[0].body.slice(0, 80)}"`

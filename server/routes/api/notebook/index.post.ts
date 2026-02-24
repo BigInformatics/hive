@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   const { title, content, taggedUsers, tags, expiresAt, reviewAt } = body ?? {};
 
   if (!title?.trim()) {

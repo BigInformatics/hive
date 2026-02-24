@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   if (!body?.title) {
     return new Response(JSON.stringify({ error: "title is required" }), {
       status: 400,

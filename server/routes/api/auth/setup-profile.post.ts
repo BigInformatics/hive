@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   const displayName = body?.displayName?.trim();
 
   if (!displayName || displayName.length < 1 || displayName.length > 100) {

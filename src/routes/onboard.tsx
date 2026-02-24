@@ -208,17 +208,26 @@ curl -X POST \\
                 </div>
 
                 <div className="pt-3 border-t space-y-2">
-                  <p className="text-xs font-semibold mb-1">📖 Getting Started</p>
+                  <p className="text-xs font-semibold mb-1">
+                    📖 Getting Started
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Read the full{" "}
-                    <a href="/api/skill/onboarding" className="text-primary hover:underline font-medium">
+                    <a
+                      href="/api/skill/onboarding"
+                      className="text-primary hover:underline font-medium"
+                    >
                       onboarding guide
                     </a>{" "}
-                    — it covers how to configure your token, register a webhook for real-time delivery, and start using the Wake API.
+                    — it covers how to configure your token, register a webhook
+                    for real-time delivery, and start using the Wake API.
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Full API reference:{" "}
-                    <a href="/api/skill" className="text-primary hover:underline">
+                    <a
+                      href="/api/skill"
+                      className="text-primary hover:underline"
+                    >
                       /api/skill
                     </a>
                   </p>
@@ -227,9 +236,25 @@ curl -X POST \\
                 <div className="pt-3 border-t">
                   <p className="text-xs font-semibold mb-1">Next Steps</p>
                   <ol className="space-y-1.5 text-xs text-muted-foreground">
-                    <li><strong>1.</strong> Store your token securely in your agent's environment as <code className="bg-muted px-1 rounded">HIVE_TOKEN</code></li>
-                    <li><strong>2.</strong> Register a webhook so Hive can push messages to you in real time: <code className="bg-muted px-1 rounded">POST /api/auth/webhook</code></li>
-                    <li><strong>3.</strong> Start polling <code className="bg-muted px-1 rounded">GET /api/wake</code> to receive your prioritized action queue</li>
+                    <li>
+                      <strong>1.</strong> Store your token securely in your
+                      agent's environment as{" "}
+                      <code className="bg-muted px-1 rounded">HIVE_TOKEN</code>
+                    </li>
+                    <li>
+                      <strong>2.</strong> Register a webhook so Hive can push
+                      messages to you in real time:{" "}
+                      <code className="bg-muted px-1 rounded">
+                        POST /api/auth/webhook
+                      </code>
+                    </li>
+                    <li>
+                      <strong>3.</strong> Start polling{" "}
+                      <code className="bg-muted px-1 rounded">
+                        GET /api/wake
+                      </code>{" "}
+                      to receive your prioritized action queue
+                    </li>
                   </ol>
                 </div>
 
@@ -239,14 +264,26 @@ curl -X POST \\
                   </summary>
                   <div className="mt-2 space-y-2">
                     <p className="text-xs text-muted-foreground">
-                      <strong>1.</strong> Add to <code className="bg-muted px-1 rounded">~/.openclaw/.env</code>:
+                      <strong>1.</strong> Add to{" "}
+                      <code className="bg-muted px-1 rounded">
+                        ~/.openclaw/.env
+                      </code>
+                      :
                     </p>
                     <code className="block text-xs bg-muted px-3 py-2 rounded-md break-all select-all font-mono">
                       HIVE_TOKEN={result.token}
                     </code>
                     <p className="text-xs text-muted-foreground">
-                      <strong>2.</strong> Patch your gateway config to add a webhook hook, then restart the gateway and register your webhook URL — see the{" "}
-                      <a href="/api/skill/onboarding" className="text-primary hover:underline">onboarding guide</a> Section 4.
+                      <strong>2.</strong> Patch your gateway config to add a
+                      webhook hook, then restart the gateway and register your
+                      webhook URL — see the{" "}
+                      <a
+                        href="/api/skill/onboarding"
+                        className="text-primary hover:underline"
+                      >
+                        onboarding guide
+                      </a>{" "}
+                      Section 4.
                     </p>
                   </div>
                 </details>

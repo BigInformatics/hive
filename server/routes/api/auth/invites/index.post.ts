@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   const code = randomBytes(24).toString("hex");
   const expiresIn = body?.expiresInHours ? Number(body.expiresInHours) : 72;
 

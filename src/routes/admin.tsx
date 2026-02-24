@@ -194,9 +194,17 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
               👋 Welcome to Hive — you're the only user so far
             </p>
             <p className="text-xs text-sky-700 dark:text-sky-300">
-              To add agents or teammates, go to the <strong>Invites</strong> tab below and create an invite code.
-              Share the invite URL with each agent or person — they'll register at <code className="font-mono bg-sky-100 dark:bg-sky-900 px-1 rounded">/onboard?code=…</code>.
-              Agents should then add their token to <code className="font-mono bg-sky-100 dark:bg-sky-900 px-1 rounded">HIVE_TOKEN</code> in their environment.
+              To add agents or teammates, go to the <strong>Invites</strong> tab
+              below and create an invite code. Share the invite URL with each
+              agent or person — they'll register at{" "}
+              <code className="font-mono bg-sky-100 dark:bg-sky-900 px-1 rounded">
+                /onboard?code=…
+              </code>
+              . Agents should then add their token to{" "}
+              <code className="font-mono bg-sky-100 dark:bg-sky-900 px-1 rounded">
+                HIVE_TOKEN
+              </code>{" "}
+              in their environment.
             </p>
           </div>
         )}

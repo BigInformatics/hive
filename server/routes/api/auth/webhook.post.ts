@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   const url = body?.url ?? null;
   const token = body?.token ?? null;
 

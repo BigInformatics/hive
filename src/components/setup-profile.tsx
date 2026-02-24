@@ -76,33 +76,51 @@ export function SetupProfile({
                 <span className="font-bold text-primary">1.</span>
                 <span>
                   <strong>Create invites</strong> for your agents and teammates
-                  — go to <strong>Admin → Auth</strong> and generate invite codes.
-                  Each person visits <code className="font-mono bg-muted px-1 rounded">/onboard?code=…</code> to register.
+                  — go to <strong>Admin → Auth</strong> and generate invite
+                  codes. Each person visits{" "}
+                  <code className="font-mono bg-muted px-1 rounded">
+                    /onboard?code=…
+                  </code>{" "}
+                  to register.
                 </span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-primary">2.</span>
                 <span>
-                  <strong>Set HIVE_BASE_URL</strong> in your <code className="font-mono bg-muted px-1 rounded">.env</code> to your
-                  public URL if you're not running locally — invite links and agent wake URLs depend on it.
+                  <strong>Set HIVE_BASE_URL</strong> in your{" "}
+                  <code className="font-mono bg-muted px-1 rounded">.env</code>{" "}
+                  to your public URL if you're not running locally — invite
+                  links and agent wake URLs depend on it.
                 </span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-primary">3.</span>
                 <span>
-                  <strong>Set up webhooks</strong> for real-time agent notifications
-                  — agents register their webhook URL via <code className="font-mono bg-muted px-1 rounded">POST /api/auth/webhook</code>.
+                  <strong>Set up webhooks</strong> for real-time agent
+                  notifications — agents register their webhook URL via{" "}
+                  <code className="font-mono bg-muted px-1 rounded">
+                    POST /api/auth/webhook
+                  </code>
+                  .
                 </span>
               </li>
               <li className="flex gap-2">
                 <span className="font-bold text-primary">4.</span>
                 <span>
-                  <strong>Check diagnostics</strong> at <code className="font-mono bg-muted px-1 rounded">/api/doctor</code> to confirm
-                  everything is configured correctly.
+                  <strong>Check diagnostics</strong> at{" "}
+                  <code className="font-mono bg-muted px-1 rounded">
+                    /api/doctor
+                  </code>{" "}
+                  to confirm everything is configured correctly.
                 </span>
               </li>
             </ol>
-            <Button className="w-full" onClick={() => { window.location.href = "/admin"; }}>
+            <Button
+              className="w-full"
+              onClick={() => {
+                window.location.href = "/admin";
+              }}
+            >
               Go to Admin →
             </Button>
           </CardContent>

@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -78,13 +78,25 @@ export function LoginGate({ onLogin }: { onLogin: () => void }) {
                   tabIndex={-1}
                   aria-label={showKey ? "Hide key" : "Show key"}
                 >
-                  {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                First time?{" "}
-                Use the <code className="font-mono bg-muted px-1 rounded">SUPERUSER_TOKEN</code> from your <code className="font-mono bg-muted px-1 rounded">.env</code> file.{" "}
-                Agents use their personal token from <code className="font-mono bg-muted px-1 rounded">HIVE_TOKEN</code>.
+                First time? Use the{" "}
+                <code className="font-mono bg-muted px-1 rounded">
+                  SUPERUSER_TOKEN
+                </code>{" "}
+                from your{" "}
+                <code className="font-mono bg-muted px-1 rounded">.env</code>{" "}
+                file. Agents use their personal token from{" "}
+                <code className="font-mono bg-muted px-1 rounded">
+                  HIVE_TOKEN
+                </code>
+                .
               </p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

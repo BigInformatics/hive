@@ -46,8 +46,9 @@ async function runMigrations() {
       return;
     }
 
-    const rows =
-      await sql<{ filename: string }[]>`SELECT filename FROM _hive_migrations`;
+    const rows = await sql<
+      { filename: string }[]
+    >`SELECT filename FROM _hive_migrations`;
     const applied = new Set(rows.map((r) => r.filename));
 
     let ran = 0;

@@ -335,7 +335,11 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         const dateStr = t.completedAt || t.updatedAt;
         return new Date(dateStr) >= completedCutoff;
       });
-      return { status, tasks: visibleTasks, hiddenCount: allStatusTasks.length - visibleTasks.length };
+      return {
+        status,
+        tasks: visibleTasks,
+        hiddenCount: allStatusTasks.length - visibleTasks.length,
+      };
     }
 
     return { status, tasks: allStatusTasks, hiddenCount: 0 };
@@ -537,83 +541,93 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
               className="flex h-full gap-3 p-4"
               style={{ minWidth: `${visibleStatuses.length * 280}px` }}
             >
-              {groupedTasks.map(({ status, tasks: statusTasks, hiddenCount }) => {
-                const config = STATUS_CONFIG[status];
-                if (!config) return null;
-                const StatusIcon = config.icon;
-                const isDropping = dropTarget === status && dragTaskId !== null;
-                const isDoneColumn = status === "complete" || status === "closed";
+              {groupedTasks.map(
+                ({ status, tasks: statusTasks, hiddenCount }) => {
+                  const config = STATUS_CONFIG[status];
+                  if (!config) return null;
+                  const StatusIcon = config.icon;
+                  const isDropping =
+                    dropTarget === status && dragTaskId !== null;
+                  const isDoneColumn =
+                    status === "complete" || status === "closed";
 
-                return (
-                  <div
-                    key={status}
-                    className={`flex flex-col w-[260px] shrink-0 rounded-lg border ${config.borderColor} ${isDropping ? "ring-2 ring-primary/50" : ""} transition-shadow`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDropTarget(status);
-                    }}
-                    onDragLeave={() => setDropTarget(null)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      handleDrop(status);
-                    }}
-                  >
-                    {/* Column header */}
+                  return (
                     <div
-                      className={`flex items-center gap-2 px-3 py-2 border-b ${config.borderColor} ${config.bgColor} rounded-t-lg`}
+                      key={status}
+                      className={`flex flex-col w-[260px] shrink-0 rounded-lg border ${config.borderColor} ${isDropping ? "ring-2 ring-primary/50" : ""} transition-shadow`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDropTarget(status);
+                      }}
+                      onDragLeave={() => setDropTarget(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDrop(status);
+                      }}
                     >
-                      <StatusIcon className={`h-4 w-4 ${config.color}`} />
-                      <span className="font-medium text-sm">
-                        {config.label}
-                      </span>
-                      <Badge variant="secondary" className="text-xs ml-auto">
-                        {statusTasks.length}
-                      </Badge>
-                    </div>
+                      {/* Column header */}
+                      <div
+                        className={`flex items-center gap-2 px-3 py-2 border-b ${config.borderColor} ${config.bgColor} rounded-t-lg`}
+                      >
+                        <StatusIcon className={`h-4 w-4 ${config.color}`} />
+                        <span className="font-medium text-sm">
+                          {config.label}
+                        </span>
+                        <Badge variant="secondary" className="text-xs ml-auto">
+                          {statusTasks.length}
+                        </Badge>
+                      </div>
 
-                    {/* Cards */}
-                    <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                      {statusTasks.length === 0 && !isDoneColumn ? (
-                        <p className="text-xs text-muted-foreground text-center py-8">
-                          {isDropping ? "Drop here" : "No tasks"}
-                        </p>
-                      ) : (
-                        statusTasks.map((task) => (
-                          <TaskCard
-                            key={task.id}
-                            task={task}
-                            project={
-                              task.projectId
-                                ? projectMap.get(task.projectId)
-                                : undefined
+                      {/* Cards */}
+                      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                        {statusTasks.length === 0 && !isDoneColumn ? (
+                          <p className="text-xs text-muted-foreground text-center py-8">
+                            {isDropping ? "Drop here" : "No tasks"}
+                          </p>
+                        ) : (
+                          statusTasks.map((task) => (
+                            <TaskCard
+                              key={task.id}
+                              task={task}
+                              project={
+                                task.projectId
+                                  ? projectMap.get(task.projectId)
+                                  : undefined
+                              }
+                              onDragStart={() => setDragTaskId(task.id)}
+                              onDragEnd={() => {
+                                setDragTaskId(null);
+                                setDropTarget(null);
+                              }}
+                              isDragging={dragTaskId === task.id}
+                              onStatusChange={handleStatusChange}
+                              onClick={() => setEditTask(task)}
+                            />
+                          ))
+                        )}
+                        {isDoneColumn && hiddenCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCompletedMonthsToShow((v) => v + 1)
                             }
-                            onDragStart={() => setDragTaskId(task.id)}
-                            onDragEnd={() => {
-                              setDragTaskId(null);
-                              setDropTarget(null);
-                            }}
-                            isDragging={dragTaskId === task.id}
-                            onStatusChange={handleStatusChange}
-                            onClick={() => setEditTask(task)}
-                          />
-                        ))
-                      )}
-                      {isDoneColumn && hiddenCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setCompletedMonthsToShow((v) => v + 1)}
-                          className="w-full text-xs text-muted-foreground hover:text-foreground py-2 border border-dashed rounded-md transition-colors"
-                        >
-                          Show more items ({hiddenCount} older)
-                        </button>
-                      )}
-                      {isDoneColumn && statusTasks.length === 0 && hiddenCount === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-8">No tasks</p>
-                      )}
+                            className="w-full text-xs text-muted-foreground hover:text-foreground py-2 border border-dashed rounded-md transition-colors"
+                          >
+                            Show more items ({hiddenCount} older)
+                          </button>
+                        )}
+                        {isDoneColumn &&
+                          statusTasks.length === 0 &&
+                          hiddenCount === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-8">
+                              No tasks
+                            </p>
+                          )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                },
+              )}
             </div>
           </div>
 
@@ -755,12 +769,16 @@ function TaskCard({
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1.5">
             {task.mustBeDoneAfterTaskId && (
-              <span title={`Blocked by ${task.mustBeDoneAfterTaskId.slice(0, 8)}`}>
+              <span
+                title={`Blocked by ${task.mustBeDoneAfterTaskId.slice(0, 8)}`}
+              >
                 <Pause className="h-3 w-3 text-muted-foreground/50" />
               </span>
             )}
             {task.onOrAfterAt && (
-              <span title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`}>
+              <span
+                title={`Not before ${new Date(task.onOrAfterAt).toLocaleString()}`}
+              >
                 <Clock className="h-3 w-3 text-muted-foreground/50" />
               </span>
             )}
@@ -853,7 +871,9 @@ function ListView({
 
             {statusTasks.length === 0 ? (
               <p className="text-xs text-muted-foreground pl-6">
-                {isDoneSection ? "Nothing completed in this window" : "No tasks"}
+                {isDoneSection
+                  ? "Nothing completed in this window"
+                  : "No tasks"}
               </p>
             ) : (
               <div className="space-y-1.5 pl-6">
@@ -1285,274 +1305,281 @@ function TaskDetailDialog({
           <div className="flex flex-col flex-1 min-h-0">
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
-            {/* Meta */}
-            <div className="flex flex-wrap gap-2">
-              {project && (
-                <Badge variant="outline" className="gap-1">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: project.color }}
-                  />
-                  {project.title}
+              {/* Meta */}
+              <div className="flex flex-wrap gap-2">
+                {project && (
+                  <Badge variant="outline" className="gap-1">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: project.color }}
+                    />
+                    {project.title}
+                  </Badge>
+                )}
+                {task.assigneeUserId && (
+                  <Badge variant="outline" className="gap-1">
+                    <UserAvatar name={task.assigneeUserId} size="xs" />
+                    {task.assigneeUserId}
+                  </Badge>
+                )}
+                <Badge variant="secondary" className={config?.color}>
+                  {config?.label || task.status}
                 </Badge>
+              </div>
+
+              {/* Issue URL */}
+              {task.issueUrl && (
+                <a
+                  href={task.issueUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-sky-500 hover:underline block"
+                >
+                  🔗 {task.issueUrl.replace(/^https?:\/\//, "").slice(0, 60)}
+                </a>
               )}
-              {task.assigneeUserId && (
-                <Badge variant="outline" className="gap-1">
-                  <UserAvatar name={task.assigneeUserId} size="xs" />
-                  {task.assigneeUserId}
-                </Badge>
-              )}
-              <Badge variant="secondary" className={config?.color}>
-                {config?.label || task.status}
-              </Badge>
-            </div>
 
-            {/* Issue URL */}
-            {task.issueUrl && (
-              <a
-                href={task.issueUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-sky-500 hover:underline block"
-              >
-                🔗 {task.issueUrl.replace(/^https?:\/\//, "").slice(0, 60)}
-              </a>
-            )}
-
-            {/* Detail */}
-            {task.detail ? (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {task.detail}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">No details</p>
-            )}
-
-            {/* Follow up */}
-            {task.followUp && (
-              <div className="mt-2 p-2 rounded bg-blue-500/10 border border-blue-500/20">
-                <p className="text-xs font-medium text-blue-400 mb-0.5">
-                  Latest Update
-                </p>
+              {/* Detail */}
+              {task.detail ? (
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {task.followUp}
+                  {task.detail}
                 </p>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  No details
+                </p>
+              )}
 
-            {/* Linked notebook pages */}
-            {(linkedPages.length > 0 || !editing) && (
-              <div className="space-y-1.5 pt-2 border-t">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Notebook Pages
+              {/* Follow up */}
+              {task.followUp && (
+                <div className="mt-2 p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-xs font-medium text-blue-400 mb-0.5">
+                    Latest Update
                   </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 text-[10px] px-1.5"
-                    onClick={() => setShowPagePicker(!showPagePicker)}
-                  >
-                    {showPagePicker ? "Cancel" : "+ Link Page"}
-                  </Button>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {task.followUp}
+                  </p>
                 </div>
-                {linkedPages.map((lp) => (
-                  <div
-                    key={lp.notebookPageId}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <a
-                      href={`/notebook?page=${lp.notebookPageId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sky-500 hover:underline truncate flex-1"
-                    >
-                      📄 {lp.pageTitle}
-                    </a>
-                    <button
-                      type="button"
-                      className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs"
-                      onClick={() => handleUnlinkPage(lp.notebookPageId)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                {linkedPages.length === 0 && !showPagePicker && (
-                  <p className="text-xs text-muted-foreground/50 italic">
-                    No linked pages
-                  </p>
-                )}
-                {showPagePicker && (
-                  <div className="space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
-                    {availablePages
-                      .filter(
-                        (p) =>
-                          !linkedPages.some((lp) => lp.notebookPageId === p.id),
-                      )
-                      .map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="w-full text-left text-sm px-2 py-1 rounded hover:bg-accent transition-colors truncate"
-                          onClick={() => handleLinkPage(p.id)}
-                        >
-                          📄 {p.title}
-                        </button>
-                      ))}
-                  </div>
-                )}
-              </div>
-            )}
+              )}
 
-            {/* Dependencies, scheduling & chaining */}
-            {(task.mustBeDoneAfterTaskId ||
-              task.onOrAfterAt ||
-              task.nextTaskId) && (
-              <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
-                {task.mustBeDoneAfterTaskId && (
-                  <p className="flex items-center gap-1">
-                    <Pause className="h-3 w-3" />
-                    Blocked by:{" "}
-                    <strong className="font-mono">
-                      {task.mustBeDoneAfterTaskId.slice(0, 8)}
-                    </strong>
-                  </p>
-                )}
-                {task.onOrAfterAt && (
-                  <p className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Not before:{" "}
-                    <strong>
-                      {new Date(task.onOrAfterAt).toLocaleString()}
-                    </strong>
-                  </p>
-                )}
-                {task.nextTaskId && (
-                  <p className="flex items-center gap-1">
-                    <PlayCircle className="h-3 w-3" />
-                    Next task:{" "}
-                    <strong className="font-mono">
-                      {task.nextTaskId.slice(0, 8)}
-                    </strong>
-                    {task.nextTaskAssigneeUserId && (
-                      <span>
-                        {" "}
-                        → assigned to{" "}
-                        <strong>{task.nextTaskAssigneeUserId}</strong>
-                      </span>
-                    )}
-                  </p>
-                )}
-              </div>
-            )}
+              {/* Linked notebook pages */}
+              {(linkedPages.length > 0 || !editing) && (
+                <div className="space-y-1.5 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Notebook Pages
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 text-[10px] px-1.5"
+                      onClick={() => setShowPagePicker(!showPagePicker)}
+                    >
+                      {showPagePicker ? "Cancel" : "+ Link Page"}
+                    </Button>
+                  </div>
+                  {linkedPages.map((lp) => (
+                    <div
+                      key={lp.notebookPageId}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <a
+                        href={`/notebook?page=${lp.notebookPageId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-500 hover:underline truncate flex-1"
+                      >
+                        📄 {lp.pageTitle}
+                      </a>
+                      <button
+                        type="button"
+                        className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs"
+                        onClick={() => handleUnlinkPage(lp.notebookPageId)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {linkedPages.length === 0 && !showPagePicker && (
+                    <p className="text-xs text-muted-foreground/50 italic">
+                      No linked pages
+                    </p>
+                  )}
+                  {showPagePicker && (
+                    <div className="space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
+                      {availablePages
+                        .filter(
+                          (p) =>
+                            !linkedPages.some(
+                              (lp) => lp.notebookPageId === p.id,
+                            ),
+                        )
+                        .map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="w-full text-left text-sm px-2 py-1 rounded hover:bg-accent transition-colors truncate"
+                            onClick={() => handleLinkPage(p.id)}
+                          >
+                            📄 {p.title}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            </div>{/* end scrollable */}
+              {/* Dependencies, scheduling & chaining */}
+              {(task.mustBeDoneAfterTaskId ||
+                task.onOrAfterAt ||
+                task.nextTaskId) && (
+                <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
+                  {task.mustBeDoneAfterTaskId && (
+                    <p className="flex items-center gap-1">
+                      <Pause className="h-3 w-3" />
+                      Blocked by:{" "}
+                      <strong className="font-mono">
+                        {task.mustBeDoneAfterTaskId.slice(0, 8)}
+                      </strong>
+                    </p>
+                  )}
+                  {task.onOrAfterAt && (
+                    <p className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Not before:{" "}
+                      <strong>
+                        {new Date(task.onOrAfterAt).toLocaleString()}
+                      </strong>
+                    </p>
+                  )}
+                  {task.nextTaskId && (
+                    <p className="flex items-center gap-1">
+                      <PlayCircle className="h-3 w-3" />
+                      Next task:{" "}
+                      <strong className="font-mono">
+                        {task.nextTaskId.slice(0, 8)}
+                      </strong>
+                      {task.nextTaskAssigneeUserId && (
+                        <span>
+                          {" "}
+                          → assigned to{" "}
+                          <strong>{task.nextTaskAssigneeUserId}</strong>
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* end scrollable */}
 
             {/* Pinned footer — status buttons + edit always visible */}
             <div className="shrink-0 pt-3 border-t space-y-2">
-            {/* Status actions */}
-            <div className="flex flex-wrap gap-2">
-              {ALL_STATUSES.filter((s) => s !== task.status).map((s) => {
-                const sc = STATUS_CONFIG[s];
-                if (!sc) return null;
-                const Icon = sc.icon;
-                return (
-                  <Button
-                    key={s}
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => {
-                      onStatusChange(task.id, s);
-                      onClose();
-                    }}
-                  >
-                    <Icon className={`h-3 w-3 ${sc.color}`} />
-                    {sc.label}
-                  </Button>
-                );
-              })}
-            </div>
-
-            {/* Project leads */}
-            {project &&
-              (project.projectLeadUserId || project.developerLeadUserId) && (
-                <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
-                  {project.projectLeadUserId && (
-                    <span className="flex items-center gap-1">
-                      <Crown className="h-3 w-3" /> Lead:{" "}
-                      <strong>{project.projectLeadUserId}</strong>
-                    </span>
-                  )}
-                  {project.developerLeadUserId && (
-                    <span className="flex items-center gap-1">
-                      <Code className="h-3 w-3" /> Dev:{" "}
-                      <strong>{project.developerLeadUserId}</strong>
-                    </span>
-                  )}
-                </div>
-              )}
-
-            {/* Timestamps */}
-            <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
-              <p>Created: {new Date(task.createdAt).toLocaleString()}</p>
-              <p>Updated: {new Date(task.updatedAt).toLocaleString()}</p>
-              {task.completedAt && (
-                <p>Completed: {new Date(task.completedAt).toLocaleString()}</p>
-              )}
-            </div>
-
-            {/* Project links */}
-            {project &&
-              (project.websiteUrl ||
-                project.onedevUrl ||
-                project.githubUrl) && (
-                <div className="flex gap-2 pt-2 border-t">
-                  {project.websiteUrl && (
-                    <a
-                      href={project.websiteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              {/* Status actions */}
+              <div className="flex flex-wrap gap-2">
+                {ALL_STATUSES.filter((s) => s !== task.status).map((s) => {
+                  const sc = STATUS_CONFIG[s];
+                  if (!sc) return null;
+                  const Icon = sc.icon;
+                  return (
+                    <Button
+                      key={s}
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => {
+                        onStatusChange(task.id, s);
+                        onClose();
+                      }}
                     >
-                      <Globe className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                  {project.onedevUrl && (
-                    <a
-                      href={project.onedevUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <GitBranch className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                  {project.githubUrl && (
-                    <a
-                      href={project.githubUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Github className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                </div>
-              )}
+                      <Icon className={`h-3 w-3 ${sc.color}`} />
+                      {sc.label}
+                    </Button>
+                  );
+                })}
+              </div>
 
-            {/* Edit button */}
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditing(true)}
-              >
-                Edit
-              </Button>
+              {/* Project leads */}
+              {project &&
+                (project.projectLeadUserId || project.developerLeadUserId) && (
+                  <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
+                    {project.projectLeadUserId && (
+                      <span className="flex items-center gap-1">
+                        <Crown className="h-3 w-3" /> Lead:{" "}
+                        <strong>{project.projectLeadUserId}</strong>
+                      </span>
+                    )}
+                    {project.developerLeadUserId && (
+                      <span className="flex items-center gap-1">
+                        <Code className="h-3 w-3" /> Dev:{" "}
+                        <strong>{project.developerLeadUserId}</strong>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+              {/* Timestamps */}
+              <div className="text-xs text-muted-foreground space-y-0.5 pt-2 border-t">
+                <p>Created: {new Date(task.createdAt).toLocaleString()}</p>
+                <p>Updated: {new Date(task.updatedAt).toLocaleString()}</p>
+                {task.completedAt && (
+                  <p>
+                    Completed: {new Date(task.completedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              {/* Project links */}
+              {project &&
+                (project.websiteUrl ||
+                  project.onedevUrl ||
+                  project.githubUrl) && (
+                  <div className="flex gap-2 pt-2 border-t">
+                    {project.websiteUrl && (
+                      <a
+                        href={project.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Globe className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {project.onedevUrl && (
+                      <a
+                        href={project.onedevUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <GitBranch className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {project.githubUrl && (
+                      <a
+                        href={project.githubUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Github className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </div>
+                )}
+
+              {/* Edit button */}
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditing(true)}
+                >
+                  Edit
+                </Button>
+              </div>
             </div>
-            </div>{/* end pinned footer */}
+            {/* end pinned footer */}
           </div>
         )}
       </DialogContent>
@@ -1585,9 +1612,7 @@ function CreateTaskDialog({
   const selectedProject = projects.find((p) => p.id === projectId);
   const allowedUsers =
     selectedProject?.taggedUsers && selectedProject.taggedUsers.length > 0
-      ? knownUsers.filter((u) =>
-          selectedProject.taggedUsers!.includes(u),
-        )
+      ? knownUsers.filter((u) => selectedProject.taggedUsers!.includes(u))
       : knownUsers;
   const [mustBeDoneAfter, setMustBeDoneAfter] = useState("");
   const [onOrAfter, setOnOrAfter] = useState("");

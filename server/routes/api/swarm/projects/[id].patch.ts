@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   const project = await updateProject(id, {
     title: body.title,
     description: body.description,

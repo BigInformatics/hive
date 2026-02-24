@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   const template = await updateRecurringTemplate(id, {
     projectId: body.projectId,
     title: body.title,

@@ -43,7 +43,9 @@ export function MessageDetail({
   const [replying, setReplying] = useState(false);
   const [showReply, setShowReply] = useState(false);
   const [copied, setCopied] = useState(false);
-  const autoReadRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const autoReadRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   // Auto-read after 5 seconds of viewing
   useEffect(() => {

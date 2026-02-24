@@ -6,7 +6,7 @@ import { invites, mailboxTokens, users } from "@/db/schema";
 import { clearAuthCache, registerMailbox } from "@/lib/auth";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
 
   if (!body?.code || !body?.identity) {
     return new Response(

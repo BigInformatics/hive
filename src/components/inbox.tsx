@@ -346,7 +346,9 @@ export function InboxView({ onLogout }: { onLogout: () => void }) {
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <div className="text-center space-y-1">
                 <p>Select a message to read</p>
-                <p className="text-xs opacity-60">Use the compose button (↑) to send a message to a teammate</p>
+                <p className="text-xs opacity-60">
+                  Use the compose button (↑) to send a message to a teammate
+                </p>
               </div>
             </div>
           )}

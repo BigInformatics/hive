@@ -7,8 +7,8 @@ import {
   isNull,
   notInArray,
   or,
-  sql,
   sql as rawSql,
+  sql,
 } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -239,7 +239,13 @@ export async function listTasks(opts?: {
       );
     const visibleIds = visibleProjects.map((p) => p.id);
     conditions.push(
-      or(isNull(swarmTasks.projectId), inArray(swarmTasks.projectId, visibleIds.length > 0 ? visibleIds : ["__none__"]))!,
+      or(
+        isNull(swarmTasks.projectId),
+        inArray(
+          swarmTasks.projectId,
+          visibleIds.length > 0 ? visibleIds : ["__none__"],
+        ),
+      )!,
     );
   }
 

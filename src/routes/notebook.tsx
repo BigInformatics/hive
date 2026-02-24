@@ -521,9 +521,7 @@ function PageEditor({
     }
   };
 
-  const isOwnerOrAdmin = page
-    ? identity === page.createdBy || isAdmin
-    : false;
+  const isOwnerOrAdmin = page ? identity === page.createdBy || isAdmin : false;
   const isLocked = !!page?.locked;
   const isArchived = !!page?.archivedAt;
 

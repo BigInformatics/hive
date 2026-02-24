@@ -1,6 +1,6 @@
 import { createReadStream, existsSync } from "node:fs";
-import { Readable } from "node:stream";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import { eq } from "drizzle-orm";
 import {
   defineEventHandler,
@@ -53,5 +53,8 @@ export default defineEventHandler(async (event) => {
   );
   setResponseHeader(event, "Cache-Control", "private, max-age=3600");
 
-  return sendStream(event, Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>);
+  return sendStream(
+    event,
+    Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>,
+  );
 });

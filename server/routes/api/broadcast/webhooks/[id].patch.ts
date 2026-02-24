@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readBody<Record<string, any>>(event) ?? {};
+  const body = (await readBody<Record<string, any>>(event)) ?? {};
   const updates: Record<string, unknown> = {};
   if (body.title !== undefined) updates.title = body.title;
   if (body.appName !== undefined) updates.appName = body.appName;

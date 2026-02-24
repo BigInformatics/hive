@@ -86,7 +86,10 @@ export default defineEventHandler(async (event) => {
         warnings.push(
           "HIVE_BASE_URL is not set — invite links and skill docs will use localhost; set this to your public URL for production",
         );
-      } else if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
+      } else if (
+        baseUrl.includes("localhost") ||
+        baseUrl.includes("127.0.0.1")
+      ) {
         if (process.env.NODE_ENV === "production") {
           warnings.push(
             `HIVE_BASE_URL is set to ${baseUrl} but NODE_ENV=production — update to your public URL`,
@@ -95,10 +98,18 @@ export default defineEventHandler(async (event) => {
       }
 
       if (errors.length > 0) {
-        return { status: "fail", summary: errors[0], details: [...errors, ...warnings].join("\n") };
+        return {
+          status: "fail",
+          summary: errors[0],
+          details: [...errors, ...warnings].join("\n"),
+        };
       }
       if (warnings.length > 0) {
-        return { status: "warn", summary: warnings[0], details: warnings.join("\n") };
+        return {
+          status: "warn",
+          summary: warnings[0],
+          details: warnings.join("\n"),
+        };
       }
       return { status: "pass", summary: "All required env vars present" };
     }),
@@ -168,12 +179,15 @@ export default defineEventHandler(async (event) => {
   probes.push(
     await runProbe("users", "Users", async () => {
       try {
-        const result = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+        const result = await db.execute(
+          sql`SELECT COUNT(*) as count FROM users`,
+        );
         const count = Number(result[0]?.count ?? 0);
         if (count === 0) {
           return {
             status: "warn",
-            summary: "No users found — create invites from /admin and have teammates register via /onboard?code=…",
+            summary:
+              "No users found — create invites from /admin and have teammates register via /onboard?code=…",
           };
         }
         return { status: "pass", summary: `${count} user(s) registered` };
@@ -181,10 +195,14 @@ export default defineEventHandler(async (event) => {
         if (err.message?.includes("does not exist")) {
           return {
             status: "fail",
-            summary: "users table missing — migrations may not have run. Check /api/health and server logs.",
+            summary:
+              "users table missing — migrations may not have run. Check /api/health and server logs.",
           };
         }
-        return { status: "fail", summary: `Users check failed: ${err.message}` };
+        return {
+          status: "fail",
+          summary: `Users check failed: ${err.message}`,
+        };
       }
     }),
   );
@@ -211,7 +229,8 @@ export default defineEventHandler(async (event) => {
       } catch {
         return {
           status: "warn",
-          summary: "_hive_migrations table not found — migrations have not run yet",
+          summary:
+            "_hive_migrations table not found — migrations have not run yet",
         };
       }
     }),

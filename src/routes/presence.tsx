@@ -768,7 +768,6 @@ function ChatPanel({
                       ? "bg-primary text-primary-foreground rounded-br-md prose-invert"
                       : "bg-muted rounded-bl-md dark:prose-invert"
                   }`}
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: markdown from trusted team members
                   dangerouslySetInnerHTML={{
                     __html: DOMPurify.sanitize(
                       marked.parse(msg.body, { async: false }) as string,
