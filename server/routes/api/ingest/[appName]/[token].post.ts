@@ -1,5 +1,5 @@
 import { defineEventHandler, getHeader, getRouterParam, readBody } from "h3";
-import { getWebhookByToken, recordEvent } from "@/lib/broadcast";
+import { getWebhookByToken, recordEventWithCooldown } from "@/lib/broadcast";
 import { emitWakeTrigger } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {
@@ -42,19 +42,29 @@ export default defineEventHandler(async (event) => {
     // Empty body is OK
   }
 
-  const recorded = await recordEvent({
-    webhookId: webhook.id,
-    appName: webhook.appName,
-    title,
-    forUsers: webhook.forUsers,
-    contentType,
-    bodyText,
-    bodyJson,
-  });
+  const cooldownMinutes = Math.max(
+    0,
+    Number(process.env.BROADCAST_ALERT_COOLDOWN_MINUTES ?? "180") || 0,
+  );
 
-  // Trigger wake pulse for wake/notify agents
-  if (webhook.wakeAgent) emitWakeTrigger(webhook.wakeAgent);
-  if (webhook.notifyAgent) emitWakeTrigger(webhook.notifyAgent);
+  const { event: recorded, inserted } = await recordEventWithCooldown(
+    {
+      webhookId: webhook.id,
+      appName: webhook.appName,
+      title,
+      forUsers: webhook.forUsers,
+      contentType,
+      bodyText,
+      bodyJson,
+    },
+    cooldownMinutes * 60_000,
+  );
 
-  return { ok: true, eventId: recorded.id };
+  // Trigger wake pulse only for newly-recorded events (suppressed duplicates stay quiet)
+  if (inserted) {
+    if (webhook.wakeAgent) emitWakeTrigger(webhook.wakeAgent);
+    if (webhook.notifyAgent) emitWakeTrigger(webhook.notifyAgent);
+  }
+
+  return { ok: true, eventId: recorded.id, suppressed: !inserted };
 });
