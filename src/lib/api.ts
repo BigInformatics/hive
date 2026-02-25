@@ -93,6 +93,8 @@ export const api = {
 
   getUsers: () => apiFetch("/users"),
 
+  getDoctor: () => apiFetch("/doctor"),
+
   // Broadcast
   listBroadcastEvents: (appName?: string) => {
     const params = appName ? `?appName=${encodeURIComponent(appName)}` : "";

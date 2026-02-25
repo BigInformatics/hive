@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { defineEventHandler, getHeader } from "h3";
 import { db } from "@/db";
+import { getAppVersion } from "@/lib/app-version";
 import { authenticateEvent } from "@/lib/auth";
 
 interface ProbeResult {
@@ -269,7 +270,7 @@ export default defineEventHandler(async (event) => {
       : "pass";
 
   return {
-    version: "1.0.0",
+    version: getAppVersion(),
     ok: overallStatus === "pass",
     status: overallStatus,
     warnings: probes.filter((p) => p.status === "warn").map((p) => p.summary),
