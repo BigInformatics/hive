@@ -26,16 +26,9 @@ const STARTUP_STAMP = formatStamp(new Date());
  * Returns app version string for UI/API display.
  *
  * - If package.json already has a #timestamp suffix, use it as-is.
- * - If HIVE_RELEASE_TAG equals package version, use bare tag version.
  * - Otherwise return <packageVersion>#YYYY-MM-DD.HH.
  */
 export function getAppVersion(): string {
   if (PACKAGE_VERSION.includes("#")) return PACKAGE_VERSION;
-
-  const releaseTag = process.env.HIVE_RELEASE_TAG;
-  if (releaseTag && releaseTag === PACKAGE_VERSION) {
-    return PACKAGE_VERSION;
-  }
-
   return `${PACKAGE_VERSION}#${STARTUP_STAMP}`;
 }
