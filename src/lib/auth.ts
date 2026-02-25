@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, or } from "drizzle-orm";
+import { and, eq, exists, gt, isNull, or } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { getHeader } from "h3";
 import { db } from "@/db";
@@ -96,12 +96,34 @@ async function ensureSuperuser(name: string, displayName: string) {
   }
 }
 
-/** Return all non-archived users ordered by display name */
+/** Return all non-archived users with at least one active (non-revoked, non-expired) token, ordered by display name. */
 export async function listUsers() {
   return db
     .select()
     .from(users)
-    .where(isNull(users.archivedAt))
+    .where(
+      and(
+        isNull(users.archivedAt),
+        or(
+          eq(users.id, process.env.SUPERUSER_NAME || ""),
+          exists(
+            db
+              .select({ id: mailboxTokens.id })
+              .from(mailboxTokens)
+              .where(
+                and(
+                  eq(mailboxTokens.identity, users.id),
+                  isNull(mailboxTokens.revokedAt),
+                  or(
+                    isNull(mailboxTokens.expiresAt),
+                    gt(mailboxTokens.expiresAt, new Date()),
+                  ),
+                ),
+              ),
+          ),
+        ),
+      ),
+    )
     .orderBy(users.displayName);
 }
 
