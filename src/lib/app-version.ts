@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 function formatStamp(date: Date): string {
   const yyyy = date.getUTCFullYear();
@@ -9,14 +10,38 @@ function formatStamp(date: Date): string {
   return `${yyyy}-${mm}-${dd}.${hh}`;
 }
 
+function normalizeVersion(value: string | undefined | null): string | null {
+  if (!value) return null;
+  const v = value.trim();
+  return v.length > 0 ? v : null;
+}
+
 function readPackageVersion(): string {
-  try {
-    const raw = readFileSync(join(process.cwd(), "package.json"), "utf8");
-    const pkg = JSON.parse(raw) as { version?: string };
-    return pkg.version || "0.0.0";
-  } catch {
-    return "0.0.0";
+  const envVersion =
+    normalizeVersion(process.env.HIVE_APP_VERSION) ||
+    normalizeVersion(process.env.npm_package_version);
+  if (envVersion) return envVersion;
+
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(process.cwd(), "package.json"),
+    resolve(here, "../../package.json"),
+    resolve(here, "../../../package.json"),
+  ];
+
+  for (const path of candidates) {
+    try {
+      if (!existsSync(path)) continue;
+      const raw = readFileSync(path, "utf8");
+      const pkg = JSON.parse(raw) as { version?: string };
+      const v = normalizeVersion(pkg.version);
+      if (v) return v;
+    } catch {
+      // try next candidate
+    }
   }
+
+  return "0.0.0";
 }
 
 const PACKAGE_VERSION = readPackageVersion();
