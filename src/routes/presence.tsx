@@ -749,13 +749,27 @@ function ChatPanel({
           const isMe = msg.sender === myIdentity;
           const showSender =
             !isMe && (i === 0 || messages[i - 1].sender !== msg.sender);
+          const showAvatar =
+            !isMe &&
+            (i === 0 ||
+              messages[i - 1].sender !== msg.sender ||
+              messages[i - 1].sender === myIdentity);
           return (
             <div
               key={msg.id}
-              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+              className={`flex gap-1.5 ${isMe ? "justify-end" : "justify-start"}`}
             >
+              {!isMe && (
+                <div className="shrink-0 self-end pb-1">
+                  {showAvatar ? (
+                    <UserAvatar name={msg.sender} size="sm" />
+                  ) : (
+                    <div className="h-5 w-5" />
+                  )}
+                </div>
+              )}
               <div
-                className={`max-w-[75%] ${isMe ? "items-end" : "items-start"}`}
+                className={`max-w-[calc(75%-1.5rem)] ${isMe ? "items-end" : "items-start"}`}
               >
                 {showSender && (
                   <p className="text-[10px] text-muted-foreground ml-1 mb-0.5 capitalize">
@@ -763,10 +777,10 @@ function ChatPanel({
                   </p>
                 )}
                 <div
-                  className={`px-3 py-1.5 rounded-2xl text-sm prose prose-sm max-w-none break-words ${
+                  className={`px-3 py-1.5 rounded-2xl text-sm break-words overflow-hidden [&_p]:my-0.5 [&_p]:first:mt-0 [&_p]:last:mb-0 [&_pre]:whitespace-pre-wrap [&_code]:break-all ${
                     isMe
-                      ? "bg-primary text-primary-foreground rounded-br-md prose-invert"
-                      : "bg-muted rounded-bl-md dark:prose-invert"
+                      ? "bg-primary text-primary-foreground rounded-br-md"
+                      : "bg-muted rounded-bl-md"
                   }`}
                   dangerouslySetInnerHTML={{
                     __html: DOMPurify.sanitize(
