@@ -58,9 +58,7 @@ export default defineEventHandler(async (event) => {
   lines.push("");
   lines.push("# HELP hive_users_total Total number of registered users");
   lines.push("# TYPE hive_users_total gauge");
-  lines.push(
-    `hive_users_total ${Number(usersCount[0]?.count ?? 0)}`,
-  );
+  lines.push(`hive_users_total ${Number(usersCount[0]?.count ?? 0)}`);
 
   // Chat channels
   lines.push("");
@@ -100,9 +98,7 @@ export default defineEventHandler(async (event) => {
 
   // Swarm tasks by status
   lines.push("");
-  lines.push(
-    "# HELP hive_swarm_tasks_total Number of swarm tasks by status",
-  );
+  lines.push("# HELP hive_swarm_tasks_total Number of swarm tasks by status");
   lines.push("# TYPE hive_swarm_tasks_total gauge");
   for (const row of swarmTasksByStatus) {
     const status = row.status || "unknown";

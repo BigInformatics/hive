@@ -769,7 +769,7 @@ function ChatPanel({
                 </div>
               )}
               <div
-                className={`max-w-[calc(75%-1.5rem)] ${isMe ? "items-end" : "items-start"}`}
+                className={`max-w-[calc(75%_-_1.5rem)] ${isMe ? "items-end" : "items-start"}`}
               >
                 {showSender && (
                   <p className="text-[10px] text-muted-foreground ml-1 mb-0.5 capitalize">
