@@ -46,6 +46,7 @@ export const Route = createFileRoute("/admin")({
 });
 
 interface SystemStats {
+  version: string;
   totalUsers: number;
   presence: Record<
     string,
@@ -90,7 +91,7 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const [presence, webhooks, projects, tasks, usersResp] =
+      const [presence, webhooks, projects, tasks, usersResp, doctor] =
         await Promise.all([
           api.getPresence(),
           api.listWebhooks().catch(() => ({ webhooks: [] })),
@@ -99,6 +100,7 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
             tasks: [],
           })),
           api.getUsers().catch(() => ({ users: [] })),
+          api.getDoctor().catch(() => ({ version: "unknown" })),
         ]);
 
       // Count tasks by status
@@ -108,6 +110,7 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
       }
 
       setStats({
+        version: doctor.version || "unknown",
         totalUsers: (usersResp.users || []).length,
         presence,
         webhooks: webhooks.webhooks || [],
@@ -137,7 +140,12 @@ function AdminView({ onLogout }: { onLogout: () => void }) {
       <Nav onLogout={onLogout} />
 
       <div className="flex items-center justify-between border-b px-4 py-2">
-        <span className="font-medium text-sm">System Administration</span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm">System Administration</span>
+          <Badge variant="outline" className="text-[10px] font-mono">
+            v{stats?.version || "…"}
+          </Badge>
+        </div>
         <Button
           variant="ghost"
           size="icon"

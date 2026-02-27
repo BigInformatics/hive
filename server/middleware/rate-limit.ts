@@ -75,6 +75,9 @@ export default defineEventHandler((event) => {
   // Skip skill docs (public reference)
   if (path.startsWith("/api/skill")) return;
 
+  // Skip Prometheus metrics (public for monitoring)
+  if (path === "/api/metrics") return;
+
   const limit = getLimit(path);
   if (!limit) return;
 

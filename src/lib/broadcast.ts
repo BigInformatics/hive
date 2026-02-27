@@ -68,20 +68,81 @@ export async function getWebhookByToken(
   return row || null;
 }
 
-export async function recordEvent(params: {
-  webhookId: number;
-  appName: string;
+function stableJson(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(
+      ([a], [b]) => a.localeCompare(b),
+    );
+    return `{${entries
+      .map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function eventSignature(params: {
   title: string;
-  forUsers: string | null;
-  contentType: string | null;
   bodyText: string | null;
   bodyJson: unknown | null;
-}): Promise<BroadcastEvent> {
+  forUsers: string | null;
+  contentType: string | null;
+}): string {
+  return `${params.title}\n${params.bodyText ?? ""}\n${stableJson(params.bodyJson)}\n${params.forUsers ?? ""}\n${params.contentType ?? ""}`;
+}
+
+export async function recordEventWithCooldown(
+  params: {
+    webhookId: number;
+    appName: string;
+    title: string;
+    forUsers: string | null;
+    contentType: string | null;
+    bodyText: string | null;
+    bodyJson: unknown | null;
+  },
+  cooldownMs = 0,
+): Promise<{ event: BroadcastEvent; inserted: boolean }> {
   // Update last_hit_at
   await db
     .update(broadcastWebhooks)
     .set({ lastHitAt: new Date() })
     .where(eq(broadcastWebhooks.id, params.webhookId));
+
+  if (cooldownMs > 0) {
+    const recent = await db
+      .select()
+      .from(broadcastEvents)
+      .where(eq(broadcastEvents.webhookId, params.webhookId))
+      .orderBy(desc(broadcastEvents.receivedAt))
+      .limit(50);
+
+    const incomingSig = eventSignature({
+      title: params.title,
+      bodyText: params.bodyText,
+      bodyJson: params.bodyJson,
+      forUsers: params.forUsers,
+      contentType: params.contentType,
+    });
+    const nowMs = Date.now();
+
+    const dupe = recent.find((e) => {
+      const ageMs = nowMs - new Date(e.receivedAt).getTime();
+      if (ageMs > cooldownMs) return false;
+      return (
+        eventSignature({
+          title: e.title,
+          bodyText: e.bodyText,
+          bodyJson: e.bodyJson,
+          forUsers: e.forUsers,
+          contentType: e.contentType,
+        }) === incomingSig
+      );
+    });
+
+    if (dupe) return { event: dupe, inserted: false };
+  }
 
   const [row] = await db
     .insert(broadcastEvents)
@@ -95,7 +156,21 @@ export async function recordEvent(params: {
       bodyJson: params.bodyJson,
     })
     .returning();
-  return row;
+
+  return { event: row, inserted: true };
+}
+
+export async function recordEvent(params: {
+  webhookId: number;
+  appName: string;
+  title: string;
+  forUsers: string | null;
+  contentType: string | null;
+  bodyText: string | null;
+  bodyJson: unknown | null;
+}): Promise<BroadcastEvent> {
+  const { event } = await recordEventWithCooldown(params, 0);
+  return event;
 }
 
 export async function listEvents(params?: {

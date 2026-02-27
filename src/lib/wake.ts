@@ -187,6 +187,7 @@ export async function getWakeItems(
     JOIN chat_channels c ON c.id = cm.channel_id
     WHERE cm.identity = ${identity}
       AND cm.has_activity = true
+      AND cm.archived_at IS NULL
   `);
 
   type ChatRow = {

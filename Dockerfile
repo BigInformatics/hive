@@ -19,6 +19,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=build /app/.output ./.output
+COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/SKILL.md ./SKILL.md
 COPY --from=build /app/scripts ./scripts
 COPY --from=build /app/drizzle ./drizzle

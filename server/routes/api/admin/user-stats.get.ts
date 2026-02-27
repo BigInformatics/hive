@@ -1,7 +1,12 @@
-import { sql as rawSql } from "drizzle-orm";
+import { and, eq, gt, isNull, or, sql as rawSql } from "drizzle-orm";
 import { defineEventHandler } from "h3";
 import { db } from "@/db";
-import { mailboxMessages, mailboxTokens, swarmTasks } from "@/db/schema";
+import {
+  mailboxMessages,
+  mailboxTokens,
+  swarmTasks,
+  users as usersTable,
+} from "@/db/schema";
 import { authenticateEvent } from "@/lib/auth";
 import { getPresence } from "@/lib/presence";
 
@@ -26,13 +31,24 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Get all known identities from tokens
+  // Get all active identities from non-revoked, non-expired tokens tied to non-archived users
   const tokens = await db
     .select({
       identity: mailboxTokens.identity,
       webhookUrl: mailboxTokens.webhookUrl,
     })
-    .from(mailboxTokens);
+    .from(mailboxTokens)
+    .innerJoin(usersTable, eq(mailboxTokens.identity, usersTable.id))
+    .where(
+      and(
+        isNull(mailboxTokens.revokedAt),
+        isNull(usersTable.archivedAt),
+        or(
+          isNull(mailboxTokens.expiresAt),
+          gt(mailboxTokens.expiresAt, new Date()),
+        ),
+      ),
+    );
 
   const identities = [...new Set(tokens.map((t) => t.identity))];
 
@@ -65,7 +81,7 @@ export default defineEventHandler(async (event) => {
   const presence = await getPresence();
 
   // Build per-user response
-  const users: Record<
+  const usersByIdentity: Record<
     string,
     {
       inbox: { unread: number; pending: number; read: number; total: number };
@@ -113,8 +129,13 @@ export default defineEventHandler(async (event) => {
     else if (hasWebhook) connection = "webhook";
     else if (userPresence.source === "api") connection = "api";
 
-    users[identity] = { inbox, swarm, presence: userPresence, connection };
+    usersByIdentity[identity] = {
+      inbox,
+      swarm,
+      presence: userPresence,
+      connection,
+    };
   }
 
-  return { users };
+  return { users: usersByIdentity };
 });
