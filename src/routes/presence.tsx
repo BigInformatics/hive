@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import DOMPurify from "dompurify";
 import {
+  AlignLeft,
   Archive,
   ArchiveRestore,
   ArrowLeft,
@@ -23,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserAvatar } from "@/components/user-avatar";
 import { api, getMailboxKey } from "@/lib/api";
@@ -538,11 +540,12 @@ function ChatPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [multiline, setMultiline] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Map<string, number>>(
     new Map(),
   );
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const lastTypingSent = useRef(0);
   const hasScrolledRef = useRef(false);
 
@@ -814,20 +817,55 @@ function ChatPanel({
 
       {/* Compose */}
       <form onSubmit={handleSend} className="border-t p-3 flex gap-2">
-        <Input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            if (e.target.value.trim()) sendTyping();
-          }}
-          placeholder="Type a message..."
-          className="flex-1"
-          autoComplete="off"
-        />
-        <Button type="submit" size="icon" disabled={!input.trim() || sending}>
-          <Send className="h-4 w-4" />
-        </Button>
+        <div className="flex-1 flex flex-col gap-1">
+          {multiline ? (
+            <Textarea
+              ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (e.target.value.trim()) sendTyping();
+              }}
+              placeholder="Type a message..."
+              className="min-h-[80px] resize-none"
+              autoComplete="off"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend(e);
+                }
+              }}
+            />
+          ) : (
+            <Input
+              ref={inputRef as React.RefObject<HTMLInputElement>}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (e.target.value.trim()) sendTyping();
+              }}
+              placeholder="Type a message..."
+              autoComplete="off"
+            />
+          )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <Button
+            type="button"
+            variant={multiline ? "secondary" : "ghost"}
+            size="icon"
+            onClick={() => {
+              setMultiline(!multiline);
+              setTimeout(() => inputRef.current?.focus(), 0);
+            }}
+            title={multiline ? "Single line mode" : "Multiline mode"}
+          >
+            <AlignLeft className="h-4 w-4" />
+          </Button>
+          <Button type="submit" size="icon" disabled={!input.trim() || sending}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
       </form>
     </>
   );

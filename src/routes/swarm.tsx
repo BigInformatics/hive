@@ -170,8 +170,43 @@ function SwarmPage() {
   return <SwarmView onLogout={() => setAuthed(false)} />;
 }
 
+/** Get current user identity from stored key verification */
+function getMyIdentity(): string {
+  try {
+    const stored = localStorage.getItem("hive-identity");
+    if (stored) return stored;
+  } catch {}
+  return "unknown";
+}
+
+/** Verify identity on mount */
+function useVerifiedIdentity(): string {
+  const [identity, setIdentity] = useState(getMyIdentity);
+
+  useEffect(() => {
+    const key = getMailboxKey();
+    if (!key) return;
+
+    fetch("/api/auth/verify", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.identity) {
+          localStorage.setItem("hive-identity", data.identity);
+          setIdentity(data.identity);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return identity;
+}
+
 function SwarmView({ onLogout }: { onLogout: () => void }) {
   const [tasks, setTasks] = useState<SwarmTask[]>([]);
+  const myIdentity = useVerifiedIdentity();
   const [projects, setProjects] = useState<SwarmProject[]>([]);
   const [loading, setLoading] = useState(false);
   const [completedMonthsToShow, setCompletedMonthsToShow] = useState(0);
@@ -594,6 +629,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
                                   ? projectMap.get(task.projectId)
                                   : undefined
                               }
+                              myIdentity={myIdentity}
                               onDragStart={() => setDragTaskId(task.id)}
                               onDragEnd={() => {
                                 setDragTaskId(null);
@@ -636,6 +672,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
             <ListView
               groupedTasks={groupedTasks}
               projectMap={projectMap}
+              myIdentity={myIdentity}
               onStatusChange={handleStatusChange}
               onTaskClick={(t) => setEditTask(t)}
               completedMonthsToShow={completedMonthsToShow}
@@ -647,6 +684,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
         <ListView
           groupedTasks={groupedTasks}
           projectMap={projectMap}
+          myIdentity={myIdentity}
           onStatusChange={handleStatusChange}
           onTaskClick={(t) => setEditTask(t)}
           completedMonthsToShow={completedMonthsToShow}
@@ -694,6 +732,7 @@ function SwarmView({ onLogout }: { onLogout: () => void }) {
 function TaskCard({
   task,
   project,
+  myIdentity,
   onDragStart,
   onDragEnd,
   isDragging,
@@ -702,12 +741,15 @@ function TaskCard({
 }: {
   task: SwarmTask;
   project?: SwarmProject;
+  myIdentity?: string;
   onDragStart: () => void;
   onDragEnd: () => void;
   isDragging: boolean;
   onStatusChange: (id: string, status: string) => void;
   onClick: () => void;
 }) {
+  const isMyTask = myIdentity && task.assigneeUserId === myIdentity;
+  
   return (
     <Card
       draggable
@@ -716,7 +758,7 @@ function TaskCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`cursor-grab active:cursor-grabbing transition-opacity ${isDragging ? "opacity-40" : ""} hover:shadow-md`}
+      className={`cursor-grab active:cursor-grabbing transition-opacity ${isDragging ? "opacity-40" : ""} hover:shadow-md ${isMyTask ? "bg-sky-100/50 dark:bg-sky-900/20" : ""}`}
       onClick={onClick}
     >
       <CardContent className="p-3">
@@ -838,6 +880,7 @@ function TaskCard({
 function ListView({
   groupedTasks,
   projectMap,
+  myIdentity,
   onStatusChange,
   onTaskClick,
   completedMonthsToShow: _completedMonthsToShow,
@@ -845,6 +888,7 @@ function ListView({
 }: {
   groupedTasks: { status: string; tasks: SwarmTask[]; hiddenCount: number }[];
   projectMap: Map<string, SwarmProject>;
+  myIdentity?: string;
   onStatusChange: (id: string, status: string) => void;
   onTaskClick: (task: SwarmTask) => void;
   completedMonthsToShow: number;
@@ -882,10 +926,12 @@ function ListView({
                     ? projectMap.get(task.projectId)
                     : null;
 
+                  const isMyTask = myIdentity && task.assigneeUserId === myIdentity;
+                  
                   return (
                     <Card
                       key={task.id}
-                      className={`${config.bgColor} border-l-2 cursor-pointer hover:shadow-sm transition-shadow`}
+                      className={`${config.bgColor} border-l-2 cursor-pointer hover:shadow-sm transition-shadow ${isMyTask ? "bg-sky-100/50 dark:bg-sky-900/20" : ""}`}
                       style={{
                         borderLeftColor: project?.color || "transparent",
                       }}
