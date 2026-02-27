@@ -3,6 +3,13 @@ import { defineEventHandler, setResponseHeader } from "h3";
 import { db } from "@/db";
 import { getAppVersion } from "@/lib/app-version";
 
+function escapePrometheusLabelValue(value: string): string {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("\n", "\\n")
+    .replaceAll('"', '\\"');
+}
+
 /**
  * Prometheus-compatible metrics endpoint
  * Returns metrics in Prometheus text exposition format
@@ -52,7 +59,7 @@ export default defineEventHandler(async (event) => {
   // Hive info metric (gauge with version label)
   lines.push("# HELP hive_info Hive application information");
   lines.push("# TYPE hive_info gauge");
-  lines.push(`hive_info{version="${version}"} 1`);
+  lines.push(`hive_info{version="${escapePrometheusLabelValue(version)}"} 1`);
 
   // Users
   lines.push("");
@@ -103,7 +110,9 @@ export default defineEventHandler(async (event) => {
   for (const row of swarmTasksByStatus) {
     const status = row.status || "unknown";
     const count = Number(row.count ?? 0);
-    lines.push(`hive_swarm_tasks_total{status="${status}"} ${count}`);
+    lines.push(
+      `hive_swarm_tasks_total{status="${escapePrometheusLabelValue(status)}"} ${count}`,
+    );
   }
 
   // Scrape duration

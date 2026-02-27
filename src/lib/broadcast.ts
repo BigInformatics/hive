@@ -86,8 +86,10 @@ function eventSignature(params: {
   title: string;
   bodyText: string | null;
   bodyJson: unknown | null;
+  forUsers: string | null;
+  contentType: string | null;
 }): string {
-  return `${params.title}\n${params.bodyText ?? ""}\n${stableJson(params.bodyJson)}`;
+  return `${params.title}\n${params.bodyText ?? ""}\n${stableJson(params.bodyJson)}\n${params.forUsers ?? ""}\n${params.contentType ?? ""}`;
 }
 
 export async function recordEventWithCooldown(
@@ -116,7 +118,13 @@ export async function recordEventWithCooldown(
       .orderBy(desc(broadcastEvents.receivedAt))
       .limit(50);
 
-    const incomingSig = eventSignature(params);
+    const incomingSig = eventSignature({
+      title: params.title,
+      bodyText: params.bodyText,
+      bodyJson: params.bodyJson,
+      forUsers: params.forUsers,
+      contentType: params.contentType,
+    });
     const nowMs = Date.now();
 
     const dupe = recent.find((e) => {
@@ -127,6 +135,8 @@ export async function recordEventWithCooldown(
           title: e.title,
           bodyText: e.bodyText,
           bodyJson: e.bodyJson,
+          forUsers: e.forUsers,
+          contentType: e.contentType,
         }) === incomingSig
       );
     });
