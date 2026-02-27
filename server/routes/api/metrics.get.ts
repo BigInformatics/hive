@@ -2,13 +2,7 @@ import { sql } from "drizzle-orm";
 import { defineEventHandler, setResponseHeader } from "h3";
 import { db } from "@/db";
 import { getAppVersion } from "@/lib/app-version";
-
-function escapePrometheusLabelValue(value: string): string {
-  return value
-    .replaceAll("\\", "\\\\")
-    .replaceAll("\n", "\\n")
-    .replaceAll('"', '\\"');
-}
+import { escapePrometheusLabelValue } from "@/lib/prometheus";
 
 /**
  * Prometheus-compatible metrics endpoint
