@@ -1,5 +1,5 @@
 import { defineEventHandler, getHeader, getRouterParam, readBody } from "h3";
-import { getWebhookByToken, recordEventWithCooldown } from "@/lib/broadcast";
+import { getWebhookByToken, recordEventWithCooldown } from "@/lib/buzz";
 import { emitWakeTrigger } from "@/lib/events";
 
 export default defineEventHandler(async (event) => {

@@ -108,7 +108,7 @@ function BuzzView({ onLogout }: { onLogout: () => void }) {
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await api.listBroadcastEvents(appFilter || undefined);
+      const result = await api.listBuzzEvents(appFilter || undefined);
       const evts: BroadcastEvent[] = result.events || [];
       setEvents(evts);
       // Extract unique app names

@@ -95,32 +95,32 @@ export const api = {
 
   getDoctor: () => apiFetch("/doctor"),
 
-  // Broadcast
-  listBroadcastEvents: (appName?: string) => {
+  // Buzz (broadcast events)
+  listBuzzEvents: (appName?: string) => {
     const params = appName ? `?appName=${encodeURIComponent(appName)}` : "";
-    return apiFetch(`/broadcast/events${params}`);
+    return apiFetch(`/buzz/events${params}`);
   },
 
-  listWebhooks: () => apiFetch("/broadcast/webhooks"),
+  listWebhooks: () => apiFetch("/buzz/webhooks"),
 
   createWebhook: (data: {
     appName: string;
     title: string;
     forUsers?: string;
   }) =>
-    apiFetch("/broadcast/webhooks", {
+    apiFetch("/buzz/webhooks", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateWebhook: (id: number, data: Record<string, unknown>) =>
-    apiFetch(`/broadcast/webhooks/${id}`, {
+    apiFetch(`/buzz/webhooks/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
 
   deleteWebhook: (id: number) =>
-    apiFetch(`/broadcast/webhooks/${id}`, { method: "DELETE" }),
+    apiFetch(`/buzz/webhooks/${id}`, { method: "DELETE" }),
 
   // Swarm
   listProjects: () => apiFetch("/swarm/projects"),

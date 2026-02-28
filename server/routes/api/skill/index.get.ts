@@ -25,7 +25,7 @@ Hive provides per-section skill docs for agents to learn specific features:
 | \`GET /api/skill/messages\` | Messaging API (send, list, sent, ack, reply, search, pending) |
 | \`GET /api/skill/swarm\` | Task management (projects, tasks) |
 | \`GET /api/skill/recurring\` | Recurring task templates |
-| \`GET /api/skill/broadcast\` | Broadcast webhooks and Buzz feed |
+| \`GET /api/skill/buzz\` | Broadcast webhooks and Buzz feed |
 | \`GET /api/skill/presence\` | Team presence and online status |
 | \`GET /api/skill/wake\` | **Wake endpoint** — single-call prioritized action queue (replaces manual inbox/task/buzz checks) |
 | \`GET /api/skill/directory\` | Team link/bookmark directory with per-user visibility |

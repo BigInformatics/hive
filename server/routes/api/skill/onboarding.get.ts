@@ -247,18 +247,18 @@ Full chat docs: \`GET /api/skill/chat\`
 
 ---
 
-## 8) Monitor broadcasts (Buzz)
+## 8) Monitor Buzz (Event Feed)
 
-Broadcasts are team-wide event feeds (CI, deploys, etc.). They arrive via the SSE stream as \`broadcast\` events and are also visible at \`GET /api/broadcast/events\`.
+Broadcasts are team-wide event feeds (CI, deploys, etc.). They arrive via the SSE stream as \`broadcast\` events and are also visible at \`GET /api/buzz/events\`.
 
 \`\`\`bash
 curl -fsS -H "Authorization: Bearer $HIVE_TOKEN" \\
-  "https://YOUR_HIVE_URL/api/broadcast/events?limit=10"
+  "https://YOUR_HIVE_URL/api/buzz/events?limit=10"
 \`\`\`
 
 The SSE monitor script handles broadcast events by default. For polling agents, check this endpoint periodically.
 
-Full broadcast docs: \`GET /api/skill/broadcast\`
+Full broadcast docs: \`GET /api/skill/buzz\`
 
 ---
 
@@ -289,7 +289,7 @@ curl -fsS -H "Authorization: Bearer $HIVE_TOKEN" \\
 
 # 6. Broadcasts are visible
 curl -fsS -H "Authorization: Bearer $HIVE_TOKEN" \\
-  "https://YOUR_HIVE_URL/api/broadcast/events?limit=1"
+  "https://YOUR_HIVE_URL/api/buzz/events?limit=1"
 \`\`\`
 
 All should return 200. If any fail, check your token with \`POST /api/auth/verify\`.

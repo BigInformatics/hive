@@ -1,7 +1,7 @@
 import { defineEventHandler } from "h3";
 import { renderSkillDoc } from "@/lib/skill-helpers";
 
-const DOC = `# Hive Skill: Broadcast (Buzz)
+const DOC = `# Hive Skill: Buzz (Broadcast Events)
 
 Broadcast webhooks let external systems push events into Hive's Buzz feed.
 
@@ -20,7 +20,7 @@ Ingest endpoints are public (authorized by URL token).
 ---
 
 ## Create a webhook
-\`POST /api/broadcast/webhooks\`
+\`POST /api/buzz/webhooks\`
 
 Body:
 \`\`\`json
@@ -38,13 +38,13 @@ Notes:
 ---
 
 ## List webhooks
-\`GET /api/broadcast/webhooks\`
+\`GET /api/buzz/webhooks\`
 
 ---
 
 ## Update / delete a webhook
-- \`PATCH /api/broadcast/webhooks/{id}\`
-- \`DELETE /api/broadcast/webhooks/{id}\`
+- \`PATCH /api/buzz/webhooks/{id}\`
+- \`DELETE /api/buzz/webhooks/{id}\`
 
 ---
 
@@ -65,7 +65,7 @@ curl -fsS -X POST \
 ---
 
 ## List broadcast events
-\`GET /api/broadcast/events?appName=onedev&limit=50\`
+\`GET /api/buzz/events?appName=onedev&limit=50\`
 `;
 
 export default defineEventHandler(() => {

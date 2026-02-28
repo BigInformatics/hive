@@ -33,7 +33,7 @@ Fields:
 ---
 
 ## Realtime presence events
-Currently, the SSE stream is primarily for message/broadcast/swarm notifications. Presence is best queried via \`GET /api/presence\` when you need it.
+Currently, the SSE stream is primarily for message/buzz/swarm notifications. Presence is best queried via \`GET /api/presence\` when you need it.
 `;
 
 export default defineEventHandler(() => {
