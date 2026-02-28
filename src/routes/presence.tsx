@@ -24,8 +24,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user-avatar";
 import { api, getMailboxKey } from "@/lib/api";
 import { type ChatSSEEvent, useChatSSE } from "@/lib/use-chat-sse";

@@ -7,7 +7,9 @@ describe("escapePrometheusLabelValue", () => {
   });
 
   it("should escape backslashes", () => {
-    expect(escapePrometheusLabelValue("path\\to\\file")).toBe("path\\\\to\\\\file");
+    expect(escapePrometheusLabelValue("path\\to\\file")).toBe(
+      "path\\\\to\\\\file",
+    );
   });
 
   it("should escape double quotes", () => {
@@ -25,16 +27,16 @@ describe("escapePrometheusLabelValue", () => {
   });
 
   it("should produce escaped output safe for Prometheus format", () => {
-    // The escaped output should contain literal \n, \", and \\ 
+    // The escaped output should contain literal \n, \", and \\
     // (the characters that Prometheus expects as escape sequences)
     const input = 'status with "quotes" and\\backslash\nnewline';
     const escaped = escapePrometheusLabelValue(input);
-    
+
     // Should contain the Prometheus escape sequences literally
-    expect(escaped).toContain('\\n');  // literal backslash-n
-    expect(escaped).toContain('\\"');  // literal backslash-quote
-    expect(escaped).toContain('\\\\'); // literal double-backslash
-    
+    expect(escaped).toContain("\\n"); // literal backslash-n
+    expect(escaped).toContain('\\"'); // literal backslash-quote
+    expect(escaped).toContain("\\\\"); // literal double-backslash
+
     // Should NOT contain raw special characters
     expect(escaped).not.toMatch(/\n/); // no actual newline
   });

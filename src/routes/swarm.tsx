@@ -749,7 +749,7 @@ function TaskCard({
   onClick: () => void;
 }) {
   const isMyTask = myIdentity && task.assigneeUserId === myIdentity;
-  
+
   return (
     <Card
       draggable
@@ -926,8 +926,9 @@ function ListView({
                     ? projectMap.get(task.projectId)
                     : null;
 
-                  const isMyTask = myIdentity && task.assigneeUserId === myIdentity;
-                  
+                  const isMyTask =
+                    myIdentity && task.assigneeUserId === myIdentity;
+
                   return (
                     <Card
                       key={task.id}
