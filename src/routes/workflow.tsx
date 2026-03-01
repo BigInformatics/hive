@@ -67,6 +67,69 @@ function toLocalDatetimeValue(iso: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+
+interface FlowDocument {
+  name?: string;
+  title?: string;
+  version?: string;
+  description?: string;
+  steps?: Array<{
+    id: string;
+    title: string;
+    role?: string;
+    description?: string;
+    next?: string | null;
+  }>;
+}
+
+function FlowDocumentView({ doc }: { doc: FlowDocument }) {
+  const steps = doc.steps || [];
+  return (
+    <div className="space-y-4">
+      {doc.name || doc.title ? (
+        <div>
+          <h4 className="font-medium text-sm">{doc.name || doc.title}</h4>
+          {doc.version && <span className="text-xs text-muted-foreground ml-2">v{doc.version}</span>}
+        </div>
+      ) : null}
+      {doc.description && (
+        <p className="text-sm text-muted-foreground">{doc.description}</p>
+      )}
+      {steps.length > 0 ? (
+        <div className="space-y-2">
+          <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Steps</h5>
+          <ol className="space-y-2">
+            {steps.map((step, i) => (
+              <li key={step.id} className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-medium">
+                  {i + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{step.title}</span>
+                    {step.role && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        {step.role}
+                      </Badge>
+                    )}
+                  </div>
+                  {step.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : (
+        <pre className="p-3 bg-muted rounded-md overflow-x-auto text-xs max-h-64">
+          {JSON.stringify(doc, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function WorkflowCard({
   wf,
   onEdit,
@@ -583,12 +646,7 @@ function WorkflowPageContent() {
               {viewing.description && (
                 <p className="text-sm text-muted-foreground">{viewing.description}</p>
               )}
-              <div>
-                <strong className="text-xs text-muted-foreground">Document:</strong>
-                <pre className="mt-2 p-3 bg-muted rounded-md overflow-x-auto text-xs max-h-96">
-                  {JSON.stringify(viewing.document, null, 2)}
-                </pre>
-              </div>
+              <FlowDocumentView doc={viewing.document as FlowDocument} />
             </div>
           ) : viewing?.documentUrl ? (
             <div className="space-y-4">
