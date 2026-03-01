@@ -12,7 +12,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { Nav } from "@/components/nav";
 import { Badge } from "@/components/ui/badge";
@@ -347,7 +347,7 @@ function WorkflowPageContent() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Workflow | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await (api as any).listWorkflows(showDisabled);
@@ -357,7 +357,7 @@ function WorkflowPageContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showDisabled]);
 
   useEffect(() => {
     load();
