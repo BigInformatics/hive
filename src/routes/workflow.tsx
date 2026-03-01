@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   AlertTriangle,
+  Upload,
   Check,
   Clock,
   ExternalLink,
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { UserSelect } from "@/components/user-select";
 import { api, getMailboxKey } from "@/lib/api";
 
 export const Route = createFileRoute("/workflow")({
@@ -204,7 +206,8 @@ const EMPTY_FORM = {
   description: "",
   documentUrl: "",
   enabled: true,
-  taggedUsers: "",
+  taggedUsers: [] as string[],
+  document: null as unknown,
   expiresAt: "",
   reviewAt: "",
 };
@@ -223,23 +226,21 @@ function WorkflowForm({
   const [form, setForm] = useState({
     ...EMPTY_FORM,
     ...initial,
-    taggedUsers: initial?.taggedUsers ? initial.taggedUsers : "",
+    taggedUsers: initial?.taggedUsers ?? [],
+    document: (initial as any)?.document ?? null,
   });
 
-  const set = (k: keyof typeof EMPTY_FORM, v: string | boolean) =>
+  const set = (k: keyof typeof EMPTY_FORM, v: string | boolean | unknown) =>
     setForm((f) => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
-    const taggedUsers = form.taggedUsers
-      .split(",")
-      .map((s: string) => s.trim())
-      .filter(Boolean);
     await onSave({
       title: form.title,
       description: form.description || null,
       documentUrl: form.documentUrl || null,
+      document: form.document || undefined,
       enabled: form.enabled,
-      taggedUsers: taggedUsers.length ? taggedUsers : null,
+      taggedUsers: form.taggedUsers.length ? form.taggedUsers : null,
       expiresAt: form.expiresAt || null,
       reviewAt: form.reviewAt || null,
     });
@@ -282,12 +283,36 @@ function WorkflowForm({
       </div>
       <div>
         <label className="text-xs font-medium text-muted-foreground">
-          Access (comma-separated usernames, blank = everyone)
+          Or upload a flow JSON file
         </label>
         <Input
+          type="file"
+          accept=".json,application/json"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                try {
+                  const json = JSON.parse(ev.target?.result as string);
+                  setForm((f: typeof form) => ({ ...f, document: json, documentUrl: "" }));
+                } catch {
+                  alert("Invalid JSON file");
+                }
+              };
+              reader.readAsText(file);
+            }
+          }}
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-muted-foreground">
+          Access
+        </label>
+        <UserSelect
           value={form.taggedUsers}
-          onChange={(e) => set("taggedUsers", e.target.value)}
-          placeholder="clio, domingo"
+          onChange={(users: string[]) => setForm((f: typeof form) => ({ ...f, taggedUsers: users }))}
           className="mt-1"
         />
       </div>
@@ -476,7 +501,7 @@ function WorkflowPageContent() {
             <WorkflowForm
               initial={{
                 ...editing,
-                taggedUsers: editing.taggedUsers?.join(", ") ?? "",
+                taggedUsers: editing.taggedUsers ?? [],
                 expiresAt: toLocalDatetimeValue(editing.expiresAt),
                 reviewAt: toLocalDatetimeValue(editing.reviewAt),
               }}
