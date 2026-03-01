@@ -4,7 +4,8 @@ import {
   Upload,
   Check,
   Clock,
-  Copy, ExternalLink,
+  ExternalLink,
+  FileCode,
   GitBranch,
   Pencil,
   Plus,
@@ -178,13 +179,13 @@ function WorkflowCard({
   onEdit,
   onToggle,
   onDelete,
-  onView,
+  onPreviewLobster,
 }: {
   wf: Workflow;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
-  onView?: () => void;
+  onPreviewLobster: () => void;
 }) {
   const expired = wf.expiresAt && new Date(wf.expiresAt) < new Date();
   const needsReview =
@@ -249,6 +250,17 @@ function WorkflowCard({
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
               </a>
+            )}
+            {(wf.document || wf.documentUrl) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={onPreviewLobster}
+                title="Preview as Lobster"
+              >
+                <FileCode className="h-3.5 w-3.5" />
+              </Button>
             )}
             <Button
               variant="ghost"
@@ -510,7 +522,11 @@ function WorkflowPageContent() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Workflow | null>(null);
-  const [viewing, setViewing] = useState<Workflow | null>(null);
+  const [lobsterPreview, setLobsterPreview] = useState<{
+    wf: Workflow;
+    content: string;
+  } | null>(null);
+  const [lobsterLoading, setLobsterLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -563,6 +579,25 @@ function WorkflowPageContent() {
     await load();
   };
 
+  const handlePreviewLobster = async (wf: Workflow) => {
+    setLobsterLoading(true);
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("hive-key") ?? ""
+        : "";
+      const res = await fetch(`/api/swarm/workflows/${wf.id}/lobster`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const text = await res.text();
+      setLobsterPreview({ wf, content: text });
+    } catch (err) {
+      console.error("Failed to fetch lobster export:", err);
+    } finally {
+      setLobsterLoading(false);
+    }
+  };
+
   return (
     <div className="w-[90vw] max-w-[90vw] mx-auto px-4 py-6 pb-24 md:pb-6">
       {/* Header */}
@@ -612,7 +647,7 @@ function WorkflowPageContent() {
               onEdit={() => setEditing(wf)}
               onToggle={() => handleToggle(wf)}
               onDelete={() => setConfirmDelete(wf)}
-              onView={() => setViewing(wf)}
+              onPreviewLobster={() => handlePreviewLobster(wf)}
             />
           ))}
         </div>
@@ -679,54 +714,65 @@ function WorkflowPageContent() {
         </DialogContent>
       </Dialog>
 
-      {/* View dialog */}
-      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      {/* Lobster preview */}
+      <Dialog
+        open={!!lobsterPreview}
+        onOpenChange={(o) => !o && setLobsterPreview(null)}
+      >
+        <DialogContent className="sm:max-w-2xl w-full flex flex-col max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>{viewing?.title}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FileCode className="h-4 w-4" />
+              {lobsterPreview?.wf.title} — Lobster Export
+            </DialogTitle>
           </DialogHeader>
-          {viewing?.document ? (
-            <div className="space-y-4">
-              {viewing.description && (
-                <p className="text-sm text-muted-foreground">{viewing.description}</p>
-              )}
-              <FlowDocumentView doc={viewing.document as FlowDocument} />
-            </div>
-          ) : viewing?.documentUrl ? (
-            <div className="space-y-4">
-              {viewing.description && (
-                <p className="text-sm text-muted-foreground">{viewing.description}</p>
-              )}
-              <div className="flex items-center gap-2">
-                <a
-                  href={viewing.documentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Open in Cambigo
-                </a>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Document is loaded from URL. Open in Cambigo to view and edit.
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No document loaded.</p>
-          )}
-          {viewing && (
-            <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
-              <div><strong>ID:</strong> <code className="bg-muted px-1 rounded">{viewing.id}</code></div>
-              <div><strong>Created by:</strong> {viewing.createdBy}</div>
-              <div><strong>Created:</strong> {new Date(viewing.createdAt).toLocaleString()}</div>
-              {viewing.expiresAt && <div><strong>Expires:</strong> {new Date(viewing.expiresAt).toLocaleString()}</div>}
-              {viewing.reviewAt && <div><strong>Review by:</strong> {new Date(viewing.reviewAt).toLocaleString()}</div>}
-              {viewing.taggedUsers && viewing.taggedUsers.length > 0 && (
-                <div><strong>Visible to:</strong> {viewing.taggedUsers.join(", ")}</div>
-              )}
-            </div>
-          )}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {lobsterLoading ? (
+              <p className="text-sm text-muted-foreground p-4">Loading…</p>
+            ) : (
+              <pre className="rounded-md bg-muted/40 border p-4 text-xs font-mono whitespace-pre overflow-x-auto">
+                {lobsterPreview?.content}
+              </pre>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 shrink-0 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (lobsterPreview?.content) {
+                  navigator.clipboard.writeText(lobsterPreview.content);
+                }
+              }}
+            >
+              Copy
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!lobsterPreview) return;
+                const blob = new Blob([lobsterPreview.content], {
+                  type: "text/plain",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${lobsterPreview.wf.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.lobster`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Download
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLobsterPreview(null)}
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

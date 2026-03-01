@@ -836,18 +836,26 @@ function TaskCard({
 
           {/* Quick actions */}
           <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-            {task.status !== "complete" &&
-              task.status !== "closed" &&
-              task.status !== "in_progress" && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
-                  onClick={() => onStatusChange(task.id, "in_progress")}
-                >
-                  Start
-                </Button>
-              )}
+            {task.status === "queued" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                onClick={() => onStatusChange(task.id, "ready")}
+              >
+                Ready
+              </Button>
+            )}
+            {(task.status === "ready" || task.status === "holding") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                onClick={() => onStatusChange(task.id, "in_progress")}
+              >
+                Start
+              </Button>
+            )}
             {task.status === "in_progress" && (
               <Button
                 variant="ghost"
@@ -975,20 +983,30 @@ function ListView({
                             className="flex gap-1 shrink-0"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {status !== "in_progress" &&
-                              status !== "complete" &&
-                              status !== "closed" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 text-xs px-2"
-                                  onClick={() =>
-                                    onStatusChange(task.id, "in_progress")
-                                  }
-                                >
-                                  Start
-                                </Button>
-                              )}
+                            {status === "queued" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-xs px-2"
+                                onClick={() =>
+                                  onStatusChange(task.id, "ready")
+                                }
+                              >
+                                Ready
+                              </Button>
+                            )}
+                            {(status === "ready" || status === "holding") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-xs px-2"
+                                onClick={() =>
+                                  onStatusChange(task.id, "in_progress")
+                                }
+                              >
+                                Start
+                              </Button>
+                            )}
                             {status === "in_progress" && (
                               <Button
                                 variant="ghost"
@@ -1091,6 +1109,22 @@ function TaskDetailDialog({
   >([]);
   const [showPagePicker, setShowPagePicker] = useState(false);
 
+  // Comments
+  const [comments, setComments] = useState<
+    Array<{
+      id: string;
+      userId: string;
+      body: string;
+      sentiment: "wait" | "proceed" | null;
+      createdAt: string;
+    }>
+  >([]);
+  const [newComment, setNewComment] = useState("");
+  const [newCommentSentiment, setNewCommentSentiment] = useState<
+    "wait" | "proceed" | ""
+  >("");
+  const [postingComment, setPostingComment] = useState(false);
+
   // Fetch linked notebook pages when task changes
   useEffect(() => {
     if (task) {
@@ -1104,6 +1138,18 @@ function TaskDetailDialog({
       setLinkedPages([]);
     }
   }, [task?.id, task]);
+
+  // Fetch comments when task changes
+  useEffect(() => {
+    if (task) {
+      (api as any)
+        .getTaskComments(task.id)
+        .then((data: any) => setComments(data.comments || []))
+        .catch(() => setComments([]));
+    } else {
+      setComments([]);
+    }
+  }, [task?.id]);
 
   // Fetch available notebook pages when picker opens
   useEffect(() => {
@@ -1138,6 +1184,35 @@ function TaskDetailDialog({
       setLinkedPages((prev) => prev.filter((p) => p.notebookPageId !== pageId));
     } catch (err) {
       console.error("Failed to unlink page:", err);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!task || !newComment.trim()) return;
+    setPostingComment(true);
+    try {
+      const comment = await (api as any).addTaskComment(
+        task.id,
+        newComment.trim(),
+        newCommentSentiment || null,
+      );
+      setComments((prev) => [...prev, comment]);
+      setNewComment("");
+      setNewCommentSentiment("");
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!task) return;
+    try {
+      await (api as any).deleteTaskComment(task.id, commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (err) {
+      console.error("Failed to delete comment:", err);
     }
   };
 
@@ -1197,7 +1272,7 @@ function TaskDetailDialog({
   return (
     <Dialog open={!!task} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[90vw] !max-w-[90vw] flex flex-col max-h-[85vh]"
+        className="sm:max-w-2xl w-full flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <DialogHeader>
@@ -1409,6 +1484,108 @@ function TaskDetailDialog({
                 </div>
               )}
 
+              {/* Comments */}
+              {!editing && (
+                <div className="space-y-2 pt-2 border-t">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Comments {comments.length > 0 && `(${comments.length})`}
+                  </p>
+                  {comments.map((c) => {
+                    const myIdentity =
+                      typeof window !== "undefined"
+                        ? (localStorage.getItem("hive-identity") ?? "")
+                        : "";
+                    return (
+                      <div
+                        key={c.id}
+                        className="rounded-md border bg-muted/20 px-3 py-2 text-sm space-y-0.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-xs">{c.userId}</span>
+                          <div className="flex items-center gap-2">
+                            {c.sentiment && (
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                                  c.sentiment === "proceed"
+                                    ? "bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400"
+                                    : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                }`}
+                              >
+                                {c.sentiment === "proceed" ? "✓ proceed" : "⏸ wait"}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(c.createdAt).toLocaleString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {c.userId === myIdentity && (
+                              <button
+                                type="button"
+                                className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs"
+                                onClick={() => handleDeleteComment(c.id)}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-muted-foreground whitespace-pre-wrap">
+                          {c.body}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  {comments.length === 0 && (
+                    <p className="text-xs text-muted-foreground/50 italic">
+                      No comments yet
+                    </p>
+                  )}
+                  {/* Add comment form */}
+                  <div className="space-y-1.5 pt-1">
+                    <Textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Add a comment…"
+                      rows={2}
+                      className="text-sm resize-none"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault();
+                          handleAddComment();
+                        }
+                      }}
+                    />
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="rounded-md border bg-transparent px-2 py-1 text-xs"
+                        value={newCommentSentiment}
+                        onChange={(e) =>
+                          setNewCommentSentiment(
+                            e.target.value as "wait" | "proceed" | "",
+                          )
+                        }
+                      >
+                        <option value="">No sentiment</option>
+                        <option value="proceed">✓ Proceed</option>
+                        <option value="wait">⏸ Wait</option>
+                      </select>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs px-3 ml-auto"
+                        disabled={!newComment.trim() || postingComment}
+                        onClick={handleAddComment}
+                      >
+                        {postingComment ? "Posting…" : "Comment"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Linked notebook pages */}
               {(linkedPages.length > 0 || !editing) && (
                 <div className="space-y-1.5 pt-2 border-t">
@@ -1560,6 +1737,12 @@ function TaskDetailDialog({
                       <span className="flex items-center gap-1">
                         <Code className="h-3 w-3" /> Dev:{" "}
                         <strong>{project.developerLeadUserId}</strong>
+                      </span>
+                    )}
+                    {(project as any).prReviewerUserId && (
+                      <span className="flex items-center gap-1">
+                        <Eye className="h-3 w-3" /> Reviewer:{" "}
+                        <strong>{(project as any).prReviewerUserId}</strong>
                       </span>
                     )}
                   </div>
@@ -1867,6 +2050,7 @@ function CreateProjectDialog({
   const [color, setColor] = useState(PROJECT_COLORS[0]);
   const [lead, setLead] = useState("");
   const [devLead, setDevLead] = useState("");
+  const [prReviewer, setPrReviewer] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [onedevUrl, setOnedevUrl] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
@@ -1878,6 +2062,7 @@ function CreateProjectDialog({
     setColor(PROJECT_COLORS[0]);
     setLead("");
     setDevLead("");
+    setPrReviewer("");
     setWebsiteUrl("");
     setOnedevUrl("");
     setGithubUrl("");
@@ -1895,6 +2080,7 @@ function CreateProjectDialog({
         description: description.trim() || undefined,
         projectLeadUserId: lead || undefined,
         developerLeadUserId: devLead || undefined,
+        prReviewerUserId: prReviewer || null,
         websiteUrl: websiteUrl.trim() || undefined,
         onedevUrl: onedevUrl.trim() || undefined,
         githubUrl: githubUrl.trim() || undefined,
@@ -1985,6 +2171,22 @@ function CreateProjectDialog({
             </div>
           </div>
 
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">PR Reviewer</p>
+            <select
+              className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+              value={prReviewer}
+              onChange={(e) => setPrReviewer(e.target.value)}
+            >
+              <option value="">None</option>
+              {knownUsers.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Links (optional)</p>
             <Input
@@ -2052,6 +2254,7 @@ function EditProjectDialog({
   const [color, setColor] = useState("");
   const [lead, setLead] = useState("");
   const [devLead, setDevLead] = useState("");
+  const [prReviewer, setPrReviewer] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [onedevUrl, setOnedevUrl] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
@@ -2068,6 +2271,7 @@ function EditProjectDialog({
       setColor(project.color);
       setLead(project.projectLeadUserId || "");
       setDevLead(project.developerLeadUserId || "");
+      setPrReviewer((project as any).prReviewerUserId || "");
       setWebsiteUrl(project.websiteUrl || "");
       setOnedevUrl(project.onedevUrl || "");
       setGithubUrl(project.githubUrl || "");
@@ -2093,6 +2297,7 @@ function EditProjectDialog({
         description: description.trim() || null,
         projectLeadUserId: lead || undefined,
         developerLeadUserId: devLead || undefined,
+        prReviewerUserId: prReviewer || null,
         websiteUrl: websiteUrl.trim() || null,
         onedevUrl: onedevUrl.trim() || null,
         githubUrl: githubUrl.trim() || null,
@@ -2183,6 +2388,22 @@ function EditProjectDialog({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">PR Reviewer</p>
+            <select
+              className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+              value={prReviewer}
+              onChange={(e) => setPrReviewer(e.target.value)}
+            >
+              <option value="">None</option>
+              {knownUsers.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">

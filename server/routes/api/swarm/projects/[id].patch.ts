@@ -41,6 +41,10 @@ export default defineEventHandler(async (event) => {
           ? body.taggedUsers.map(String)
           : null
         : undefined,
+    prReviewerUserId:
+      body.prReviewerUserId !== undefined
+        ? body.prReviewerUserId || null
+        : undefined,
   });
 
   if (!project) {
