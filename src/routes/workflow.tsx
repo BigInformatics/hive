@@ -517,13 +517,14 @@ function WorkflowPageContent() {
 }
 
 function WorkflowPage() {
-  const [_loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+  if (!loggedIn) {
+    return <LoginGate onLogin={() => setLoggedIn(true)} />;
+  }
   return (
-    <LoginGate onLogin={() => setLoggedIn(true)}>
-      <div className="min-h-screen bg-background">
-        <Nav onLogout={() => setLoggedIn(false)} />
-        <WorkflowPageContent />
-      </div>
-    </LoginGate>
+    <div className="min-h-screen bg-background">
+      <Nav onLogout={() => setLoggedIn(false)} />
+      <WorkflowPageContent />
+    </div>
   );
 }
