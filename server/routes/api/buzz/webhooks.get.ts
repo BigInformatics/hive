@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { listWebhooks } from "@/lib/broadcast";
+import { listWebhooks } from "@/lib/buzz";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);

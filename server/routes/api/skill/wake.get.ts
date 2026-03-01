@@ -201,7 +201,7 @@ Poll \`GET /api/wake\` every 5-10 minutes.
 When creating a broadcast webhook, optionally assign agents:
 
 \`\`\`bash
-curl -X POST /api/broadcast/webhooks \\
+curl -X POST /api/buzz/webhooks \\
   -H "Authorization: Bearer $TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{

@@ -10,7 +10,7 @@ if [ -f "/etc/clawdbot/vault.env" ]; then
   source "/etc/clawdbot/vault.env" 2>/dev/null
 fi
 
-BASE_URL="${HIVE_API_URL:-https://messages.biginformatics.net/api}"
+BASE_URL="${HIVE_API_URL:-https://hello.biginformatics.com/api}"
 TOKEN="${HIVE_TOKEN:-}"
 VERBOSE=false
 JSON=false

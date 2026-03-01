@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery } from "h3";
 import { authenticateEvent } from "@/lib/auth";
-import { listEvents } from "@/lib/broadcast";
+import { listWorkflows } from "@/lib/workflow";
 
 export default defineEventHandler(async (event) => {
   const auth = await authenticateEvent(event);
@@ -12,11 +12,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const query = getQuery(event);
-  const events = await listEvents({
-    appName: query.appName as string | undefined,
-    forUser: auth.identity,
-    limit: query.limit ? Number(query.limit) : undefined,
+  const includeDisabled = query.includeDisabled === "true";
+
+  const wfs = await listWorkflows({
+    identity: auth.identity,
+    includeDisabled,
   });
 
-  return { events };
+  return { workflows: wfs };
 });

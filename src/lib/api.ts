@@ -95,32 +95,32 @@ export const api = {
 
   getDoctor: () => apiFetch("/doctor"),
 
-  // Broadcast
-  listBroadcastEvents: (appName?: string) => {
+  // Buzz (broadcast events)
+  listBuzzEvents: (appName?: string) => {
     const params = appName ? `?appName=${encodeURIComponent(appName)}` : "";
-    return apiFetch(`/broadcast/events${params}`);
+    return apiFetch(`/buzz/events${params}`);
   },
 
-  listWebhooks: () => apiFetch("/broadcast/webhooks"),
+  listWebhooks: () => apiFetch("/buzz/webhooks"),
 
   createWebhook: (data: {
     appName: string;
     title: string;
     forUsers?: string;
   }) =>
-    apiFetch("/broadcast/webhooks", {
+    apiFetch("/buzz/webhooks", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateWebhook: (id: number, data: Record<string, unknown>) =>
-    apiFetch(`/broadcast/webhooks/${id}`, {
+    apiFetch(`/buzz/webhooks/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
 
   deleteWebhook: (id: number) =>
-    apiFetch(`/broadcast/webhooks/${id}`, { method: "DELETE" }),
+    apiFetch(`/buzz/webhooks/${id}`, { method: "DELETE" }),
 
   // Swarm
   listProjects: () => apiFetch("/swarm/projects"),
@@ -242,6 +242,52 @@ export const api = {
     apiFetch(`/swarm/recurring/${id}`, { method: "DELETE" }),
 
   tickRecurring: () => apiFetch("/swarm/recurring/tick", { method: "POST" }),
+
+  // Workflows
+  listWorkflows: (includeDisabled = false) =>
+    apiFetch(
+      `/swarm/workflows${includeDisabled ? "?includeDisabled=true" : ""}`,
+    ),
+
+  getWorkflow: (id: string) => apiFetch(`/swarm/workflows/${id}`),
+
+  createWorkflow: (data: {
+    title: string;
+    description?: string;
+    documentUrl?: string;
+    document?: unknown;
+    enabled?: boolean;
+    taggedUsers?: string[];
+    expiresAt?: string;
+    reviewAt?: string;
+  }) =>
+    apiFetch("/swarm/workflows", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateWorkflow: (id: string, patch: Record<string, unknown>) =>
+    apiFetch(`/swarm/workflows/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteWorkflow: (id: string) =>
+    apiFetch(`/swarm/workflows/${id}`, { method: "DELETE" }),
+
+  listTaskWorkflows: (taskId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/workflows`),
+
+  attachWorkflow: (taskId: string, workflowId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/workflows`, {
+      method: "POST",
+      body: JSON.stringify({ workflowId }),
+    }),
+
+  detachWorkflow: (taskId: string, workflowId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/workflows/${workflowId}`, {
+      method: "DELETE",
+    }),
 
   // Auth / Invites
   listInvites: () => apiFetch("/auth/invites"),
