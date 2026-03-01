@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import {
   Bookmark,
   BookOpen,
+  GitBranch,
   Inbox,
   LayoutList,
   LogOut,
@@ -47,6 +48,12 @@ const navItems = [
     label: "Notebook",
     icon: BookOpen,
     title: "Notebook — collaborative documents and notes",
+  },
+  {
+    to: "/workflow",
+    label: "Workflow",
+    icon: GitBranch,
+    title: "Workflows — step-by-step procedures for agents",
   },
   {
     to: "/presence",

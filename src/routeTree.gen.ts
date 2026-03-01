@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkflowRouteImport } from './routes/workflow'
 import { Route as SwarmRouteImport } from './routes/swarm'
 import { Route as PresenceRouteImport } from './routes/presence'
 import { Route as OnboardRouteImport } from './routes/onboard'
@@ -18,6 +19,11 @@ import { Route as BuzzRouteImport } from './routes/buzz'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WorkflowRoute = WorkflowRouteImport.update({
+  id: '/workflow',
+  path: '/workflow',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SwarmRoute = SwarmRouteImport.update({
   id: '/swarm',
   path: '/swarm',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/onboard': typeof OnboardRoute
   '/presence': typeof PresenceRoute
   '/swarm': typeof SwarmRoute
+  '/workflow': typeof WorkflowRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/onboard': typeof OnboardRoute
   '/presence': typeof PresenceRoute
   '/swarm': typeof SwarmRoute
+  '/workflow': typeof WorkflowRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/onboard': typeof OnboardRoute
   '/presence': typeof PresenceRoute
   '/swarm': typeof SwarmRoute
+  '/workflow': typeof WorkflowRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/onboard'
     | '/presence'
     | '/swarm'
+    | '/workflow'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/onboard'
     | '/presence'
     | '/swarm'
+    | '/workflow'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/onboard'
     | '/presence'
     | '/swarm'
+    | '/workflow'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,10 +144,18 @@ export interface RootRouteChildren {
   OnboardRoute: typeof OnboardRoute
   PresenceRoute: typeof PresenceRoute
   SwarmRoute: typeof SwarmRoute
+  WorkflowRoute: typeof WorkflowRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workflow': {
+      id: '/workflow'
+      path: '/workflow'
+      fullPath: '/workflow'
+      preLoaderRoute: typeof WorkflowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/swarm': {
       id: '/swarm'
       path: '/swarm'
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardRoute: OnboardRoute,
   PresenceRoute: PresenceRoute,
   SwarmRoute: SwarmRoute,
+  WorkflowRoute: WorkflowRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
