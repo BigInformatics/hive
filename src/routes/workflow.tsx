@@ -4,7 +4,7 @@ import {
   Upload,
   Check,
   Clock,
-  ExternalLink,
+  Copy, ExternalLink,
   GitBranch,
   Pencil,
   Plus,
@@ -140,6 +140,18 @@ function WorkflowCard({
                 </Button>
               </a>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => {
+                navigator.clipboard.writeText(`workflow:${wf.id}`);
+                // Could add a toast here
+              }}
+              title="Copy workflow ID"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
