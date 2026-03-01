@@ -505,3 +505,55 @@ export type SwarmTaskNotebookPage = typeof swarmTaskNotebookPages.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
 export type ContentProjectTag = typeof contentProjectTags.$inferSelect;
 export type User = typeof users.$inferSelect;
+
+// ============================================================
+// WORKFLOWS — cambigo-based step-by-step procedures
+// ============================================================
+
+export const workflows = pgTable("workflows", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  title: text("title").notNull(),
+  description: text("description"),
+  /** URL to the cambigo flow document (e.g. GitHub raw URL) */
+  documentUrl: text("document_url"),
+  /** Inline cambigo flow document (JSON) — stored when no documentUrl */
+  document: jsonb("document"),
+  enabled: boolean("enabled").notNull().default(true),
+  /** null/[] → visible to all; non-empty → only listed identities may see/use */
+  taggedUsers: jsonb("tagged_users").$type<string[]>(),
+  /** When this workflow expires and should no longer be used */
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  /** When this workflow should be reviewed for accuracy */
+  reviewAt: timestamp("review_at", { withTimezone: true }),
+  createdBy: varchar("created_by", { length: 50 }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ============================================================
+// SWARM TASK ↔ WORKFLOWS (many-to-many)
+// ============================================================
+
+export const swarmTaskWorkflows = pgTable(
+  "swarm_task_workflows",
+  {
+    taskId: text("task_id")
+      .notNull()
+      .references(() => swarmTasks.id, { onDelete: "cascade" }),
+    workflowId: text("workflow_id")
+      .notNull()
+      .references(() => workflows.id, { onDelete: "cascade" }),
+    attachedBy: varchar("attached_by", { length: 50 }).notNull(),
+    attachedAt: timestamp("attached_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.taskId, table.workflowId] })],
+);
+
+export type Workflow = typeof workflows.$inferSelect;
+export type SwarmTaskWorkflow = typeof swarmTaskWorkflows.$inferSelect;
