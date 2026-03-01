@@ -12,6 +12,7 @@ import {
   PowerOff,
   Trash2,
   Eye,
+  FileCode,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -179,12 +180,14 @@ function WorkflowCard({
   onToggle,
   onDelete,
   onView,
+  onPreviewLobster,
 }: {
   wf: Workflow;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
   onView?: () => void;
+  onPreviewLobster?: () => void;
 }) {
   const expired = wf.expiresAt && new Date(wf.expiresAt) < new Date();
   const needsReview =
@@ -271,6 +274,17 @@ function WorkflowCard({
             >
               <Eye className="h-3.5 w-3.5" />
             </Button>
+            {(wf.document || wf.documentUrl) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onPreviewLobster?.()}
+                title="Export as Lobster"
+              >
+                <FileCode className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -511,6 +525,11 @@ function WorkflowPageContent() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Workflow | null>(null);
   const [viewing, setViewing] = useState<Workflow | null>(null);
+  const [lobsterPreview, setLobsterPreview] = useState<{
+    wf: Workflow;
+    content: string;
+  } | null>(null);
+  const [lobsterLoading, setLobsterLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -563,6 +582,26 @@ function WorkflowPageContent() {
     await load();
   };
 
+  const handlePreviewLobster = async (wf: Workflow) => {
+    setLobsterLoading(true);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? (localStorage.getItem("hive-key") ?? "")
+          : "";
+      const res = await fetch(`/api/swarm/workflows/${wf.id}/lobster`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const text = await res.text();
+      setLobsterPreview({ wf, content: text });
+    } catch (err) {
+      console.error("Failed to fetch lobster export:", err);
+    } finally {
+      setLobsterLoading(false);
+    }
+  };
+
   return (
     <div className="w-[90vw] max-w-[90vw] mx-auto px-4 py-6 pb-24 md:pb-6">
       {/* Header */}
@@ -613,6 +652,7 @@ function WorkflowPageContent() {
               onToggle={() => handleToggle(wf)}
               onDelete={() => setConfirmDelete(wf)}
               onView={() => setViewing(wf)}
+              onPreviewLobster={() => handlePreviewLobster(wf)}
             />
           ))}
         </div>
@@ -727,6 +767,70 @@ function WorkflowPageContent() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Lobster export preview */}
+      <Dialog
+        open={!!lobsterPreview}
+        onOpenChange={(o) => !o && setLobsterPreview(null)}
+      >
+        <DialogContent className="sm:max-w-2xl w-full flex flex-col max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileCode className="h-4 w-4" />
+              {lobsterPreview?.wf.title} — Lobster Export
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {lobsterLoading ? (
+              <p className="text-sm text-muted-foreground p-4">Loading…</p>
+            ) : (
+              <pre className="rounded-md bg-muted/40 border p-4 text-xs font-mono whitespace-pre overflow-x-auto">
+                {lobsterPreview?.content}
+              </pre>
+            )}
+          </div>
+          <DialogFooter className="shrink-0 pt-2 border-t gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (lobsterPreview?.content) {
+                  navigator.clipboard.writeText(lobsterPreview.content);
+                }
+              }}
+            >
+              Copy
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!lobsterPreview) return;
+                const blob = new Blob([lobsterPreview.content], {
+                  type: "text/plain",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${lobsterPreview.wf.title
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, "-")}.lobster`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Download
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLobsterPreview(null)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

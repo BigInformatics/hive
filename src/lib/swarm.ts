@@ -39,6 +39,7 @@ export async function createProject(input: {
   color: string;
   projectLeadUserId: string;
   developerLeadUserId: string;
+  prReviewerUserId?: string | null;
   websiteUrl?: string;
   onedevUrl?: string;
   githubUrl?: string;
@@ -64,6 +65,7 @@ export async function createProject(input: {
       workHoursEnd: input.workHoursEnd || null,
       workHoursTimezone: input.workHoursTimezone || "America/Chicago",
       blockingMode: input.blockingMode || false,
+      prReviewerUserId: input.prReviewerUserId ?? null,
     })
     .returning();
   return row;
@@ -122,6 +124,7 @@ export async function updateProject(
     workHoursTimezone: string;
     blockingMode: boolean;
     taggedUsers: string[] | null;
+    prReviewerUserId: string | null;
   }>,
 ): Promise<SwarmProject | null> {
   const [row] = await db

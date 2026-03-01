@@ -129,6 +129,7 @@ export const swarmProjects = pgTable("swarm_projects", {
   developerLeadUserId: varchar("developer_lead_user_id", {
     length: 50,
   }).notNull(),
+  prReviewerUserId: varchar("pr_reviewer_user_id", { length: 50 }),
   workHoursStart: integer("work_hours_start"),
   workHoursEnd: integer("work_hours_end"),
   workHoursTimezone: text("work_hours_timezone").default("America/Chicago"),
@@ -557,3 +558,31 @@ export const swarmTaskWorkflows = pgTable(
 
 export type Workflow = typeof workflows.$inferSelect;
 export type SwarmTaskWorkflow = typeof swarmTaskWorkflows.$inferSelect;
+
+// ============================================================
+// SWARM TASK COMMENTS
+// ============================================================
+
+export const swarmTaskComments = pgTable(
+  "swarm_task_comments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => swarmTasks.id, { onDelete: "cascade" }),
+    userId: varchar("user_id", { length: 50 }).notNull(),
+    body: text("body").notNull(),
+    /** Optional sentiment: "wait" = recommending holding; "proceed" = recommending moving forward */
+    sentiment: varchar("sentiment", { length: 10 }).$type<
+      "wait" | "proceed" | null
+    >(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("idx_swarm_task_comments_task_id").on(table.taskId)],
+);
+
+export type SwarmTaskComment = typeof swarmTaskComments.$inferSelect;

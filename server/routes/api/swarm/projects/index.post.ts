@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
     color: body.color,
     projectLeadUserId: body.projectLeadUserId || auth.identity,
     developerLeadUserId: body.developerLeadUserId || auth.identity,
+    prReviewerUserId: body.prReviewerUserId || null,
     websiteUrl: body.websiteUrl,
     onedevUrl: body.onedevUrl,
     githubUrl: body.githubUrl,

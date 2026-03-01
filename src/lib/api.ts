@@ -289,6 +289,21 @@ export const api = {
       method: "DELETE",
     }),
 
+  // Task comments
+  getTaskComments: (taskId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/comments`),
+
+  addTaskComment: (taskId: string, body: string, sentiment?: "wait" | "proceed" | null) =>
+    apiFetch(`/swarm/tasks/${taskId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body, sentiment: sentiment ?? null }),
+    }),
+
+  deleteTaskComment: (taskId: string, commentId: string) =>
+    apiFetch(`/swarm/tasks/${taskId}/comments/${commentId}`, {
+      method: "DELETE",
+    }),
+
   // Auth / Invites
   listInvites: () => apiFetch("/auth/invites"),
 
