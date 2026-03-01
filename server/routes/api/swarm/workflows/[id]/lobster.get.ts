@@ -32,6 +32,56 @@ interface CambigoFlow {
   args?: Record<string, { default?: unknown; description?: string }>;
 }
 
+/** Private/internal IP ranges blocked to prevent SSRF */
+const BLOCKED_HOSTS = /^(localhost|.*\.local)$/i;
+const BLOCKED_PREFIXES = [
+  "127.",
+  "10.",
+  "172.16.",
+  "172.17.",
+  "172.18.",
+  "172.19.",
+  "172.20.",
+  "172.21.",
+  "172.22.",
+  "172.23.",
+  "172.24.",
+  "172.25.",
+  "172.26.",
+  "172.27.",
+  "172.28.",
+  "172.29.",
+  "172.30.",
+  "172.31.",
+  "192.168.",
+  "169.254.", // cloud metadata
+  "::1",
+  "fc",
+  "fd",
+];
+
+function isBlockedHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (BLOCKED_HOSTS.test(h)) return true;
+  return BLOCKED_PREFIXES.some((p) => h.startsWith(p));
+}
+
+function safeDocumentUrl(raw: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("Invalid documentUrl");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error("documentUrl must use http or https");
+  }
+  if (isBlockedHost(parsed.hostname)) {
+    throw new Error("documentUrl targets a blocked/internal address");
+  }
+  return parsed;
+}
+
 function cambigoToLobster(flow: CambigoFlow, title: string): string {
   const name = flow.name || title;
   const steps = flow.steps || [];
@@ -59,20 +109,20 @@ function cambigoToLobster(flow: CambigoFlow, title: string): string {
       if (step.title) lines.push(`    # ${step.title}`);
       if (step.role) lines.push(`    # role: ${step.role}`);
       if (step.description) {
-        // Multi-line description as a comment
         for (const line of step.description.split("\n")) {
           lines.push(`    # ${line}`);
         }
       }
-      // Use explicit command if provided, otherwise echo the step title/description
-      const cmd = step.command ||
-        `echo ${JSON.stringify(step.title || step.id)}`;
-      lines.push(`    command: ${cmd}`);
+      // Use explicit command if provided, otherwise echo the step title/id
+      const cmd =
+        step.command || `echo ${JSON.stringify(step.title || step.id)}`;
+      // Always YAML-escape the command to handle shell special chars
+      lines.push(`    command: ${yamlStr(cmd)}`);
       if (step.approval) {
         lines.push("    approval: required");
       }
       if (step.condition) {
-        lines.push(`    condition: ${step.condition}`);
+        lines.push(`    condition: ${yamlStr(step.condition)}`);
       }
     }
   }
@@ -81,8 +131,8 @@ function cambigoToLobster(flow: CambigoFlow, title: string): string {
 }
 
 function yamlStr(s: string): string {
-  // Quote if contains special chars
-  if (/[:{}\[\],&*#?|<>=!%@`'"\\]/.test(s) || s.includes("\n")) {
+  // Quote if the string contains YAML-significant characters or whitespace
+  if (/[:{}\[\],&*#?|<>=!%@`'"\\]/.test(s) || /\s/.test(s)) {
     return JSON.stringify(s);
   }
   return s;
@@ -119,8 +169,22 @@ export default defineEventHandler(async (event) => {
   if (wf.document && typeof wf.document === "object") {
     flow = wf.document as CambigoFlow;
   } else if (wf.documentUrl) {
+    let parsedUrl: URL;
     try {
-      const res = await fetch(wf.documentUrl);
+      parsedUrl = safeDocumentUrl(wf.documentUrl);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Invalid documentUrl";
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    try {
+      const res = await fetch(parsedUrl.toString(), {
+        signal: AbortSignal.timeout(8000),
+        redirect: "manual", // don't follow redirects to other hosts
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       flow = JSON.parse(text) as CambigoFlow;

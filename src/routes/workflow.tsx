@@ -4,8 +4,7 @@ import {
   Upload,
   Check,
   Clock,
-  ExternalLink,
-  FileCode,
+  Copy, ExternalLink,
   GitBranch,
   Pencil,
   Plus,
@@ -13,6 +12,7 @@ import {
   PowerOff,
   Trash2,
   Eye,
+  FileCode,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -179,13 +179,15 @@ function WorkflowCard({
   onEdit,
   onToggle,
   onDelete,
+  onView,
   onPreviewLobster,
 }: {
   wf: Workflow;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
-  onPreviewLobster: () => void;
+  onView?: () => void;
+  onPreviewLobster?: () => void;
 }) {
   const expired = wf.expiresAt && new Date(wf.expiresAt) < new Date();
   const needsReview =
@@ -251,17 +253,6 @@ function WorkflowCard({
                 </Button>
               </a>
             )}
-            {(wf.document || wf.documentUrl) && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onPreviewLobster}
-                title="Preview as Lobster"
-              >
-                <FileCode className="h-3.5 w-3.5" />
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="icon"
@@ -283,6 +274,17 @@ function WorkflowCard({
             >
               <Eye className="h-3.5 w-3.5" />
             </Button>
+            {(wf.document || wf.documentUrl) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onPreviewLobster?.()}
+                title="Export as Lobster"
+              >
+                <FileCode className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -522,6 +524,7 @@ function WorkflowPageContent() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Workflow | null>(null);
+  const [viewing, setViewing] = useState<Workflow | null>(null);
   const [lobsterPreview, setLobsterPreview] = useState<{
     wf: Workflow;
     content: string;
@@ -582,9 +585,10 @@ function WorkflowPageContent() {
   const handlePreviewLobster = async (wf: Workflow) => {
     setLobsterLoading(true);
     try {
-      const token = typeof window !== "undefined"
-        ? localStorage.getItem("hive-key") ?? ""
-        : "";
+      const token =
+        typeof window !== "undefined"
+          ? (localStorage.getItem("hive-key") ?? "")
+          : "";
       const res = await fetch(`/api/swarm/workflows/${wf.id}/lobster`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -647,6 +651,7 @@ function WorkflowPageContent() {
               onEdit={() => setEditing(wf)}
               onToggle={() => handleToggle(wf)}
               onDelete={() => setConfirmDelete(wf)}
+              onView={() => setViewing(wf)}
               onPreviewLobster={() => handlePreviewLobster(wf)}
             />
           ))}
@@ -714,7 +719,58 @@ function WorkflowPageContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Lobster preview */}
+      {/* View dialog */}
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewing?.title}</DialogTitle>
+          </DialogHeader>
+          {viewing?.document ? (
+            <div className="space-y-4">
+              {viewing.description && (
+                <p className="text-sm text-muted-foreground">{viewing.description}</p>
+              )}
+              <FlowDocumentView doc={viewing.document as FlowDocument} />
+            </div>
+          ) : viewing?.documentUrl ? (
+            <div className="space-y-4">
+              {viewing.description && (
+                <p className="text-sm text-muted-foreground">{viewing.description}</p>
+              )}
+              <div className="flex items-center gap-2">
+                <a
+                  href={viewing.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open in Cambigo
+                </a>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Document is loaded from URL. Open in Cambigo to view and edit.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No document loaded.</p>
+          )}
+          {viewing && (
+            <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
+              <div><strong>ID:</strong> <code className="bg-muted px-1 rounded">{viewing.id}</code></div>
+              <div><strong>Created by:</strong> {viewing.createdBy}</div>
+              <div><strong>Created:</strong> {new Date(viewing.createdAt).toLocaleString()}</div>
+              {viewing.expiresAt && <div><strong>Expires:</strong> {new Date(viewing.expiresAt).toLocaleString()}</div>}
+              {viewing.reviewAt && <div><strong>Review by:</strong> {new Date(viewing.reviewAt).toLocaleString()}</div>}
+              {viewing.taggedUsers && viewing.taggedUsers.length > 0 && (
+                <div><strong>Visible to:</strong> {viewing.taggedUsers.join(", ")}</div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Lobster export preview */}
       <Dialog
         open={!!lobsterPreview}
         onOpenChange={(o) => !o && setLobsterPreview(null)}
@@ -735,7 +791,7 @@ function WorkflowPageContent() {
               </pre>
             )}
           </div>
-          <div className="flex justify-end gap-2 pt-2 shrink-0 border-t">
+          <DialogFooter className="shrink-0 pt-2 border-t gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -758,7 +814,9 @@ function WorkflowPageContent() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `${lobsterPreview.wf.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.lobster`;
+                a.download = `${lobsterPreview.wf.title
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, "-")}.lobster`;
                 a.click();
                 URL.revokeObjectURL(url);
               }}
@@ -772,7 +830,7 @@ function WorkflowPageContent() {
             >
               Close
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
