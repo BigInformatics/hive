@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { api } from "@/lib/api";
+import { api, getMailboxKey } from "@/lib/api";
 
 export const Route = createFileRoute("/workflow")({
   component: WorkflowPage,
@@ -518,6 +518,11 @@ function WorkflowPageContent() {
 
 function WorkflowPage() {
   const [loggedIn, setLoggedIn] = useState(false);
+  
+  useEffect(() => {
+    setLoggedIn(!!getMailboxKey());
+  }, []);
+  
   if (!loggedIn) {
     return <LoginGate onLogin={() => setLoggedIn(true)} />;
   }
