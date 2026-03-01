@@ -80,45 +80,88 @@ interface FlowDocument {
     description?: string;
     next?: string | null;
   }>;
+  nodes?: Array<{
+    id: string;
+    data: {
+      kind: string;
+      title: string;
+    };
+    context?: {
+      description?: string;
+      finalRequirements?: string;
+      disposition?: string[];
+    };
+  }>;
+  metadata?: {
+    author?: string;
+    status?: string;
+    version?: string;
+    updatedAt?: string;
+  };
 }
 
 function FlowDocumentView({ doc }: { doc: FlowDocument }) {
   const steps = doc.steps || [];
+  const nodes = doc.nodes || [];
+  
+  // Use nodes if available (full Cambigo schema), otherwise steps
+  const hasNodes = nodes.length > 0;
+  const items = hasNodes ? nodes.filter(n => n.data.kind !== 'start') : steps;
+  
   return (
     <div className="space-y-4">
       {doc.name || doc.title ? (
         <div>
           <h4 className="font-medium text-sm">{doc.name || doc.title}</h4>
           {doc.version && <span className="text-xs text-muted-foreground ml-2">v{doc.version}</span>}
+          {doc.metadata?.author && <span className="text-xs text-muted-foreground ml-2">by {doc.metadata.author}</span>}
         </div>
       ) : null}
       {doc.description && (
         <p className="text-sm text-muted-foreground">{doc.description}</p>
       )}
-      {steps.length > 0 ? (
+      {items.length > 0 ? (
         <div className="space-y-2">
-          <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Steps</h5>
+          <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {hasNodes ? 'Flow Steps' : 'Steps'}
+          </h5>
           <ol className="space-y-2">
-            {steps.map((step, i) => (
-              <li key={step.id} className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-medium">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{step.title}</span>
-                    {step.role && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        {step.role}
-                      </Badge>
+            {items.map((item, i) => {
+              const title = hasNodes ? (item as any).data?.title : (item as any).title;
+              const kind = hasNodes ? (item as any).data?.kind : 'step';
+              const description = hasNodes ? (item as any).context?.description : (item as any).description;
+              const requirements = hasNodes ? (item as any).context?.finalRequirements : null;
+              const role = hasNodes ? null : (item as any).role;
+              
+              return (
+                <li key={(item as any).id || i} className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-medium">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{title}</span>
+                      {kind && kind !== 'step' && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                          {kind}
+                        </Badge>
+                      )}
+                      {role && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {role}
+                        </Badge>
+                      )}
+                    </div>
+                    {description && (
+                      <p className="text-xs text-muted-foreground">{description}</p>
+                    )}
+                    {requirements && (
+                      <p className="text-xs text-muted-foreground italic">Requirements: {requirements.slice(0, 150)}{requirements.length > 150 ? '...' : ''}</p>
                     )}
                   </div>
-                  {step.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
-                  )}
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ol>
         </div>
       ) : (
