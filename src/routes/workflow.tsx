@@ -295,7 +295,15 @@ function WorkflowForm({
               reader.onload = (ev) => {
                 try {
                   const json = JSON.parse(ev.target?.result as string);
-                  setForm((f: typeof form) => ({ ...f, document: json, documentUrl: "" }));
+                  // Extract title/description from Cambigo flow document
+                  const updates: Partial<typeof form> = { document: json, documentUrl: "" };
+                  if (json.title && typeof json.title === "string") {
+                    updates.title = json.title;
+                  }
+                  if (json.description && typeof json.description === "string") {
+                    updates.description = json.description;
+                  }
+                  setForm((f: typeof form) => ({ ...f, ...updates }));
                 } catch {
                   alert("Invalid JSON file");
                 }
