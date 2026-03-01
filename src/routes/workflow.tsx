@@ -612,6 +612,7 @@ function WorkflowPageContent() {
               onEdit={() => setEditing(wf)}
               onToggle={() => handleToggle(wf)}
               onDelete={() => setConfirmDelete(wf)}
+              onView={() => setViewing(wf)}
             />
           ))}
         </div>
