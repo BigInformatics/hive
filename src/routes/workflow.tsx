@@ -11,6 +11,7 @@ import {
   Power,
   PowerOff,
   Trash2,
+  Eye,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -24,6 +25,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,11 +72,13 @@ function WorkflowCard({
   onEdit,
   onToggle,
   onDelete,
+  onView,
 }: {
   wf: Workflow;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
+  onView?: () => void;
 }) {
   const expired = wf.expiresAt && new Date(wf.expiresAt) < new Date();
   const needsReview =
@@ -151,6 +155,15 @@ function WorkflowCard({
               title="Copy workflow ID"
             >
               <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onView?.()}
+              title="View document"
+            >
+              <Eye className="h-3.5 w-3.5" />
             </Button>
             <Button
               variant="ghost"
@@ -391,6 +404,7 @@ function WorkflowPageContent() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Workflow | null>(null);
+  const [viewing, setViewing] = useState<Workflow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -555,6 +569,62 @@ function WorkflowPageContent() {
               Delete
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View dialog */}
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewing?.title}</DialogTitle>
+          </DialogHeader>
+          {viewing?.document ? (
+            <div className="space-y-4">
+              {viewing.description && (
+                <p className="text-sm text-muted-foreground">{viewing.description}</p>
+              )}
+              <div>
+                <strong className="text-xs text-muted-foreground">Document:</strong>
+                <pre className="mt-2 p-3 bg-muted rounded-md overflow-x-auto text-xs max-h-96">
+                  {JSON.stringify(viewing.document, null, 2)}
+                </pre>
+              </div>
+            </div>
+          ) : viewing?.documentUrl ? (
+            <div className="space-y-4">
+              {viewing.description && (
+                <p className="text-sm text-muted-foreground">{viewing.description}</p>
+              )}
+              <div className="flex items-center gap-2">
+                <a
+                  href={viewing.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open in Cambigo
+                </a>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Document is loaded from URL. Open in Cambigo to view and edit.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No document loaded.</p>
+          )}
+          {viewing && (
+            <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
+              <div><strong>ID:</strong> <code className="bg-muted px-1 rounded">{viewing.id}</code></div>
+              <div><strong>Created by:</strong> {viewing.createdBy}</div>
+              <div><strong>Created:</strong> {new Date(viewing.createdAt).toLocaleString()}</div>
+              {viewing.expiresAt && <div><strong>Expires:</strong> {new Date(viewing.expiresAt).toLocaleString()}</div>}
+              {viewing.reviewAt && <div><strong>Review by:</strong> {new Date(viewing.reviewAt).toLocaleString()}</div>}
+              {viewing.taggedUsers && viewing.taggedUsers.length > 0 && (
+                <div><strong>Visible to:</strong> {viewing.taggedUsers.join(", ")}</div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
