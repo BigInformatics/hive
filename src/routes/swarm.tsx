@@ -756,7 +756,17 @@ function TaskCard({
 
           {/* Quick actions */}
           <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-            {task.status !== "complete" && task.status !== "in_progress" && (
+            {task.status === "queued" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                onClick={() => onStatusChange(task.id, "ready")}
+              >
+                Ready
+              </Button>
+            )}
+            {task.status === "ready" && (
               <Button
                 variant="ghost"
                 size="sm"
