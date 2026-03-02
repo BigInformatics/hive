@@ -296,7 +296,7 @@ export function MarkdownEditor({
       };
 
       // Keep-alive ping every 30 s — Cloudflare drops idle WS after 100 s
-      const pingInterval = setInterval(() => {
+      pingInterval = setInterval(() => {
         if (ws?.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "ping" }));
         }
