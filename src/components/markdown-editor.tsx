@@ -151,6 +151,7 @@ export function MarkdownEditor({
       EditorState.readOnly.of(disabled),
     ];
 
+    let pingInterval: ReturnType<typeof setInterval> | undefined;
     if (pageIdRef.current && tokenRef.current) {
       // Collaborative mode with Yjs
       ydoc = new Y.Doc();
@@ -286,9 +287,20 @@ export function MarkdownEditor({
         }
       });
 
-      ws.onclose = () => {
-        console.log("[notebook:ws] disconnected");
+      ws.onerror = (err) => {
+        console.error("[notebook:ws] connection error", err);
       };
+
+      ws.onclose = (evt) => {
+        console.log(`[notebook:ws] disconnected (code=${evt.code} reason=${evt.reason})`);
+      };
+
+      // Keep-alive ping every 30 s — Cloudflare drops idle WS after 100 s
+      const pingInterval = setInterval(() => {
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
+      }, 30_000);
     } else {
       // Non-collaborative fallback
       extensions.push(
@@ -311,6 +323,7 @@ export function MarkdownEditor({
 
     return () => {
       if (ytextObserver && ytext) ytext.unobserve(ytextObserver);
+      clearInterval(pingInterval);
       ws?.close();
       wsRef.current = null;
       view.destroy();
