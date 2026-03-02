@@ -227,6 +227,17 @@ export default defineWebSocketHandler({
   },
 
   async message(peer, rawMessage) {
+    // Handle keep-alive pings from the client (needed when behind Cloudflare)
+    const raw = rawMessage.text?.() ?? "";
+    try {
+      const msg = JSON.parse(raw);
+      if (msg.type === "ping") {
+        peer.send(JSON.stringify({ type: "pong" }));
+        return;
+      }
+    } catch {
+      // Not JSON — ignore
+    }
     const ctx = (peer as any)._ctx;
     if (!ctx) return;
 
