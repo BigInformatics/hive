@@ -18,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { marked } from "marked";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoginGate } from "@/components/login-gate";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { Nav } from "@/components/nav";

@@ -1,5 +1,5 @@
 import { Check, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,10 +20,13 @@ interface UserSelectProps {
 }
 
 export function UserSelect({ value, onChange, className }: UserSelectProps) {
-  const [users, setUsers] = useState<string[]>([]);
+  const [serverUsers, setServerUsers] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
 
+  // Fetch users once on mount — do NOT include `value` in deps.
+  // Using value as a dep causes an infinite loop: value changes (new array ref from parent)
+  // → effect fires → setServerUsers → re-render → new array ref → repeat.
   useEffect(() => {
     const key = getMailboxKey();
     if (!key) return;
@@ -32,15 +35,20 @@ export function UserSelect({ value, onChange, className }: UserSelectProps) {
     })
       .then((r) => r.json())
       .then((data) => {
-        // data.users is HiveUser[] — extract ids for this string-based picker
         const ids: string[] = (data.users || []).map(
           (u: { id: string }) => u.id,
         );
-        const all = new Set([...ids, ...value]);
-        setUsers([...all].sort());
+        setServerUsers(ids.sort());
       })
       .catch(() => {});
-  }, [value]);
+  }, []);
+
+  // Merge server users with currently-selected so selected names always appear in the list.
+  // useMemo keeps this derived — value changes update display without re-fetching.
+  const users = useMemo(() => {
+    const all = new Set([...serverUsers, ...value]);
+    return [...all].sort();
+  }, [serverUsers, value]);
 
   const filtered = users.filter(
     (u) => !search || u.toLowerCase().includes(search.toLowerCase()),
